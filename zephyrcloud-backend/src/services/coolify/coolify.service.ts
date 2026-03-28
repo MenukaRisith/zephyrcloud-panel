@@ -7,6 +7,8 @@ interface CoolifyApplication {
   uuid: string;
   name?: string;
   status?: string;
+  fqdn?: string;
+  base_directory?: string;
   [key: string]: unknown;
 }
 
@@ -59,7 +61,7 @@ type GithubRepoListItem = {
   default_branch: string;
 };
 
-type CoolifyEnvVar = {
+export type CoolifyEnvVar = {
   uuid?: string;
   key: string;
   value: string;
@@ -127,6 +129,14 @@ export type CoolifyDbDetails = {
   username: string;
   password: string;
   root_password?: string;
+};
+
+export type CoolifyApplicationSummary = {
+  uuid: string;
+  name: string;
+  status?: string;
+  fqdn?: string;
+  base_directory?: string;
 };
 
 @Injectable()
@@ -252,6 +262,32 @@ export class CoolifyService {
     }
   }
 
+  async getApplications(): Promise<CoolifyApplicationSummary[]> {
+    try {
+      const apps = await this.client.get<CoolifyApplication[]>(
+        '/api/v1/applications',
+      );
+      if (!Array.isArray(apps)) return [];
+      const results: CoolifyApplicationSummary[] = [];
+      for (const app of apps) {
+        const uuid = this.toStringValue(app?.uuid);
+        if (!uuid) continue;
+        results.push({
+          uuid,
+          name: this.toStringValue(app?.name) ?? uuid,
+          status: this.toStringValue(app?.status) ?? undefined,
+          fqdn: this.toStringValue(app?.fqdn) ?? undefined,
+          base_directory:
+            this.toStringValue(app?.base_directory) ?? undefined,
+        });
+      }
+      return results;
+    } catch (error: unknown) {
+      this.logger.error(`[getApplications] Failed: ${this.formatError(error)}`);
+      return [];
+    }
+  }
+
   async createEnv(resourceUuid: string, data: CoolifyEnvInput) {
     const payload = this.stripUndefined({
       key: data.key,
@@ -290,14 +326,18 @@ export class CoolifyService {
   async deleteEnv(resourceUuid: string, key: string) {
     try {
       const envs = await this.getEnvs(resourceUuid);
-      const target = envs.find((env) => env.key === key);
+      const targets = envs.filter((env) => env.key === key && env.uuid);
 
-      if (!target?.uuid) return { success: false, message: 'Env not found' };
+      if (!targets.length) return { success: false, message: 'Env not found' };
 
-      await this.client.delete(
-        `/api/v1/applications/${resourceUuid}/envs/${target.uuid}`,
+      await Promise.all(
+        targets.map((target) =>
+          this.client.delete(
+            `/api/v1/applications/${resourceUuid}/envs/${target.uuid}`,
+          ),
+        ),
       );
-      return { success: true };
+      return { success: true, deleted: targets.length };
     } catch (error: unknown) {
       throw new Error(`Failed to delete env: ${this.formatError(error)}`);
     }

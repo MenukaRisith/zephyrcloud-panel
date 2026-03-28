@@ -42,6 +42,7 @@ export default [
     // Personal integrations
     route("settings", "routes/app/settings.tsx"),
     route("settings/github/callback", "routes/app/settings.github.callback.tsx"),
+    route("admin", "routes/app/admin.tsx"),
 
     // Site page
     route("sites/:id", "routes/app/site.$id.tsx"),

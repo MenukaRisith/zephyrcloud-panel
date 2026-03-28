@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Shield,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 
@@ -52,31 +53,6 @@ type NavItem = {
   badge?: string;
 };
 
-const NAV: NavItem[] = [
-  {
-    to: "/app",
-    label: "Overview",
-    icon: <LayoutDashboard className="h-4 w-4" />,
-    end: true,
-  },
-  {
-    to: "/app/sites",
-    label: "Sites",
-    icon: <Boxes className="h-4 w-4" />,
-  },
-  {
-    to: "/app/team",
-    label: "Team",
-    icon: <Users className="h-4 w-4" />,
-    badge: "Shared",
-  },
-  {
-    to: "/app/settings",
-    label: "Integrations",
-    icon: <Github className="h-4 w-4" />,
-  },
-];
-
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -94,6 +70,7 @@ function pageTitleFromPath(pathname: string) {
   if (pathname.startsWith("/app/sites")) return "Sites";
   if (pathname.startsWith("/app/team")) return "Team";
   if (pathname.startsWith("/app/settings")) return "Integrations";
+  if (pathname.startsWith("/app/admin")) return "Admin";
   return "Dashboard";
 }
 
@@ -103,6 +80,93 @@ export default function AppLayout() {
   const navigation = useNavigation();
   const isNavigating = navigation.state !== "idle";
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const navItems: NavItem[] = [
+    {
+      to: "/app",
+      label: "Overview",
+      icon: <LayoutDashboard className="h-4 w-4" />,
+      end: true,
+    },
+    {
+      to: "/app/sites",
+      label: "Sites",
+      icon: <Boxes className="h-4 w-4" />,
+    },
+    {
+      to: "/app/team",
+      label: "Team",
+      icon: <Users className="h-4 w-4" />,
+      badge: "Shared",
+    },
+    {
+      to: "/app/settings",
+      label: "Integrations",
+      icon: <Github className="h-4 w-4" />,
+    },
+  ];
+
+  if (user?.role === "admin") {
+    navItems.push({
+      to: "/app/admin",
+      label: "Admin",
+      icon: <ShieldCheck className="h-4 w-4" />,
+      badge: "Core",
+    });
+  }
+
+  const mobileNavItems: NavItem[] =
+    user?.role === "admin"
+      ? [
+          {
+            to: "/app",
+            label: "Home",
+            icon: <LayoutDashboard className="h-4 w-4" />,
+            end: true,
+          },
+          {
+            to: "/app/sites",
+            label: "Sites",
+            icon: <Boxes className="h-4 w-4" />,
+          },
+          {
+            to: "/app/team",
+            label: "Team",
+            icon: <Users className="h-4 w-4" />,
+          },
+          {
+            to: "/app/settings",
+            label: "GitHub",
+            icon: <Github className="h-4 w-4" />,
+          },
+          {
+            to: "/app/admin",
+            label: "Admin",
+            icon: <ShieldCheck className="h-4 w-4" />,
+          },
+        ]
+      : [
+          {
+            to: "/app",
+            label: "Home",
+            icon: <LayoutDashboard className="h-4 w-4" />,
+            end: true,
+          },
+          {
+            to: "/app/sites",
+            label: "Sites",
+            icon: <Boxes className="h-4 w-4" />,
+          },
+          {
+            to: "/app/team",
+            label: "Team",
+            icon: <Users className="h-4 w-4" />,
+          },
+          {
+            to: "/app/settings",
+            label: "GitHub",
+            icon: <Github className="h-4 w-4" />,
+          },
+        ];
 
   const title = pageTitleFromPath(location.pathname);
 
@@ -156,7 +220,7 @@ export default function AppLayout() {
                     Workspace
                   </div>
                   <div className="space-y-1">
-                    {NAV.map((item) => (
+                    {navItems.map((item) => (
                       <NavItemLink key={item.to} item={item} />
                     ))}
                   </div>
@@ -317,28 +381,21 @@ export default function AppLayout() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070A12]/70 backdrop-blur lg:hidden">
-        <div className="mx-auto grid max-w-7xl grid-cols-4 gap-1 px-2 py-2">
-          <MobileNav
-            to="/app"
-            label="Home"
-            icon={<LayoutDashboard className="h-4 w-4" />}
-            end
-          />
-          <MobileNav
-            to="/app/sites"
-            label="Sites"
-            icon={<Boxes className="h-4 w-4" />}
-          />
-          <MobileNav
-            to="/app/team"
-            label="Team"
-            icon={<Users className="h-4 w-4" />}
-          />
-          <MobileNav
-            to="/app/settings"
-            label="GitHub"
-            icon={<Github className="h-4 w-4" />}
-          />
+        <div
+          className={cx(
+            "mx-auto grid max-w-7xl gap-1 px-2 py-2",
+            mobileNavItems.length === 5 ? "grid-cols-5" : "grid-cols-4",
+          )}
+        >
+          {mobileNavItems.map((item) => (
+            <MobileNav
+              key={item.to}
+              to={item.to}
+              label={item.label}
+              icon={item.icon}
+              end={item.end}
+            />
+          ))}
         </div>
       </div>
 

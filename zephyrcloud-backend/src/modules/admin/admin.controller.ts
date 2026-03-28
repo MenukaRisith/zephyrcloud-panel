@@ -1,20 +1,79 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Body,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../../common/types/auth.types';
-import { CoolifyService } from '../../services/coolify/coolify.service';
+import { AdminService } from './admin.service';
+import { UpsertPanelEnvDto } from './dto/upsert-panel-env.dto';
+import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
+import { SetAdminUserPasswordDto } from './dto/set-admin-user-password.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('admin/coolify')
+@Controller('admin')
 export class AdminController {
-  public constructor(private readonly coolify: CoolifyService) {}
+  public constructor(private readonly admin: AdminService) {}
 
   @Get('health')
   public async health(@CurrentUser() user: JwtPayload) {
-    // MVP: only admins
-    if (user.role !== 'admin') {
-      return { ok: false, error: 'Admin only' };
-    }
-    return await this.coolify.health();
+    return this.admin.health(user);
+  }
+
+  @Get('coolify/health')
+  public async coolifyHealth(@CurrentUser() user: JwtPayload) {
+    return this.admin.health(user);
+  }
+
+  @Get('panel-apps')
+  public panelApps(@CurrentUser() user: JwtPayload) {
+    return this.admin.listPanelApps(user);
+  }
+
+  @Post('panel-apps/:target/envs')
+  public upsertPanelEnv(
+    @CurrentUser() user: JwtPayload,
+    @Param('target') target: 'backend' | 'frontend',
+    @Body() dto: UpsertPanelEnvDto,
+  ) {
+    return this.admin.upsertPanelEnv(user, target, dto);
+  }
+
+  @Delete('panel-apps/:target/envs/:key')
+  public deletePanelEnv(
+    @CurrentUser() user: JwtPayload,
+    @Param('target') target: 'backend' | 'frontend',
+    @Param('key') key: string,
+  ) {
+    return this.admin.deletePanelEnv(user, target, key);
+  }
+
+  @Get('users')
+  public users(@CurrentUser() user: JwtPayload) {
+    return this.admin.listUsers(user);
+  }
+
+  @Patch('users/:id')
+  public updateUser(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateAdminUserDto,
+  ) {
+    return this.admin.updateUser(user, id, dto);
+  }
+
+  @Post('users/:id/password')
+  public setUserPassword(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: SetAdminUserPasswordDto,
+  ) {
+    return this.admin.setUserPassword(user, id, dto);
   }
 }
