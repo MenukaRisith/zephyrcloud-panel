@@ -40,8 +40,9 @@ async function bootstrap(): Promise<void> {
     credentials: true,
   });
 
-  const port = config.get<number>('PORT') ?? 8000;
-  await app.listen(port);
+  const rawPort = config.get<string>('PORT') ?? '8000';
+  const port = Number.parseInt(rawPort, 10);
+  await app.listen(Number.isFinite(port) ? port : 8000, '0.0.0.0');
   console.log(`✅ API running at http://localhost:${port}/api`);
 }
 
