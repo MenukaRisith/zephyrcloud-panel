@@ -10,14 +10,16 @@ type SessionUser = {
 };
 
 const sessionSecret = process.env.SESSION_SECRET || "dev-secret-change-me";
+const sessionCookieSecure = process.env.SESSION_COOKIE_SECURE === "true";
+const sessionCookieName = process.env.SESSION_COOKIE_NAME || (sessionCookieSecure ? "__host_panel_session" : "panel_session");
 
 export const sessionStorage = createCookieSessionStorage({
   cookie: {
-    name: "__host_panel_session",
+    name: sessionCookieName,
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    secure: process.env.NODE_ENV === "production",
+    secure: sessionCookieSecure,
     secrets: [sessionSecret],
     // 7 days:
     maxAge: 60 * 60 * 24 * 7,
