@@ -1,0 +1,1235 @@
+import crypto from 'crypto';
+
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
+import {
+  PrismaClient,
+  type Site,
+  type Domain,
+  type SiteDatabase,
+  SiteMemberRole,
+} from '@prisma/client';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import type { JwtPayload } from '../../common/types/auth.types';
+import {
+  CoolifyService,
+  type CoolifyResourceType,
+  type CoolifyDbDetails,
+} from '../../services/coolify/coolify.service';
+import { SiteTypeDto, type CreateSiteDto } from './dto/create-site.dto';
+import type { AddDomainDto } from './dto/add-domain.dto';
+import type { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
+import type { AddSiteMemberDto } from './dto/add-site-member.dto';
+
+// --- Helpers ---
+
+function toBigIntStrict(id: string, fieldName = 'id'): bigint {
+  try {
+    return BigInt(id);
+  } catch {
+    throw new ForbiddenException(`${fieldName} must be a valid integer string`);
+  }
+}
+
+function normalizeDomain(d: string): string {
+  return d
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/+$/, '');
+}
+
+function rand(bytes = 18): string {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+/**
+ * Generates a safe service name for Docker containers.
+ */
+function safeSvc(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+}
+
+function toTeamRole(role?: string): SiteMemberRole {
+  return role === 'editor' ? SiteMemberRole.editor : SiteMemberRole.viewer;
+}
+
+// --- DTO / Payload Types ---
+
+type SitePayload = Site;
+type DomainPayload = Domain;
+type DeploymentPayload = {
+  id: string;
+  site_id: string;
+  status: string;
+  triggered_by: string;
+  commit_message: string | null;
+  commit_hash: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
+type SiteDatabasePayload = SiteDatabase;
+type CoolifyCreateProjectInput = Parameters<CoolifyService['createProject']>[0];
+type CoolifyCreateProjectResult = Awaited<
+  ReturnType<CoolifyService['createProject']>
+>;
+type SiteTeamMemberPayload = {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string;
+  role: 'viewer' | 'editor';
+  created_at: Date;
+};
+type SiteTeamInvitePayload = {
+  id: string;
+  email: string;
+  role: 'viewer' | 'editor';
+  status: 'pending' | 'accepted' | 'revoked';
+  created_at: Date;
+};
+type SiteTeamPayload = {
+  can_write: boolean;
+  members: SiteTeamMemberPayload[];
+  invites: SiteTeamInvitePayload[];
+};
+
+@Injectable()
+export class SitesService {
+  private readonly logger = new Logger(SitesService.name);
+
+  public constructor(
+    private readonly prisma: PrismaService,
+    private readonly coolify: CoolifyService,
+  ) {}
+
+  // -------------------------
+  // Ownership / Tenant Helpers
+  // -------------------------
+
+  private requireTenantId(user: JwtPayload): bigint {
+    if (!user.tenant_id) throw new ForbiddenException('No tenant assigned');
+    return toBigIntStrict(user.tenant_id, 'tenant_id');
+  }
+
+  private requireUserId(user: JwtPayload): bigint {
+    return toBigIntStrict(user.sub, 'user_id');
+  }
+
+  private async getOwnedSiteOrThrow(
+    siteId: bigint,
+    user: JwtPayload,
+    options?: { requireWrite?: boolean },
+  ): Promise<SitePayload> {
+    if (user.role === 'admin') {
+      const site = await this.prisma.site.findUnique({ where: { id: siteId } });
+      if (!site) throw new NotFoundException('Site not found');
+      return site;
+    }
+
+    const site = await this.prisma.site.findUnique({ where: { id: siteId } });
+    if (!site) throw new NotFoundException('Site not found');
+
+    const tenantId = user.tenant_id
+      ? toBigIntStrict(user.tenant_id, 'tenant_id')
+      : null;
+    const isTenantOwner = tenantId !== null && tenantId === site.tenant_id;
+    if (isTenantOwner) return site;
+
+    const userId = this.requireUserId(user);
+    const member = await this.prisma.siteMember.findUnique({
+      where: {
+        site_id_user_id: {
+          site_id: siteId,
+          user_id: userId,
+        },
+      },
+      select: { role: true },
+    });
+
+    if (!member) throw new NotFoundException('Site not found');
+    if (options?.requireWrite && member.role !== SiteMemberRole.editor) {
+      throw new ForbiddenException('You do not have write access to this site');
+    }
+
+    return site;
+  }
+
+  public listSites(user: JwtPayload): Promise<SitePayload[]> {
+    if (user.role === 'admin') {
+      return this.prisma.site.findMany({
+        include: { domains: true },
+        orderBy: { created_at: 'desc' },
+      });
+    }
+
+    const userId = this.requireUserId(user);
+    const tenantId = user.tenant_id
+      ? toBigIntStrict(user.tenant_id, 'tenant_id')
+      : null;
+
+    const where = tenantId
+      ? {
+          OR: [
+            { tenant_id: tenantId },
+            {
+              members: {
+                some: { user_id: userId },
+              },
+            },
+          ],
+        }
+      : {
+          members: {
+            some: { user_id: userId },
+          },
+        };
+
+    return this.prisma.site.findMany({
+      where,
+      include: { domains: true },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  // -------------------------
+  // Git Helpers
+  // -------------------------
+
+  private normalizeGitRepositoryForCoolify(input: string): string {
+    const v = String(input || '').trim();
+    if (!v) return v;
+
+    const simple = v.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
+    if (simple) return `${simple[1]}/${simple[2]}`;
+
+    const https = v.match(/github\.com\/([^/]+)\/([^/.?#]+)(?:\.git)?/i);
+    if (https) return `${https[1]}/${https[2]}`;
+
+    const ssh = v.match(/git@github\.com:([^/]+)\/([^/.]+)(?:\.git)?/i);
+    if (ssh) return `${ssh[1]}/${ssh[2]}`;
+
+    this.logger.warn(
+      `[normalizeGitRepositoryForCoolify] Could not parse owner/repo from: "${v}"`,
+    );
+    return v;
+  }
+
+  private normalizeCoolifyStatus(
+    raw: string | undefined | null,
+  ): Site['status'] {
+    const s = String(raw ?? '')
+      .toLowerCase()
+      .trim();
+
+    if (s.includes('running') || s.includes('healthy') || s === 'up')
+      return 'running';
+    if (
+      s.includes('stopped') ||
+      s.includes('down') ||
+      s.includes('exited') ||
+      s.includes('removed')
+    )
+      return 'stopped';
+    if (s.includes('error') || s.includes('failed') || s.includes('unhealthy'))
+      return 'error';
+    // Catch 'restarting', 'preparing', 'queued', 'in_progress'
+    if (
+      s.includes('build') ||
+      s.includes('deploy') ||
+      s.includes('progress') ||
+      s.includes('queued') ||
+      s.includes('restarting') ||
+      s.includes('preparing')
+    ) {
+      return 'provisioning';
+    }
+
+    return 'provisioning';
+  }
+
+  // -------------------------
+  // Create Site
+  // -------------------------
+
+  public async createSite(
+    user: JwtPayload,
+    dto: CreateSiteDto,
+  ): Promise<SitePayload> {
+    const tenantId = this.requireTenantId(user);
+    this.logger.debug(
+      `[createSite] Starting creation for ${dto.name} (tenant: ${tenantId})`,
+    );
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (dto.type !== SiteTypeDto.wordpress) {
+      throw new ForbiddenException(
+        'Only WordPress site creation is enabled right now.',
+      );
+    }
+
+    // 1. Create DB Record (Provisioning state)
+    const repoForCoolify = dto.repo_url
+      ? this.normalizeGitRepositoryForCoolify(dto.repo_url)
+      : null;
+
+    const site = await this.prisma.site.create({
+      data: {
+        tenant_id: tenantId,
+        name: dto.name.trim(),
+        type: dto.type,
+        status: 'provisioning',
+        cpu_limit: 1,
+        memory_mb: 512,
+        repo_url: repoForCoolify,
+        repo_branch: dto.repo_branch,
+        auto_deploy: dto.auto_deploy ?? false,
+        coolify_project_id: null,
+        coolify_resource_id: null,
+        coolify_server_uuid: null,
+        coolify_resource_type: null,
+        coolify_destination_uuid: null,
+      },
+    });
+
+    try {
+      // 2. Prepare Config & DB (WordPress-only flow)
+      const rootPassword = rand(24);
+      const safeName = safeSvc(dto.name);
+      const wpDb: CoolifyDbDetails = {
+        db_name: 'wordpress',
+        username: 'root',
+        password: rootPassword,
+        root_password: rootPassword,
+        host: `${safeName}-db`,
+        port: 3306,
+        engine: 'mariadb',
+      };
+
+      // 3. Send to Coolify
+      const coolifyPayload: CoolifyCreateProjectInput = {
+        name: dto.name.trim(),
+        type: dto.type,
+        cpu_limit: 1,
+        memory_mb: 512,
+        db: wpDb,
+      };
+
+      if (repoForCoolify) {
+        if (dto.github_app_id) {
+          coolifyPayload.github_app_id = String(dto.github_app_id);
+          coolifyPayload.repo_url = repoForCoolify;
+          coolifyPayload.repo_branch = dto.repo_branch || 'main';
+        } else {
+          coolifyPayload.repo_url = repoForCoolify;
+          coolifyPayload.repo_branch = dto.repo_branch || 'main';
+        }
+      }
+
+      const coolifyResult: CoolifyCreateProjectResult =
+        await this.coolify.createProject(coolifyPayload);
+
+      // 4. Save Database Info (Use the actual values used by CoolifyService)
+      const finalDbHost = coolifyResult.dbHost || wpDb.host;
+      const finalDbPassword = coolifyResult.dbPassword || wpDb.password;
+      const finalDbUser = coolifyResult.dbUser || 'root';
+      const finalDbName = coolifyResult.dbName || 'wordpress';
+
+      await this.prisma.siteDatabase.create({
+        data: {
+          site_id: site.id,
+          engine: 'mariadb',
+          host: finalDbHost,
+          port: 3306,
+          db_name: finalDbName,
+          username: finalDbUser,
+          password: finalDbPassword,
+        },
+      });
+
+      // 5. Update Site with Coolify IDs
+      return await this.prisma.site.update({
+        where: { id: site.id },
+        data: {
+          coolify_project_id: coolifyResult.projectId,
+          coolify_resource_id: coolifyResult.resourceId,
+          coolify_resource_type: coolifyResult.resourceType || 'application',
+          coolify_server_uuid: coolifyResult.serverUuid,
+          coolify_destination_uuid: coolifyResult.destinationUuid,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `[createSite] Failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+
+      await this.prisma.site.update({
+        where: { id: site.id },
+        data: { status: 'error' },
+      });
+
+      throw error;
+    }
+  }
+
+  // --- GitHub Proxy ---
+  public getGithubApps() {
+    return this.coolify.getGithubApps();
+  }
+
+  public getGithubRepos(appUuid: string, page = 1, limit = 100) {
+    return this.coolify.getGithubRepos(appUuid, page, limit);
+  }
+
+  public getGithubBranches(appUuid: string, owner: string, repo: string) {
+    return this.coolify.getGithubBranches(appUuid, owner, repo);
+  }
+
+  // --- Read Site ---
+  public getSite(user: JwtPayload, id: string): Promise<SitePayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    return this.getOwnedSiteOrThrow(siteId, user);
+  }
+
+  // --- Live Status Sync ---
+  public async getLiveStatus(
+    user: JwtPayload,
+    id: string,
+  ): Promise<{
+    status: string;
+    source: 'coolify' | 'db';
+    raw?: unknown;
+    updatedAt: string;
+  }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+
+    if (!site.coolify_resource_id || !site.coolify_server_uuid) {
+      return {
+        status: String(site.status).toUpperCase(),
+        source: 'db',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    // Use the specific resource fetcher, NOT the server resource list
+    const type = this.getResourceType(site);
+    const live = await this.coolify.getResourceStatus({
+      resourceId: site.coolify_resource_id,
+      resourceType: type,
+    });
+
+    if (!live.found) {
+      // Fallback to DB if resource gone from Coolify?
+      return {
+        status: String(site.status).toUpperCase(),
+        source: 'db',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    const normalized = this.normalizeCoolifyStatus(live.status);
+
+    if (normalized !== site.status) {
+      await this.prisma.site.update({
+        where: { id: site.id },
+        data: { status: normalized },
+      });
+    }
+
+    return {
+      status: String(normalized).toUpperCase(),
+      source: 'coolify',
+      raw: live.raw,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  // --- Helper: Resource Type ---
+  private getResourceType(site: SitePayload): CoolifyResourceType {
+    if (site.coolify_resource_type === 'application') return 'application';
+    if (site.coolify_resource_type === 'service') return 'service';
+    if (site.coolify_resource_type === 'database') return 'database';
+    return site.type === 'wordpress' ? 'application' : 'application';
+  }
+
+  // --- Deploy / Restart / Logs ---
+  public async deploySite(
+    user: JwtPayload,
+    id: string,
+    options?: { force?: boolean },
+  ): Promise<{ ok: true }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    if (!site.coolify_resource_id) {
+      throw new ForbiddenException(
+        'Site not provisioned yet (missing coolify_resource_id)',
+      );
+    }
+
+    await this.prisma.deployment.create({
+      data: {
+        site_id: site.id,
+        status: 'queued',
+        triggered_by: 'user',
+      },
+    });
+
+    const type = this.getResourceType(site);
+    await this.coolify.deployResource(type, site.coolify_resource_id, {
+      force: options?.force ?? false,
+    });
+
+    await this.prisma.site.update({
+      where: { id: site.id },
+      data: { status: 'provisioning' },
+    });
+
+    return { ok: true };
+  }
+
+  public async restartSite(
+    user: JwtPayload,
+    id: string,
+  ): Promise<{ ok: true }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    if (!site.coolify_resource_id) {
+      throw new ForbiddenException('Site not provisioned yet');
+    }
+
+    const type = this.getResourceType(site);
+    await this.coolify.restartResource(type, site.coolify_resource_id);
+
+    await this.prisma.site.update({
+      where: { id: site.id },
+      data: { status: 'provisioning' },
+    });
+
+    return { ok: true };
+  }
+
+  public async startSite(user: JwtPayload, id: string): Promise<{ ok: true }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    if (!site.coolify_resource_id) {
+      throw new ForbiddenException('Site not provisioned yet');
+    }
+
+    const type = this.getResourceType(site);
+    await this.coolify.startResource(type, site.coolify_resource_id);
+
+    await this.prisma.site.update({
+      where: { id: site.id },
+      data: { status: 'provisioning' },
+    });
+
+    return { ok: true };
+  }
+
+  public async stopSite(user: JwtPayload, id: string): Promise<{ ok: true }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    if (!site.coolify_resource_id) {
+      throw new ForbiddenException('Site not provisioned yet');
+    }
+
+    const type = this.getResourceType(site);
+    await this.coolify.stopResource(type, site.coolify_resource_id);
+
+    await this.prisma.site.update({
+      where: { id: site.id },
+      data: { status: 'stopped' },
+    });
+
+    return { ok: true };
+  }
+
+  public async getLogs(
+    user: JwtPayload,
+    id: string,
+    lines?: number,
+  ): Promise<{
+    logs: string;
+    lines: number;
+    updatedAt: string;
+    source: string;
+  }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+
+    if (!site.coolify_resource_id) {
+      throw new ForbiddenException('Site not provisioned yet');
+    }
+
+    const requestedLines = lines || 200;
+    const boundedLines = Math.min(
+      5000,
+      Math.max(10, Math.trunc(requestedLines)),
+    );
+    const type = this.getResourceType(site);
+
+    try {
+      const logs = await this.coolify.getLogs(
+        type,
+        site.coolify_resource_id,
+        boundedLines,
+      );
+      return {
+        logs,
+        lines: boundedLines,
+        updatedAt: new Date().toISOString(),
+        source: 'coolify',
+      };
+    } catch (error) {
+      return {
+        logs: `Error fetching logs: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        lines: boundedLines,
+        updatedAt: new Date().toISOString(),
+        source: 'error',
+      };
+    }
+  }
+
+  // --- Deployments History ---
+  public async getDeployments(
+    user: JwtPayload,
+    id: string,
+  ): Promise<DeploymentPayload[]> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+
+    let realDeploys: DeploymentPayload[] = [];
+    if (site.coolify_resource_id) {
+      try {
+        const type = this.getResourceType(site);
+        const coolifyDeploys = await this.coolify.getDeployments(
+          site.coolify_resource_id,
+          type,
+        );
+
+        if (coolifyDeploys.length > 0) {
+          const latest = coolifyDeploys[0];
+          const latestStatus = (latest.status || '').toLowerCase();
+          const siteStatus = (site.status || '').toLowerCase();
+
+          // Auto-sync status if deploy finished
+          if (
+            (latestStatus === 'finished' || latestStatus === 'success') &&
+            siteStatus !== 'running'
+          ) {
+            // Double check live status to be sure
+            const live = await this.getLiveStatus(user, id);
+            if (live.status === 'RUNNING') {
+              await this.prisma.site.update({
+                where: { id: siteId },
+                data: { status: 'running' },
+              });
+            }
+          }
+        }
+
+        realDeploys = coolifyDeploys.map((d) => ({
+          id: d.deployment_uuid || d.uuid || '0',
+          site_id: site.id.toString(),
+          status: this.mapCoolifyDeploymentStatus(d.status),
+          triggered_by: d.is_webhook ? 'git_push' : 'manual',
+          commit_message: d.commit_message || null,
+          commit_hash: d.commit || d.commit_sha || null,
+          created_at: new Date(d.created_at || d.updated_at || new Date()),
+          updated_at: new Date(d.updated_at || new Date()),
+        }));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        this.logger.debug(
+          `[getDeployments] Failed to fetch from Coolify: ${msg}`,
+        );
+      }
+    }
+
+    if (realDeploys.length > 0) {
+      return realDeploys;
+    }
+
+    const localDeploys = await this.prisma.deployment.findMany({
+      where: { site_id: site.id },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+    });
+
+    return localDeploys.map((d) => ({
+      id: d.id.toString(),
+      site_id: d.site_id.toString(),
+      status: d.status,
+      triggered_by: d.triggered_by || 'manual',
+      commit_message: null,
+      commit_hash: null,
+      created_at: d.created_at,
+      updated_at: d.finished_at ?? d.started_at ?? d.created_at,
+    }));
+  }
+
+  private mapCoolifyDeploymentStatus(status: string): string {
+    const s = status?.toLowerCase() || '';
+    if (s === 'success' || s === 'finished') return 'success';
+    if (s === 'queued') return 'queued';
+    if (s === 'in_progress' || s === 'building') return 'in_progress';
+    if (s === 'error' || s === 'failed') return 'failed';
+    return s;
+  }
+
+  // --- Domains ---
+  public async getDomains(
+    user: JwtPayload,
+    id: string,
+  ): Promise<DomainPayload[]> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+
+    return this.prisma.domain.findMany({
+      where: { site_id: site.id },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  public async addDomain(
+    user: JwtPayload,
+    id: string,
+    dto: AddDomainDto,
+  ): Promise<DomainPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+    const domain = normalizeDomain(dto.domain);
+    const fullUrl = `https://${domain}`;
+
+    if (site.coolify_resource_id) {
+      try {
+        const type = this.getResourceType(site);
+        await this.coolify.addDomain(type, site.coolify_resource_id, fullUrl);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        this.logger.warn(
+          `[addDomain] Failed to sync domain to Coolify: ${msg}`,
+        );
+      }
+    }
+
+    return this.prisma.domain.create({
+      data: {
+        tenant_id: site.tenant_id,
+        site_id: site.id,
+        domain,
+        status: 'pending_ns',
+        ssl_enabled: false,
+        coolify_domain_id: null,
+      },
+    });
+  }
+
+  // --- Team Access ---
+  public async getTeam(user: JwtPayload, id: string): Promise<SiteTeamPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    const userId = this.requireUserId(user);
+    const tenantId = user.tenant_id
+      ? toBigIntStrict(user.tenant_id, 'tenant_id')
+      : null;
+    const currentMembership = await this.prisma.siteMember.findUnique({
+      where: {
+        site_id_user_id: {
+          site_id: site.id,
+          user_id: userId,
+        },
+      },
+      select: { role: true },
+    });
+    const canWrite =
+      user.role === 'admin' ||
+      (tenantId !== null && tenantId === site.tenant_id) ||
+      currentMembership?.role === SiteMemberRole.editor;
+
+    const [members, invites] = await Promise.all([
+      this.prisma.siteMember.findMany({
+        where: { site_id: site.id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { created_at: 'asc' },
+      }),
+      this.prisma.siteInvite.findMany({
+        where: { site_id: site.id, status: 'pending' },
+        orderBy: { created_at: 'desc' },
+      }),
+    ]);
+
+    return {
+      can_write: canWrite,
+      members: members.map((member) => ({
+        id: member.id.toString(),
+        user_id: member.user.id.toString(),
+        email: member.user.email,
+        name: member.user.name,
+        role: member.role === SiteMemberRole.editor ? 'editor' : 'viewer',
+        created_at: member.created_at,
+      })),
+      invites: invites.map((invite) => ({
+        id: invite.id.toString(),
+        email: invite.email,
+        role: invite.role === SiteMemberRole.editor ? 'editor' : 'viewer',
+        status: invite.status,
+        created_at: invite.created_at,
+      })),
+    };
+  }
+
+  public async addTeamMember(
+    user: JwtPayload,
+    id: string,
+    dto: AddSiteMemberDto,
+  ): Promise<{
+    mode: 'member' | 'invite';
+  }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    const email = String(dto.email ?? '')
+      .trim()
+      .toLowerCase();
+    if (!email) {
+      throw new BadRequestException('Email is required');
+    }
+
+    const role = toTeamRole(dto.role);
+    const actorUserId = this.requireUserId(user);
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      await this.prisma.siteMember.upsert({
+        where: {
+          site_id_user_id: {
+            site_id: site.id,
+            user_id: existingUser.id,
+          },
+        },
+        update: {
+          role,
+          invited_by_user_id: actorUserId,
+        },
+        create: {
+          site_id: site.id,
+          user_id: existingUser.id,
+          role,
+          invited_by_user_id: actorUserId,
+        },
+      });
+
+      await this.prisma.siteInvite.updateMany({
+        where: {
+          site_id: site.id,
+          email,
+          status: 'pending',
+        },
+        data: {
+          status: 'accepted',
+          accepted_by_user_id: existingUser.id,
+          accepted_at: new Date(),
+        },
+      });
+
+      return { mode: 'member' };
+    }
+
+    await this.prisma.siteInvite.upsert({
+      where: {
+        site_id_email: {
+          site_id: site.id,
+          email,
+        },
+      },
+      update: {
+        role,
+        status: 'pending',
+        invited_by_user_id: actorUserId,
+        accepted_by_user_id: null,
+        accepted_at: null,
+      },
+      create: {
+        site_id: site.id,
+        tenant_id: site.tenant_id,
+        email,
+        role,
+        status: 'pending',
+        invited_by_user_id: actorUserId,
+      },
+    });
+
+    return { mode: 'invite' };
+  }
+
+  public async removeTeamMember(
+    user: JwtPayload,
+    id: string,
+    memberId: string,
+  ): Promise<{ ok: true }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const parsedMemberId = toBigIntStrict(memberId, 'memberId');
+    await this.getOwnedSiteOrThrow(siteId, user, { requireWrite: true });
+
+    const removed = await this.prisma.siteMember.deleteMany({
+      where: {
+        id: parsedMemberId,
+        site_id: siteId,
+      },
+    });
+
+    if (!removed.count) {
+      throw new NotFoundException('Team member not found');
+    }
+
+    return { ok: true };
+  }
+
+  public async revokeTeamInvite(
+    user: JwtPayload,
+    id: string,
+    inviteId: string,
+  ): Promise<{ ok: true }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const parsedInviteId = toBigIntStrict(inviteId, 'inviteId');
+    await this.getOwnedSiteOrThrow(siteId, user, { requireWrite: true });
+
+    const updated = await this.prisma.siteInvite.updateMany({
+      where: {
+        id: parsedInviteId,
+        site_id: siteId,
+        status: 'pending',
+      },
+      data: {
+        status: 'revoked',
+      },
+    });
+
+    if (!updated.count) {
+      throw new NotFoundException('Pending invite not found');
+    }
+
+    return { ok: true };
+  }
+
+  // --- Database ---
+  public async getDatabase(
+    user: JwtPayload,
+    id: string,
+  ): Promise<{
+    id: string;
+    engine: string;
+    host: string;
+    port: number;
+    db_name: string;
+    username: string;
+    password?: string;
+    created_at: Date;
+    updated_at: Date;
+  } | null> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+
+    const db = await this.prisma.siteDatabase.findUnique({
+      where: { site_id: site.id },
+    });
+
+    if (!db) return null;
+
+    return {
+      id: db.id.toString(),
+      engine: db.engine,
+      host: db.host,
+      port: db.port,
+      db_name: db.db_name,
+      username: db.username,
+      password: db.password,
+      created_at: db.created_at,
+      updated_at: db.updated_at,
+    };
+  }
+
+  public async createOrReplaceDatabase(
+    user: JwtPayload,
+    id: string,
+    dto: CreateSiteDatabaseDto,
+  ): Promise<SiteDatabasePayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    const existing = await this.prisma.siteDatabase.findUnique({
+      where: { site_id: siteId },
+    });
+
+    if (existing) {
+      return this.prisma.siteDatabase.update({
+        where: { site_id: siteId },
+        data: {
+          host: dto.host.trim(),
+          port: dto.port ?? 3306,
+          db_name: dto.db_name.trim(),
+          username: dto.username.trim(),
+          password: dto.password,
+        },
+      });
+    }
+
+    return this.prisma.siteDatabase.create({
+      data: {
+        site_id: siteId,
+        engine: 'mariadb',
+        host: dto.host.trim(),
+        port: dto.port ?? 3306,
+        db_name: dto.db_name.trim(),
+        username: dto.username.trim(),
+        password: dto.password,
+      },
+    });
+  }
+
+  public async listDatabaseTables(
+    user: JwtPayload,
+    id: string,
+  ): Promise<{
+    connected: boolean;
+    database: string;
+    engine: string;
+    tables: Array<{ name: string; approxRows: number | null }>;
+  }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const db = await this.getOwnedDatabaseOrThrow(siteId, user);
+
+    return this.withDatabaseClient(db, async (client) => {
+      const tables = await client.$queryRawUnsafe<
+        Array<{ tableName: string; tableRows: number | bigint | null }>
+      >(
+        'SELECT TABLE_NAME AS tableName, TABLE_ROWS AS tableRows FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME ASC',
+        db.db_name,
+      );
+
+      return {
+        connected: true,
+        database: db.db_name,
+        engine: db.engine,
+        tables: tables.map((t) => ({
+          name: String(t.tableName),
+          approxRows: t.tableRows == null ? null : Number(t.tableRows),
+        })),
+      };
+    });
+  }
+
+  public async getDatabaseTableRows(
+    user: JwtPayload,
+    id: string,
+    table: string,
+    options?: { limit?: string; offset?: string },
+  ): Promise<{
+    table: string;
+    columns: string[];
+    rows: Record<string, unknown>[];
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+    nextOffset: number | null;
+  }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const db = await this.getOwnedDatabaseOrThrow(siteId, user);
+
+    const safeTable = this.assertSafeIdentifier(table, 'table');
+    const limit = this.parseBoundedInt(options?.limit, 25, 1, 100);
+    const offset = this.parseBoundedInt(options?.offset, 0, 0, 100_000);
+
+    return this.withDatabaseClient(db, async (client) => {
+      const tableExists = await client.$queryRawUnsafe<
+        Array<{ total: number | bigint }>
+      >(
+        'SELECT COUNT(*) AS total FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?',
+        db.db_name,
+        safeTable,
+      );
+      const total = Number(tableExists?.[0]?.total ?? 0);
+      if (!total) {
+        throw new NotFoundException(`Table "${safeTable}" not found`);
+      }
+
+      const columnsRaw = await client.$queryRawUnsafe<Array<{ Field: string }>>(
+        `SHOW COLUMNS FROM \`${safeTable}\``,
+      );
+      const columns = columnsRaw.map((c) => String(c.Field));
+
+      const queryLimit = limit + 1;
+      const rowsPlusOne = await client.$queryRawUnsafe<
+        Record<string, unknown>[]
+      >(`SELECT * FROM \`${safeTable}\` LIMIT ${queryLimit} OFFSET ${offset}`);
+
+      const hasMore = rowsPlusOne.length > limit;
+      const rows = hasMore ? rowsPlusOne.slice(0, limit) : rowsPlusOne;
+
+      return {
+        table: safeTable,
+        columns,
+        rows,
+        limit,
+        offset,
+        hasMore,
+        nextOffset: hasMore ? offset + limit : null,
+      };
+    });
+  }
+
+  private async getOwnedDatabaseOrThrow(
+    siteId: bigint,
+    user: JwtPayload,
+  ): Promise<SiteDatabasePayload> {
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+
+    const db = await this.prisma.siteDatabase.findUnique({
+      where: { site_id: site.id },
+    });
+
+    if (!db) {
+      throw new NotFoundException('Database not configured for this site');
+    }
+
+    return db;
+  }
+
+  private buildSiteDatabaseUrl(db: SiteDatabasePayload): string {
+    const user = encodeURIComponent(db.username);
+    const password = encodeURIComponent(db.password || '');
+    const host = db.host.trim();
+    const port = Number(db.port || 3306);
+    const dbName = encodeURIComponent(db.db_name);
+
+    return `mysql://${user}:${password}@${host}:${port}/${dbName}`;
+  }
+
+  private async withDatabaseClient<T>(
+    db: SiteDatabasePayload,
+    run: (client: PrismaClient) => Promise<T>,
+  ): Promise<T> {
+    const client = new PrismaClient({
+      datasources: {
+        db: {
+          url: this.buildSiteDatabaseUrl(db),
+        },
+      },
+    });
+
+    try {
+      await client.$connect();
+      return await run(client);
+    } finally {
+      await client.$disconnect();
+    }
+  }
+
+  private assertSafeIdentifier(value: string, fieldName: string): string {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed || !/^[A-Za-z0-9_]+$/.test(trimmed)) {
+      throw new ForbiddenException(
+        `${fieldName} contains unsupported characters`,
+      );
+    }
+    return trimmed;
+  }
+
+  private parseBoundedInt(
+    input: string | undefined,
+    fallback: number,
+    min: number,
+    max: number,
+  ): number {
+    if (input === undefined || input === null || input === '') return fallback;
+    const parsed = Number.parseInt(input, 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+  }
+
+  // --- Environment Variables ---
+  public async getEnvs(user: JwtPayload, id: string) {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+
+    if (!site.coolify_resource_id) return [];
+
+    return this.coolify.getEnvs(site.coolify_resource_id);
+  }
+
+  public async createEnv(
+    user: JwtPayload,
+    id: string,
+    body: {
+      key: string;
+      value: string;
+      is_preview?: boolean;
+      is_multiline?: boolean;
+      is_shown_once?: boolean;
+      is_build_time?: boolean;
+      is_buildtime?: boolean;
+      is_literal?: boolean;
+    },
+  ) {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    if (!site.coolify_resource_id)
+      throw new ForbiddenException('Resource not provisioned');
+
+    return this.coolify.createEnv(site.coolify_resource_id, body);
+  }
+
+  public async deleteEnv(user: JwtPayload, id: string, key: string) {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    if (!site.coolify_resource_id)
+      throw new ForbiddenException('Resource not provisioned');
+
+    return this.coolify.deleteEnv(site.coolify_resource_id, key);
+  }
+}

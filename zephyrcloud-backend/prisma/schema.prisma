@@ -1,0 +1,316 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  user
+}
+
+model Tenant {
+  id           BigInt    @id @default(autoincrement())
+  name         String
+  slug         String    @unique
+  is_active    Boolean   @default(true)
+  suspended_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  users        User[]
+  sites        Site[]
+  domains      Domain[]
+  site_invites SiteInvite[]
+
+  plan SubscriptionPlan @default(FREE)
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  DRIFT_START
+  DRIFT_CORE
+  DRIFT_PLUS
+  DRIFT_GLOBAL
+}
+
+model User {
+  id BigInt @id @default(autoincrement())
+
+  tenant_id BigInt?
+  tenant    Tenant? @relation(fields: [tenant_id], references: [id], onDelete: SetNull)
+
+  email         String @unique
+  password_hash String
+  name          String
+
+  role      Role    @default(user)
+  is_active Boolean @default(true)
+
+  last_login_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  refresh_tokens     RefreshToken[]
+  email_verification EmailVerification?
+  password_resets    PasswordReset[]
+  site_members       SiteMember[]
+
+  @@index([tenant_id])
+}
+
+model RefreshToken {
+  id BigInt @id @default(autoincrement())
+
+  user_id BigInt
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  token_hash String
+  expires_at DateTime
+  revoked_at DateTime?
+  created_at DateTime  @default(now())
+
+  @@index([user_id])
+  @@index([expires_at])
+}
+
+model EmailVerification {
+  id BigInt @id @default(autoincrement())
+
+  user_id BigInt @unique
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  token_hash  String
+  expires_at  DateTime
+  verified_at DateTime?
+  created_at  DateTime  @default(now())
+
+  @@index([expires_at])
+}
+
+model PasswordReset {
+  id BigInt @id @default(autoincrement())
+
+  user_id BigInt
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  token_hash String
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
+
+  @@index([user_id])
+  @@index([expires_at])
+}
+
+/**
+ * =========================
+ * Hosting Panel Models
+ * =========================
+ */
+
+enum SiteType {
+  wordpress
+  node
+  php
+  static
+}
+
+enum SiteStatus {
+  provisioning
+  building // ✅ ADDED (fixes your TS error)
+  running
+  stopped
+  error
+  deleted
+}
+
+enum DomainStatus {
+  pending_ns
+  verifying
+  active
+  error
+}
+
+enum DeploymentStatus {
+  queued
+  building
+  success
+  failed
+}
+
+enum TriggeredBy {
+  user
+  webhook
+  system
+}
+
+enum SiteMemberRole {
+  viewer
+  editor
+}
+
+enum SiteInviteStatus {
+  pending
+  accepted
+  revoked
+}
+
+model Site {
+  id BigInt @id @default(autoincrement())
+
+  tenant_id BigInt
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  name   String
+  type   SiteType
+  status SiteStatus @default(provisioning)
+
+  // Coolify mapping
+  coolify_project_id       String?
+  coolify_resource_id      String? // for applications (node/php/static) OR service uuid (wordpress compose)
+  coolify_service_id       String? // ✅ optional: if you want to store service uuid separately for wordpress
+  coolify_app_id           String? // ✅ optional: if you later resolve the wordpress "app" uuid (for logs/status)
+  coolify_server_uuid      String?
+  coolify_resource_type    String?
+  coolify_destination_uuid String?
+
+  // last sync info (optional but very useful for frontend)
+  last_status_sync_at DateTime?
+
+  cpu_limit Float @default(0.5)
+  memory_mb Int   @default(512)
+
+  repo_url    String?
+  repo_branch String?
+  auto_deploy Boolean @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  domains     Domain[]
+  deployments Deployment[]
+  database    SiteDatabase?
+  members     SiteMember[]
+  invites     SiteInvite[]
+
+  @@index([tenant_id])
+  @@index([coolify_project_id])
+  @@index([coolify_resource_id])
+}
+
+model Domain {
+  id BigInt @id @default(autoincrement())
+
+  tenant_id BigInt
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  site_id BigInt?
+  site    Site?   @relation(fields: [site_id], references: [id], onDelete: SetNull)
+
+  domain String       @unique
+  status DomainStatus @default(pending_ns)
+
+  coolify_domain_id String?
+  ssl_enabled       Boolean @default(false)
+
+  created_at DateTime @default(now())
+
+  @@index([tenant_id])
+  @@index([site_id])
+}
+
+model Deployment {
+  id BigInt @id @default(autoincrement())
+
+  site_id BigInt
+  site    Site   @relation(fields: [site_id], references: [id], onDelete: Cascade)
+
+  status       DeploymentStatus
+  commit_hash  String?
+  triggered_by TriggeredBy
+  logs         String?
+
+  started_at  DateTime?
+  finished_at DateTime?
+  created_at  DateTime  @default(now())
+
+  @@index([site_id])
+  @@index([status])
+}
+
+model SiteDatabase {
+  id BigInt @id @default(autoincrement())
+
+  site_id BigInt @unique
+  site    Site   @relation(fields: [site_id], references: [id], onDelete: Cascade)
+
+  // What we store for showing DB in frontend
+  engine   String @default("mysql")
+  host     String
+  port     Int    @default(3306)
+  db_name  String
+  username String
+  password String
+
+  // ✅ Coolify mapping (so you can fetch/update later)
+  coolify_database_id String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([coolify_database_id])
+}
+
+model SiteMember {
+  id BigInt @id @default(autoincrement())
+
+  site_id BigInt
+  site    Site   @relation(fields: [site_id], references: [id], onDelete: Cascade)
+
+  user_id BigInt
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  role SiteMemberRole @default(viewer)
+
+  invited_by_user_id BigInt?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([site_id, user_id])
+  @@index([site_id])
+  @@index([user_id])
+}
+
+model SiteInvite {
+  id BigInt @id @default(autoincrement())
+
+  site_id BigInt
+  site    Site   @relation(fields: [site_id], references: [id], onDelete: Cascade)
+
+  tenant_id BigInt
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  email  String
+  role   SiteMemberRole   @default(viewer)
+  status SiteInviteStatus @default(pending)
+
+  invited_by_user_id  BigInt
+  accepted_by_user_id BigInt?
+  accepted_at         DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([site_id, email])
+  @@index([tenant_id])
+  @@index([email])
+  @@index([site_id, status])
+}
