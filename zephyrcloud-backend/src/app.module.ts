@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SitesModule } from './modules/sites/sites.module';
+import { HealthController } from './health.controller';
 
 import { CoolifyModule } from './services/coolify/coolify.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -27,5 +28,6 @@ import { AdminModule } from './modules/admin/admin.module';
     CoolifyModule,
     AdminModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}
