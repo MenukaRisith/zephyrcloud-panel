@@ -1,13 +1,15 @@
-import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
+import { redirect } from "react-router";
 
-export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
-  ];
+import type { Route } from "./+types/home";
+import { getSession } from "../services/session.server";
+
+export async function loader({ request }: Route.LoaderArgs) {
+  const session = await getSession(request);
+  const accessToken = session.get("accessToken") as string | undefined;
+
+  return redirect(accessToken ? "/app" : "/login");
 }
 
 export default function Home() {
-  return <Welcome />;
+  return null;
 }
