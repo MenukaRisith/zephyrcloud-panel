@@ -92,22 +92,26 @@ export class SitesController {
 
   // --- GitHub Proxy ---
   @Get('github/apps')
-  public async listGithubApps() {
-    return this.sites.getGithubApps();
+  public async listGithubApps(@CurrentUser() user: JwtPayload) {
+    return this.sites.getGithubApps(user);
   }
 
   @Get('github/repos/:appId')
-  public async listGithubRepos(@Param('appId') appId: string) {
-    return this.sites.getGithubRepos(appId);
+  public async listGithubRepos(
+    @CurrentUser() user: JwtPayload,
+    @Param('appId') appId: string,
+  ) {
+    return this.sites.getGithubRepos(user, appId);
   }
 
   @Get('github/branches/:appId/:owner/:repo')
   public async listGithubBranches(
+    @CurrentUser() user: JwtPayload,
     @Param('appId') appId: string,
     @Param('owner') owner: string,
     @Param('repo') repo: string,
   ) {
-    return this.sites.getGithubBranches(appId, owner, repo);
+    return this.sites.getGithubBranches(user, appId, owner, repo);
   }
 
   // --- Single Site Ops ---

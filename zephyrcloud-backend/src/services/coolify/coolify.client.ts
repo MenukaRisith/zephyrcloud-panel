@@ -20,6 +20,8 @@ type ErrorWithCoolifyDetails = Error & {
 export class CoolifyClient {
   private readonly http: AxiosInstance;
   private readonly logger = new Logger(CoolifyClient.name);
+  private static readonly sensitiveKeyPattern =
+    /(authorization|cookie|token|secret|password|passwd|private|session|jwt|api[_-]?key|credential)/i;
 
   public constructor(private readonly config: ConfigService) {
     const baseURL = (this.config.get<string>('COOLIFY_BASE_URL') ?? '').trim();
@@ -103,14 +105,14 @@ export class CoolifyClient {
       if (data !== undefined) {
         this.logger.error(
           `[Coolify ${method}] response body: ${
-            typeof data === 'string' ? data : JSON.stringify(data)
+            JSON.stringify(this.redactForLog(data, path))
           }`,
         );
       }
       if (body !== undefined) {
         this.logger.error(
           `[Coolify ${method}] request body: ${
-            typeof body === 'string' ? body : JSON.stringify(body)
+            JSON.stringify(this.redactForLog(body, path))
           }`,
         );
       }
@@ -129,5 +131,52 @@ export class CoolifyClient {
 
     // Non-Axios error
     return err instanceof Error ? err : new Error(String(err));
+  }
+
+  private redactForLog(value: unknown, path: string): unknown {
+    if (typeof value === 'string') {
+      return this.shouldRedactString(path) ? '[REDACTED]' : value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.redactForLog(item, path));
+    }
+
+    if (!this.isRecord(value)) {
+      return value;
+    }
+
+    const normalizedPath = path.toLowerCase();
+    const isEnvPayload =
+      normalizedPath.includes('/envs') &&
+      typeof value.key === 'string' &&
+      Object.prototype.hasOwnProperty.call(value, 'value');
+    const envKey =
+      typeof value.key === 'string' ? value.key.toLowerCase() : undefined;
+
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => {
+        const shouldRedact =
+          CoolifyClient.sensitiveKeyPattern.test(key) ||
+          (isEnvPayload && (key === 'value' || key === 'real_value')) ||
+          (envKey !== undefined &&
+            key === 'value' &&
+            CoolifyClient.sensitiveKeyPattern.test(envKey));
+
+        if (shouldRedact) {
+          return [key, '[REDACTED]'];
+        }
+
+        return [key, this.redactForLog(nestedValue, path)];
+      }),
+    );
+  }
+
+  private shouldRedactString(path: string): boolean {
+    return path.toLowerCase().includes('/envs');
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 }

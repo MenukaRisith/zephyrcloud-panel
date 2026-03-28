@@ -37,6 +37,7 @@ type CoolifyGithubApp = {
   id: number;
   uuid: string;
   name?: string;
+  is_public?: boolean;
   [key: string]: unknown;
 };
 
@@ -44,6 +45,10 @@ type GithubAppListItem = {
   id: number;
   uuid: string;
   name: string;
+};
+
+type ResolvedGithubApp = GithubAppListItem & {
+  is_public?: boolean;
 };
 
 type GithubRepoListItem = {
@@ -307,6 +312,11 @@ export class CoolifyService {
       this.logger.error(`[getGithubApps] failed: ${this.formatError(error)}`);
       throw error;
     }
+  }
+
+  async resolveGithubAppUuid(appRef: string | number): Promise<string> {
+    const app = await this.resolveGithubAppRecord(appRef);
+    return app.uuid;
   }
 
   async getGithubRepos(
@@ -833,15 +843,31 @@ export class CoolifyService {
   }
 
   private async resolveGithubAppId(appRef: string | number): Promise<number> {
-    if (typeof appRef === 'number') return appRef;
-    const raw = String(appRef);
-    if (!isNaN(Number(raw))) return Number(raw);
-    const apps = await this.client.get<CoolifyGithubApp[]>(
-      '/api/v1/github-apps',
-    );
-    const match = apps.find((a) => a.uuid === raw);
-    if (!match?.id) throw new Error(`Cannot resolve GitHub App UUID ${raw}`);
-    return match.id;
+    const app = await this.resolveGithubAppRecord(appRef);
+    return app.id;
+  }
+
+  private async resolveGithubAppRecord(
+    appRef: string | number,
+  ): Promise<ResolvedGithubApp> {
+    const apps = await this.client.get<CoolifyGithubApp[]>('/api/v1/github-apps');
+    const raw = String(appRef).trim();
+
+    const match = apps.find((app) => {
+      if (app.uuid === raw) return true;
+      return Number.isFinite(Number(raw)) && app.id === Number(raw);
+    });
+
+    if (!match?.uuid || typeof match.id !== 'number') {
+      throw new Error(`Cannot resolve GitHub App reference ${raw}`);
+    }
+
+    return {
+      id: match.id,
+      uuid: match.uuid,
+      name: String(match.name ?? `GitHub App ${match.id}`),
+      is_public: typeof match.is_public === 'boolean' ? match.is_public : undefined,
+    };
   }
 
   private resolveDestination(

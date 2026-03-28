@@ -67,6 +67,10 @@ function normalizeGithubAppSelection(
   return normalized;
 }
 
+function isGithubOwnerRepo(value: string): boolean {
+  return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
+}
+
 // --- DTO / Payload Types ---
 
 type SitePayload = Site;
@@ -209,9 +213,9 @@ export class SitesService {
   // Git Helpers
   // -------------------------
 
-  private normalizeGitRepositoryForCoolify(input: string): string {
+  private normalizeGitRepositoryForCoolify(input: string): string | null {
     const v = String(input || '').trim();
-    if (!v) return v;
+    if (!v) return null;
 
     const simple = v.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
     if (simple) return `${simple[1]}/${simple[2]}`;
@@ -225,7 +229,15 @@ export class SitesService {
     this.logger.warn(
       `[normalizeGitRepositoryForCoolify] Could not parse owner/repo from: "${v}"`,
     );
-    return v;
+    return null;
+  }
+
+  private requireAdminForPrivateGithubApp(user: JwtPayload) {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Private GitHub app connections are only available to administrators.',
+      );
+    }
   }
 
   private normalizeCoolifyStatus(
@@ -290,6 +302,21 @@ export class SitesService {
       : null;
     const githubAppId = normalizeGithubAppSelection(dto.github_app_id);
     const isNodeSite = dto.type === SiteTypeDto.node;
+    const siteName = dto.name.trim();
+
+    if (!siteName) {
+      throw new BadRequestException('Site name is required.');
+    }
+
+    if (dto.repo_url && !repoForCoolify) {
+      throw new BadRequestException(
+        'Only GitHub repositories in owner/repo or GitHub URL format are supported.',
+      );
+    }
+
+    if (githubAppId) {
+      this.requireAdminForPrivateGithubApp(user);
+    }
 
     if (isNodeSite && !repoForCoolify) {
       throw new BadRequestException(
@@ -297,10 +324,14 @@ export class SitesService {
       );
     }
 
+    if (repoForCoolify && !isGithubOwnerRepo(repoForCoolify)) {
+      throw new BadRequestException('Repository must be a valid GitHub owner/repo pair.');
+    }
+
     const site = await this.prisma.site.create({
       data: {
         tenant_id: tenantId,
-        name: dto.name.trim(),
+        name: siteName,
         type: dto.type,
         status: 'provisioning',
         cpu_limit: 1,
@@ -319,7 +350,7 @@ export class SitesService {
     try {
       // 2. Prepare config and send to Coolify
       const coolifyPayload: CoolifyCreateProjectInput = {
-        name: dto.name.trim(),
+        name: siteName,
         type: dto.type,
         cpu_limit: 1,
         memory_mb: 512,
@@ -331,7 +362,8 @@ export class SitesService {
       }
 
       if (githubAppId) {
-        coolifyPayload.github_app_id = githubAppId;
+        coolifyPayload.github_app_id =
+          await this.coolify.resolveGithubAppUuid(githubAppId);
       }
 
       let wpDb: CoolifyDbDetails | null = null;
@@ -399,15 +431,32 @@ export class SitesService {
   }
 
   // --- GitHub Proxy ---
-  public getGithubApps() {
-    return this.coolify.getGithubApps();
+  public async getGithubApps(user: JwtPayload) {
+    if (user.role !== 'admin') {
+      return [];
+    }
+
+    const apps = await this.coolify.getGithubApps();
+    return apps.filter((app) => app.id > 0);
   }
 
-  public getGithubRepos(appUuid: string, page = 1, limit = 100) {
+  public getGithubRepos(
+    user: JwtPayload,
+    appUuid: string,
+    page = 1,
+    limit = 100,
+  ) {
+    this.requireAdminForPrivateGithubApp(user);
     return this.coolify.getGithubRepos(appUuid, page, limit);
   }
 
-  public getGithubBranches(appUuid: string, owner: string, repo: string) {
+  public getGithubBranches(
+    user: JwtPayload,
+    appUuid: string,
+    owner: string,
+    repo: string,
+  ) {
+    this.requireAdminForPrivateGithubApp(user);
     return this.coolify.getGithubBranches(appUuid, owner, repo);
   }
 
@@ -594,7 +643,9 @@ export class SitesService {
     source: string;
   }> {
     const siteId = toBigIntStrict(id, 'siteId');
-    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
 
     if (!site.coolify_resource_id) {
       throw new ForbiddenException('Site not provisioned yet');
@@ -983,7 +1034,9 @@ export class SitesService {
     updated_at: Date;
   } | null> {
     const siteId = toBigIntStrict(id, 'siteId');
-    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
 
     const db = await this.prisma.siteDatabase.findUnique({
       where: { site_id: site.id },
@@ -1139,7 +1192,9 @@ export class SitesService {
     siteId: bigint,
     user: JwtPayload,
   ): Promise<SiteDatabasePayload> {
-    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
 
     const db = await this.prisma.siteDatabase.findUnique({
       where: { site_id: site.id },
@@ -1207,7 +1262,9 @@ export class SitesService {
   // --- Environment Variables ---
   public async getEnvs(user: JwtPayload, id: string) {
     const siteId = toBigIntStrict(id, 'siteId');
-    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
 
     if (!site.coolify_resource_id) return [];
 

@@ -9,7 +9,14 @@ type SessionUser = {
   tenant_id?: string | number;
 };
 
-const sessionSecret = process.env.SESSION_SECRET || "dev-secret-change-me";
+const isProduction = process.env.NODE_ENV === "production";
+const configuredSessionSecret = (process.env.SESSION_SECRET || "").trim();
+
+if (isProduction && !configuredSessionSecret) {
+  throw new Error("SESSION_SECRET must be set in production.");
+}
+
+const sessionSecret = configuredSessionSecret || "dev-secret-change-me";
 const sessionCookieSecure = process.env.SESSION_COOKIE_SECURE === "true";
 const sessionCookieName = process.env.SESSION_COOKIE_NAME || (sessionCookieSecure ? "__host_panel_session" : "panel_session");
 

@@ -36,7 +36,12 @@ type Site = {
   createdAt?: string;
 };
 
-type LoaderData = { sites: Site[] };
+type LoaderData = {
+  sites: Site[];
+  user: {
+    role?: string;
+  };
+};
 
 type ActionData = { ok: true; siteId: string } | { ok: false; error: string };
 
@@ -190,15 +195,18 @@ export async function loader({
   request: Request;
 }): Promise<LoaderData> {
   const { apiFetchAuthed } = await import("~/services/api.authed.server");
+  const { requireUser } = await import("~/services/session.server");
+
+  const { user } = await requireUser(request);
 
   try {
     const res = await apiFetchAuthed(request, "/api/sites", { method: "GET" });
     const data = await res.json();
     const sites = Array.isArray(data) ? data : data.sites || data.data || [];
-    return { sites };
+    return { sites, user: { role: user.role } };
   } catch (error) {
     console.error("Loader failed", error);
-    return { sites: [] };
+    return { sites: [], user: { role: user.role } };
   }
 }
 
@@ -305,7 +313,7 @@ function typeMeta(type: SiteType) {
 // Main Component
 // ------------------------------
 export default function SitesPage() {
-  const { sites } = useLoaderData() as LoaderData;
+  const { sites, user } = useLoaderData() as LoaderData;
   const nav = useNavigation();
   const [searchParams] = useSearchParams();
   const actionData = useActionData() as ActionData | undefined;
@@ -417,6 +425,7 @@ export default function SitesPage() {
         onClose={() => setCreateOpen(false)}
         actionData={actionData}
         isSubmitting={isSubmitting}
+        canUsePrivateGithubApps={user.role === "admin"}
       />
     </div>
   );
@@ -427,11 +436,13 @@ function CreateSiteModal({
   onClose,
   actionData,
   isSubmitting,
+  canUsePrivateGithubApps,
 }: {
   open: boolean;
   onClose: () => void;
   actionData?: ActionData;
   isSubmitting: boolean;
+  canUsePrivateGithubApps: boolean;
 }) {
   const [createType, setCreateType] =
     React.useState<SupportedCreateType>("wordpress");
@@ -459,6 +470,14 @@ function CreateSiteModal({
     React.useState<string | null>(null);
 
   React.useEffect(() => {
+    if (!canUsePrivateGithubApps) {
+      setGithubApps([]);
+      setGithubAppsState("idle");
+      setGithubAppsError(null);
+      setSelectedGithubApp("");
+      return;
+    }
+
     if (!open || createType !== "node") return;
     if (
       githubAppsState === "ready" ||
@@ -492,7 +511,13 @@ function CreateSiteModal({
     return () => {
       cancelled = true;
     };
-  }, [createType, githubApps.length, githubAppsState, open]);
+  }, [
+    canUsePrivateGithubApps,
+    createType,
+    githubApps.length,
+    githubAppsState,
+    open,
+  ]);
 
   React.useEffect(() => {
     setRepoOptions([]);
@@ -732,34 +757,45 @@ function CreateSiteModal({
                     <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
                       GitHub Connection
                     </label>
-                    <select
-                      name="github_app_id"
-                      value={selectedGithubApp}
-                      onChange={(event) => setSelectedGithubApp(event.target.value)}
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all focus:ring-2 ring-white/10"
-                    >
-                      <option value="" className="bg-[#080B12] text-white">
-                        No GitHub app (public repo/manual)
-                      </option>
-                      {githubApps.map((app) => (
-                        <option
-                          key={app.uuid}
-                          value={app.uuid}
-                          className="bg-[#080B12] text-white"
+                    {canUsePrivateGithubApps ? (
+                      <>
+                        <select
+                          name="github_app_id"
+                          value={selectedGithubApp}
+                          onChange={(event) =>
+                            setSelectedGithubApp(event.target.value)
+                          }
+                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all focus:ring-2 ring-white/10"
                         >
-                          {app.name}
-                        </option>
-                      ))}
-                    </select>
-                    {githubAppsState === "loading" && (
-                      <p className="text-xs text-white/45">
-                        Loading GitHub connections...
-                      </p>
-                    )}
-                    {githubAppsError && (
-                      <p className="text-xs text-amber-300">
-                        {githubAppsError}
-                      </p>
+                          <option value="" className="bg-[#080B12] text-white">
+                            No GitHub app (public repo/manual)
+                          </option>
+                          {githubApps.map((app) => (
+                            <option
+                              key={app.uuid}
+                              value={app.uuid}
+                              className="bg-[#080B12] text-white"
+                            >
+                              {app.name}
+                            </option>
+                          ))}
+                        </select>
+                        {githubAppsState === "loading" && (
+                          <p className="text-xs text-white/45">
+                            Loading GitHub connections...
+                          </p>
+                        )}
+                        {githubAppsError && (
+                          <p className="text-xs text-amber-300">
+                            {githubAppsError}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
+                        Private GitHub app connections are restricted to panel
+                        administrators. Use a public GitHub repository here.
+                      </div>
                     )}
                   </div>
 

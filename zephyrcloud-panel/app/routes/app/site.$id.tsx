@@ -723,83 +723,93 @@ export default function SiteOverview() {
               WP Admin
             </a>
           )}
-          {normalizeStatus(displayStatus) === "STOPPED" ? (
-            <Form method="post">
-              <input type="hidden" name="intent" value="start" />
-              <button
-                disabled={isSubmitting}
-                className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
-              >
-                <Play
-                  className={cx(
-                    "h-4 w-4",
-                    isSubmitting &&
-                      currentIntent === "start" &&
-                      "animate-pulse",
+          {canManageTeam ? (
+            <>
+              {normalizeStatus(displayStatus) === "STOPPED" ? (
+                <Form method="post">
+                  <input type="hidden" name="intent" value="start" />
+                  <button
+                    disabled={isSubmitting}
+                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    <Play
+                      className={cx(
+                        "h-4 w-4",
+                        isSubmitting &&
+                          currentIntent === "start" &&
+                          "animate-pulse",
+                      )}
+                    />
+                    Start
+                  </button>
+                </Form>
+              ) : (
+                <Form method="post">
+                  <input type="hidden" name="intent" value="stop" />
+                  <button
+                    disabled={isSubmitting}
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-300 hover:bg-red-500/20 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    <Square
+                      className={cx(
+                        "h-4 w-4",
+                        isSubmitting &&
+                          currentIntent === "stop" &&
+                          "animate-pulse",
+                      )}
+                    />
+                    Stop
+                  </button>
+                </Form>
+              )}
+
+              <Form method="post">
+                <input type="hidden" name="intent" value="deploy" />
+                <button
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-black hover:bg-white/90 shadow-lg shadow-white/5 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Rocket className="h-4 w-4" />
                   )}
-                />
-                Start
-              </button>
-            </Form>
+                  Deploy
+                </button>
+              </Form>
+
+              <Form method="post">
+                <input type="hidden" name="intent" value="deploy_force" />
+                <button
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {isSubmitting && currentIntent === "deploy_force" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Rocket className="h-4 w-4" />
+                  )}
+                  Force Deploy
+                </button>
+              </Form>
+
+              <Form method="post">
+                <input type="hidden" name="intent" value="restart" />
+                <button
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={cx("h-4 w-4", isSubmitting && "animate-spin")}
+                  />
+                </button>
+              </Form>
+            </>
           ) : (
-            <Form method="post">
-              <input type="hidden" name="intent" value="stop" />
-              <button
-                disabled={isSubmitting}
-                className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-300 hover:bg-red-500/20 active:scale-95 transition-all disabled:opacity-50"
-              >
-                <Square
-                  className={cx(
-                    "h-4 w-4",
-                    isSubmitting && currentIntent === "stop" && "animate-pulse",
-                  )}
-                />
-                Stop
-              </button>
-            </Form>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/55">
+              Read-only access
+            </div>
           )}
-
-          <Form method="post">
-            <input type="hidden" name="intent" value="deploy" />
-            <button
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-black hover:bg-white/90 shadow-lg shadow-white/5 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Rocket className="h-4 w-4" />
-              )}
-              Deploy
-            </button>
-          </Form>
-
-          <Form method="post">
-            <input type="hidden" name="intent" value="deploy_force" />
-            <button
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {isSubmitting && currentIntent === "deploy_force" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Rocket className="h-4 w-4" />
-              )}
-              Force Deploy
-            </button>
-          </Form>
-
-          <Form method="post">
-            <input type="hidden" name="intent" value="restart" />
-            <button
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50"
-            >
-              <RefreshCw
-                className={cx("h-4 w-4", isSubmitting && "animate-spin")}
-              />
-            </button>
-          </Form>
         </div>
       </div>
 
@@ -819,13 +829,15 @@ export default function SiteOverview() {
         >
           Deployments
         </Tab>
-        <Tab
-          icon={<Terminal className="h-4 w-4" />}
-          active={tab === "logs"}
-          onClick={() => setTab("logs")}
-        >
-          Logs
-        </Tab>
+        {canManageTeam && (
+          <Tab
+            icon={<Terminal className="h-4 w-4" />}
+            active={tab === "logs"}
+            onClick={() => setTab("logs")}
+          >
+            Logs
+          </Tab>
+        )}
         <Tab
           icon={<Globe className="h-4 w-4" />}
           active={tab === "domains"}
@@ -833,13 +845,15 @@ export default function SiteOverview() {
         >
           Domains
         </Tab>
-        <Tab
-          icon={<Database className="h-4 w-4" />}
-          active={tab === "database"}
-          onClick={() => setTab("database")}
-        >
-          Database
-        </Tab>
+        {canManageTeam && (
+          <Tab
+            icon={<Database className="h-4 w-4" />}
+            active={tab === "database"}
+            onClick={() => setTab("database")}
+          >
+            Database
+          </Tab>
+        )}
         <Tab
           icon={<Settings className="h-4 w-4" />}
           active={tab === "settings"}
@@ -857,34 +871,40 @@ export default function SiteOverview() {
           className="grid grid-cols-1 gap-4 lg:grid-cols-3"
         >
           <Card title="Quick Actions">
-            <div className="space-y-1">
-              <Form method="post">
-                <input type="hidden" name="intent" value="deploy" />
+            {canManageTeam ? (
+              <div className="space-y-1">
+                <Form method="post">
+                  <input type="hidden" name="intent" value="deploy" />
+                  <ActionRow
+                    label="Trigger Deployment"
+                    icon={<Rocket className="h-4 w-4 text-emerald-400" />}
+                  />
+                </Form>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="deploy_force" />
+                  <ActionRow
+                    label="Force Rebuild Deployment"
+                    icon={<Rocket className="h-4 w-4 text-amber-300" />}
+                  />
+                </Form>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="restart" />
+                  <ActionRow
+                    label="Restart Application"
+                    icon={<RefreshCw className="h-4 w-4 text-amber-400" />}
+                  />
+                </Form>
                 <ActionRow
-                  label="Trigger Deployment"
-                  icon={<Rocket className="h-4 w-4 text-emerald-400" />}
+                  label="View Live Logs"
+                  icon={<Terminal className="h-4 w-4 text-blue-400" />}
+                  onClick={() => setTab("logs")}
                 />
-              </Form>
-              <Form method="post">
-                <input type="hidden" name="intent" value="deploy_force" />
-                <ActionRow
-                  label="Force Rebuild Deployment"
-                  icon={<Rocket className="h-4 w-4 text-amber-300" />}
-                />
-              </Form>
-              <Form method="post">
-                <input type="hidden" name="intent" value="restart" />
-                <ActionRow
-                  label="Restart Application"
-                  icon={<RefreshCw className="h-4 w-4 text-amber-400" />}
-                />
-              </Form>
-              <ActionRow
-                label="View Live Logs"
-                icon={<Terminal className="h-4 w-4 text-blue-400" />}
-                onClick={() => setTab("logs")}
-              />
-            </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-white/50">
+                Operational controls are limited to editors and workspace owners.
+              </div>
+            )}
           </Card>
 
           <Card
@@ -1464,98 +1484,107 @@ export default function SiteOverview() {
             title="Environment Variables"
             subtitle="Manage secrets and config for your application"
           >
-            <Form
-              method="post"
-              className="mb-6 rounded-xl border border-white/5 bg-white/5 p-4"
-            >
-              <input type="hidden" name="intent" value="createEnv" />
-              <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                <div className="flex-1 w-full">
-                  <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
-                    Key
-                  </label>
-                  <input
-                    name="key"
-                    placeholder="API_KEY"
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30 font-mono"
-                  />
-                </div>
-                <div className="flex-1 w-full">
-                  <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
-                    Value
-                  </label>
-                  <input
-                    name="value"
-                    placeholder="secret_value_123"
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30 font-mono"
-                  />
-                </div>
-                <button
-                  disabled={isSubmitting}
-                  className="w-full md:w-auto px-4 py-2.5 bg-white text-black font-bold text-sm rounded-lg hover:bg-white/90 transition-colors flex items-center justify-center gap-2"
+            {canManageTeam ? (
+              <>
+                <Form
+                  method="post"
+                  className="mb-6 rounded-xl border border-white/5 bg-white/5 p-4"
                 >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  Add
-                </button>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/70">
-                <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                  <input
-                    type="checkbox"
-                    name="is_literal"
-                    defaultChecked
-                    className="accent-white"
-                  />
-                  Literal
-                </label>
-                <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                  <input
-                    type="checkbox"
-                    name="is_preview"
-                    className="accent-white"
-                  />
-                  Preview
-                </label>
-                <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                  <input
-                    type="checkbox"
-                    name="is_multiline"
-                    className="accent-white"
-                  />
-                  Multiline
-                </label>
-                <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                  <input
-                    type="checkbox"
-                    name="is_shown_once"
-                    className="accent-white"
-                  />
-                  Shown once
-                </label>
-                <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                  <input
-                    type="checkbox"
-                    name="is_buildtime"
-                    className="accent-white"
-                  />
-                  Build-time
-                </label>
-              </div>
-            </Form>
+                  <input type="hidden" name="intent" value="createEnv" />
+                  <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                    <div className="flex-1 w-full">
+                      <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
+                        Key
+                      </label>
+                      <input
+                        name="key"
+                        placeholder="API_KEY"
+                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30 font-mono"
+                      />
+                    </div>
+                    <div className="flex-1 w-full">
+                      <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
+                        Value
+                      </label>
+                      <input
+                        name="value"
+                        placeholder="secret_value_123"
+                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30 font-mono"
+                      />
+                    </div>
+                    <button
+                      disabled={isSubmitting}
+                      className="w-full md:w-auto px-4 py-2.5 bg-white text-black font-bold text-sm rounded-lg hover:bg-white/90 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      Add
+                    </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/70">
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
+                      <input
+                        type="checkbox"
+                        name="is_literal"
+                        defaultChecked
+                        className="accent-white"
+                      />
+                      Literal
+                    </label>
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
+                      <input
+                        type="checkbox"
+                        name="is_preview"
+                        className="accent-white"
+                      />
+                      Preview
+                    </label>
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
+                      <input
+                        type="checkbox"
+                        name="is_multiline"
+                        className="accent-white"
+                      />
+                      Multiline
+                    </label>
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
+                      <input
+                        type="checkbox"
+                        name="is_shown_once"
+                        className="accent-white"
+                      />
+                      Shown once
+                    </label>
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
+                      <input
+                        type="checkbox"
+                        name="is_buildtime"
+                        className="accent-white"
+                      />
+                      Build-time
+                    </label>
+                  </div>
+                </Form>
 
-            {envs.length > 0 ? (
-              <div className="space-y-2">
-                {envs.map((env, i) => (
-                  <EnvRow key={i} env={env} />
-                ))}
-              </div>
+                {envs.length > 0 ? (
+                  <div className="space-y-2">
+                    {envs.map((env, i) => (
+                      <EnvRow key={i} env={env} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-white/30 italic">
+                    No environment variables set.
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="text-center py-8 text-white/30 italic">
-                No environment variables set.
+              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-white/50">
+                Environment variables are only visible to editors and workspace
+                owners.
               </div>
             )}
           </Card>
