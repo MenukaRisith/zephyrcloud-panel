@@ -59,6 +59,14 @@ function toTeamRole(role?: string): SiteMemberRole {
   return role === 'editor' ? SiteMemberRole.editor : SiteMemberRole.viewer;
 }
 
+function normalizeGithubAppSelection(
+  value?: string | null,
+): string | undefined {
+  const normalized = String(value ?? '').trim();
+  if (!normalized || normalized === '0') return undefined;
+  return normalized;
+}
+
 // --- DTO / Payload Types ---
 
 type SitePayload = Site;
@@ -270,9 +278,9 @@ export class SitesService {
       where: { id: tenantId },
     });
     if (!tenant) throw new NotFoundException('Tenant not found');
-    if (dto.type !== SiteTypeDto.wordpress) {
+    if (dto.type !== SiteTypeDto.wordpress && dto.type !== SiteTypeDto.node) {
       throw new ForbiddenException(
-        'Only WordPress site creation is enabled right now.',
+        'Only WordPress and Node.js site creation are enabled right now.',
       );
     }
 
@@ -280,6 +288,14 @@ export class SitesService {
     const repoForCoolify = dto.repo_url
       ? this.normalizeGitRepositoryForCoolify(dto.repo_url)
       : null;
+    const githubAppId = normalizeGithubAppSelection(dto.github_app_id);
+    const isNodeSite = dto.type === SiteTypeDto.node;
+
+    if (isNodeSite && !repoForCoolify) {
+      throw new BadRequestException(
+        'Node.js site creation requires a GitHub repository.',
+      );
+    }
 
     const site = await this.prisma.site.create({
       data: {
@@ -290,8 +306,8 @@ export class SitesService {
         cpu_limit: 1,
         memory_mb: 512,
         repo_url: repoForCoolify,
-        repo_branch: dto.repo_branch,
-        auto_deploy: dto.auto_deploy ?? false,
+        repo_branch: repoForCoolify ? dto.repo_branch || 'main' : null,
+        auto_deploy: dto.auto_deploy ?? isNodeSite,
         coolify_project_id: null,
         coolify_resource_id: null,
         coolify_server_uuid: null,
@@ -301,61 +317,63 @@ export class SitesService {
     });
 
     try {
-      // 2. Prepare Config & DB (WordPress-only flow)
-      const rootPassword = rand(24);
-      const safeName = safeSvc(dto.name);
-      const wpDb: CoolifyDbDetails = {
-        db_name: 'wordpress',
-        username: 'root',
-        password: rootPassword,
-        root_password: rootPassword,
-        host: `${safeName}-db`,
-        port: 3306,
-        engine: 'mariadb',
-      };
-
-      // 3. Send to Coolify
+      // 2. Prepare config and send to Coolify
       const coolifyPayload: CoolifyCreateProjectInput = {
         name: dto.name.trim(),
         type: dto.type,
         cpu_limit: 1,
         memory_mb: 512,
-        db: wpDb,
       };
 
       if (repoForCoolify) {
-        if (dto.github_app_id) {
-          coolifyPayload.github_app_id = String(dto.github_app_id);
-          coolifyPayload.repo_url = repoForCoolify;
-          coolifyPayload.repo_branch = dto.repo_branch || 'main';
-        } else {
-          coolifyPayload.repo_url = repoForCoolify;
-          coolifyPayload.repo_branch = dto.repo_branch || 'main';
-        }
+        coolifyPayload.repo_url = repoForCoolify;
+        coolifyPayload.repo_branch = dto.repo_branch || 'main';
+      }
+
+      if (githubAppId) {
+        coolifyPayload.github_app_id = githubAppId;
+      }
+
+      let wpDb: CoolifyDbDetails | null = null;
+      if (dto.type === SiteTypeDto.wordpress) {
+        const rootPassword = rand(24);
+        const safeName = safeSvc(dto.name);
+        wpDb = {
+          db_name: 'wordpress',
+          username: 'root',
+          password: rootPassword,
+          root_password: rootPassword,
+          host: `${safeName}-db`,
+          port: 3306,
+          engine: 'mariadb',
+        };
+        coolifyPayload.db = wpDb;
       }
 
       const coolifyResult: CoolifyCreateProjectResult =
         await this.coolify.createProject(coolifyPayload);
 
-      // 4. Save Database Info (Use the actual values used by CoolifyService)
-      const finalDbHost = coolifyResult.dbHost || wpDb.host;
-      const finalDbPassword = coolifyResult.dbPassword || wpDb.password;
-      const finalDbUser = coolifyResult.dbUser || 'root';
-      const finalDbName = coolifyResult.dbName || 'wordpress';
+      // 3. Save Database Info for WordPress sites
+      if (wpDb) {
+        const finalDbHost = coolifyResult.dbHost || wpDb.host;
+        const finalDbPassword = coolifyResult.dbPassword || wpDb.password;
+        const finalDbUser = coolifyResult.dbUser || 'root';
+        const finalDbName = coolifyResult.dbName || 'wordpress';
 
-      await this.prisma.siteDatabase.create({
-        data: {
-          site_id: site.id,
-          engine: 'mariadb',
-          host: finalDbHost,
-          port: 3306,
-          db_name: finalDbName,
-          username: finalDbUser,
-          password: finalDbPassword,
-        },
-      });
+        await this.prisma.siteDatabase.create({
+          data: {
+            site_id: site.id,
+            engine: 'mariadb',
+            host: finalDbHost,
+            port: 3306,
+            db_name: finalDbName,
+            username: finalDbUser,
+            password: finalDbPassword,
+          },
+        });
+      }
 
-      // 5. Update Site with Coolify IDs
+      // 4. Update Site with Coolify IDs
       return await this.prisma.site.update({
         where: { id: site.id },
         data: {

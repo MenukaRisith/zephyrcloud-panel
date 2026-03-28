@@ -591,6 +591,8 @@ export class CoolifyService {
   }): Promise<string> {
     const { config, projectUuid, serverUuid, environment, destinationUuid } =
       args;
+    const hasGithubApp = this.hasGithubAppSelection(config.github_app_id);
+    const exposedPort = this.getExposedPortForType(config.type);
     const basePayload = this.stripUndefined({
       project_uuid: projectUuid,
       server_uuid: serverUuid,
@@ -598,7 +600,7 @@ export class CoolifyService {
       environment_name: environment.name,
       destination_uuid: destinationUuid,
       name: config.name,
-      ports_exposes: '80',
+      ports_exposes: exposedPort,
       limits_memory: `${config.memory_mb}M`,
       limits_cpus: String(config.cpu_limit),
       install_command: config.install_command,
@@ -608,7 +610,7 @@ export class CoolifyService {
 
     let appUuid = '';
 
-    if (config.github_app_id) {
+    if (hasGithubApp) {
       const endpoint = '/api/v1/applications/private-github-app';
       const payload = this.stripUndefined({
         ...basePayload,
@@ -643,8 +645,12 @@ export class CoolifyService {
       appUuid = app.uuid;
     }
 
-    if (!config.github_app_id && !config.repo_url) {
+    if (!hasGithubApp && !config.repo_url) {
       this.deployResource('application', appUuid).catch(() => {});
+    }
+
+    if (config.type === 'node') {
+      await this.setEnv(appUuid, 'PORT', exposedPort);
     }
 
     return appUuid;
@@ -864,6 +870,19 @@ export class CoolifyService {
       default:
         return 'nginx:alpine';
     }
+  }
+
+  private hasGithubAppSelection(
+    githubAppId: string | number | undefined,
+  ): boolean {
+    if (githubAppId === undefined || githubAppId === null) return false;
+    const normalized = String(githubAppId).trim();
+    return normalized !== '' && normalized !== '0';
+  }
+
+  private getExposedPortForType(type: string): string {
+    if (type === 'node') return '3000';
+    return '80';
   }
 
   private formatError(error: unknown): string {
