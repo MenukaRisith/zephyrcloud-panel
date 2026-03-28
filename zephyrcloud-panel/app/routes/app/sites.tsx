@@ -29,7 +29,11 @@ type SiteStatus = "RUNNING" | "STOPPED" | "BUILDING" | "ERROR" | "PROVISIONING";
 type SiteType = "wordpress" | "node" | "static" | "php";
 type SupportedCreateType = "wordpress" | "node";
 type LoadState = "idle" | "loading" | "ready" | "error";
-type RepoAccessMode = "public" | "github_app" | "deploy_key";
+type RepoAccessMode =
+  | "public"
+  | "connected_account"
+  | "github_app"
+  | "deploy_key";
 
 type Site = {
   id: string;
@@ -45,6 +49,7 @@ type LoaderData = {
   user: {
     role?: string;
   };
+  githubConnection: GithubConnectionStatus;
 };
 
 type ActionData = { ok: true; siteId: string } | { ok: false; error: string };
@@ -58,6 +63,8 @@ type GithubRepoOption = {
   full_name: string;
   default_branch: string;
   html_url: string;
+  private?: boolean;
+  can_manage_keys?: boolean;
 };
 
 type GithubBranchOption = {
@@ -69,6 +76,15 @@ type DeployKeyPayload = {
   public_key: string;
   fingerprint?: string;
   repo_full_name?: string | null;
+};
+
+type GithubConnectionStatus = {
+  configured: boolean;
+  connected: boolean;
+  login?: string;
+  name?: string | null;
+  avatar_url?: string | null;
+  scopes: string[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -128,11 +144,17 @@ function parseGithubRepos(payload: unknown): GithubRepoOption[] {
       const htmlUrl = getStringValue(item.html_url) ?? "";
       const defaultBranch = getStringValue(item.default_branch) ?? "main";
       if (!fullName) return null;
-      return {
+      const repoOption: GithubRepoOption = {
         full_name: fullName,
         default_branch: defaultBranch,
         html_url: htmlUrl,
+        private: item.private === true,
+        can_manage_keys:
+          isRecord(item) && typeof item.can_manage_keys === "boolean"
+            ? item.can_manage_keys
+            : undefined,
       };
+      return repoOption;
     })
     .filter((item): item is GithubRepoOption => item !== null);
 }
@@ -152,6 +174,30 @@ function parseGithubBranches(payload: unknown): GithubBranchOption[] {
       return { name };
     })
     .filter((item): item is GithubBranchOption => item !== null);
+}
+
+function parseGithubConnection(payload: unknown): GithubConnectionStatus {
+  if (!isRecord(payload)) {
+    return {
+      configured: false,
+      connected: false,
+      scopes: [],
+    };
+  }
+
+  return {
+    configured: payload.configured === true,
+    connected: payload.connected === true,
+    login: getStringValue(payload.login) ?? undefined,
+    name: getStringValue(payload.name),
+    avatar_url: getStringValue(payload.avatar_url),
+    scopes: Array.isArray(payload.scopes)
+      ? payload.scopes.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
+      : [],
+  };
 }
 
 function extractGithubRepoParts(
@@ -222,13 +268,31 @@ export async function loader({
   const { user } = await requireUser(request);
 
   try {
-    const res = await apiFetchAuthed(request, "/api/sites", { method: "GET" });
-    const data = await res.json();
+    const [sitesRes, githubRes] = await Promise.all([
+      apiFetchAuthed(request, "/api/sites", { method: "GET" }),
+      apiFetchAuthed(request, "/api/github/connection", { method: "GET" }),
+    ]);
+
+    const data = await sitesRes.json();
     const sites = Array.isArray(data) ? data : data.sites || data.data || [];
-    return { sites, user: { role: user.role } };
+    const githubPayload = await githubRes.json().catch(() => null);
+
+    return {
+      sites,
+      user: { role: user.role },
+      githubConnection: parseGithubConnection(githubPayload),
+    };
   } catch (error) {
     console.error("Loader failed", error);
-    return { sites: [], user: { role: user.role } };
+    return {
+      sites: [],
+      user: { role: user.role },
+      githubConnection: {
+        configured: false,
+        connected: false,
+        scopes: [],
+      },
+    };
   }
 }
 
@@ -272,7 +336,11 @@ export async function action({
 
     payload.repo_url = repoUrl;
     payload.repo_branch = repoBranch;
-    payload.auto_deploy = repoAccess !== "deploy_key";
+    payload.auto_deploy = repoAccess === "public" || repoAccess === "github_app";
+
+    if (repoAccess === "connected_account") {
+      payload.use_github_connection = true;
+    }
 
     if (repoAccess === "github_app") {
       if (!githubAppId) {
@@ -353,13 +421,15 @@ function typeMeta(type: SiteType) {
 // Main Component
 // ------------------------------
 export default function SitesPage() {
-  const { sites, user } = useLoaderData() as LoaderData;
+  const { sites, user, githubConnection } = useLoaderData() as LoaderData;
   const nav = useNavigation();
   const [searchParams] = useSearchParams();
   const actionData = useActionData() as ActionData | undefined;
 
   const [query, setQuery] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(false);
+  const githubStatus = searchParams.get("github");
+  const githubMessage = searchParams.get("github_message");
 
   React.useEffect(() => {
     const wantsNew = searchParams.get("new");
@@ -399,6 +469,22 @@ export default function SitesPage() {
           New Site
         </button>
       </div>
+
+      {githubStatus === "connected" ? (
+        <div className="rounded-[28px] border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
+          <div className="font-semibold">GitHub connected</div>
+          <p className="mt-1 opacity-85">
+            Private repository automation is ready inside the site creator.
+          </p>
+        </div>
+      ) : githubStatus === "error" || githubStatus === "invalid-state" ? (
+        <div className="rounded-[28px] border border-red-400/20 bg-red-400/10 px-5 py-4 text-sm text-red-100">
+          <div className="font-semibold">GitHub connection failed</div>
+          <p className="mt-1 opacity-85">
+            {githubMessage || "The GitHub callback did not complete successfully."}
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex items-center gap-3">
         <div className="w-full rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 backdrop-blur-xl">
@@ -466,6 +552,7 @@ export default function SitesPage() {
         actionData={actionData}
         isSubmitting={isSubmitting}
         canUsePrivateGithubApps={user.role === "admin"}
+        githubConnection={githubConnection}
       />
     </div>
   );
@@ -477,12 +564,14 @@ function CreateSiteModal({
   actionData,
   isSubmitting,
   canUsePrivateGithubApps,
+  githubConnection,
 }: {
   open: boolean;
   onClose: () => void;
   actionData?: ActionData;
   isSubmitting: boolean;
   canUsePrivateGithubApps: boolean;
+  githubConnection: GithubConnectionStatus;
 }) {
   const [createType, setCreateType] =
     React.useState<SupportedCreateType>("wordpress");
@@ -519,6 +608,9 @@ function CreateSiteModal({
     null,
   );
   const [deployKeyCopied, setDeployKeyCopied] = React.useState(false);
+  const canUseConnectedGithub = githubConnection.configured;
+  const isConnectedGithubReady =
+    githubConnection.configured && githubConnection.connected;
 
   React.useEffect(() => {
     if (!canUsePrivateGithubApps) {
@@ -584,22 +676,29 @@ function CreateSiteModal({
     if (
       !open ||
       createType !== "node" ||
-      repoAccessMode !== "github_app" ||
-      !selectedGithubApp
+      !(
+        (repoAccessMode === "github_app" && selectedGithubApp) ||
+        (repoAccessMode === "connected_account" && isConnectedGithubReady)
+      )
     ) {
       return;
     }
 
     let cancelled = false;
     setRepoOptionsState("loading");
+    const repoUrl =
+      repoAccessMode === "connected_account"
+        ? "/api/github/connected/repos"
+        : `/api/github/repos/${encodeURIComponent(selectedGithubApp)}`;
 
-    fetchJsonList(
-      `/api/github/repos/${encodeURIComponent(selectedGithubApp)}`,
-      parseGithubRepos,
-    )
+    fetchJsonList(repoUrl, parseGithubRepos)
       .then((repos) => {
         if (cancelled) return;
-        setRepoOptions(repos);
+        setRepoOptions(
+          repoAccessMode === "connected_account"
+            ? repos.filter((repo) => repo.can_manage_keys !== false)
+            : repos,
+        );
         setRepoOptionsState("ready");
       })
       .catch((error: unknown) => {
@@ -609,14 +708,22 @@ function CreateSiteModal({
         setRepoOptionsError(
           error instanceof Error
             ? error.message
-            : "Could not load repositories for this GitHub connection.",
+            : repoAccessMode === "connected_account"
+              ? "Could not load repositories from your connected GitHub account."
+              : "Could not load repositories for this GitHub connection.",
         );
       });
 
     return () => {
       cancelled = true;
     };
-  }, [createType, open, repoAccessMode, selectedGithubApp]);
+  }, [
+    createType,
+    isConnectedGithubReady,
+    open,
+    repoAccessMode,
+    selectedGithubApp,
+  ]);
 
   React.useEffect(() => {
     setBranchOptions([]);
@@ -626,8 +733,10 @@ function CreateSiteModal({
     if (
       !open ||
       createType !== "node" ||
-      repoAccessMode !== "github_app" ||
-      !selectedGithubApp
+      !(
+        (repoAccessMode === "github_app" && selectedGithubApp) ||
+        (repoAccessMode === "connected_account" && isConnectedGithubReady)
+      )
     ) {
       return;
     }
@@ -637,11 +746,12 @@ function CreateSiteModal({
 
     let cancelled = false;
     setBranchOptionsState("loading");
+    const branchesUrl =
+      repoAccessMode === "connected_account"
+        ? `/api/github/connected/branches/${encodeURIComponent(repoParts.owner)}/${encodeURIComponent(repoParts.repo)}`
+        : `/api/github/branches/${encodeURIComponent(selectedGithubApp)}/${encodeURIComponent(repoParts.owner)}/${encodeURIComponent(repoParts.repo)}`;
 
-    fetchJsonList(
-      `/api/github/branches/${encodeURIComponent(selectedGithubApp)}/${encodeURIComponent(repoParts.owner)}/${encodeURIComponent(repoParts.repo)}`,
-      parseGithubBranches,
-    )
+    fetchJsonList(branchesUrl, parseGithubBranches)
       .then((branches) => {
         if (cancelled) return;
         setBranchOptions(branches);
@@ -660,7 +770,9 @@ function CreateSiteModal({
         setBranchOptionsError(
           error instanceof Error
             ? error.message
-            : "Could not load branches for this repository.",
+            : repoAccessMode === "connected_account"
+              ? "Could not load branches from your connected GitHub account."
+              : "Could not load branches for this repository.",
         );
       });
 
@@ -669,6 +781,7 @@ function CreateSiteModal({
     };
   }, [
     createType,
+    isConnectedGithubReady,
     open,
     repoAccessMode,
     repoBranch,
@@ -781,36 +894,36 @@ function CreateSiteModal({
     value: RepoAccessMode;
     title: string;
     description: string;
-  }> = canUsePrivateGithubApps
-    ? [
-        {
-          value: "public",
-          title: "Public Repo",
-          description: "Use a public GitHub repository with no extra credentials.",
-        },
-        {
-          value: "github_app",
-          title: "GitHub App",
-          description: "Use a connected GitHub App for private repositories.",
-        },
-        {
-          value: "deploy_key",
-          title: "Deploy Key",
-          description: "Generate a tenant-owned deploy key for a private repository.",
-        },
-      ]
-    : [
-        {
-          value: "public",
-          title: "Public Repo",
-          description: "Use a public GitHub repository with no extra credentials.",
-        },
-        {
-          value: "deploy_key",
-          title: "Deploy Key",
-          description: "Generate a tenant-owned deploy key for a private repository.",
-        },
-      ];
+    disabled?: boolean;
+  }> = [
+    {
+      value: "public",
+      title: "Public Repo",
+      description: "Use a public GitHub repository with no extra credentials.",
+    },
+    {
+      value: "connected_account",
+      title: "Connected GitHub",
+      description: canUseConnectedGithub
+        ? "Let the panel add the deploy key to your private repo automatically."
+        : "Enable GitHub OAuth on the panel to unlock automatic private-repo setup.",
+      disabled: !canUseConnectedGithub,
+    },
+    ...(canUsePrivateGithubApps
+      ? [
+          {
+            value: "github_app" as const,
+            title: "GitHub App",
+            description: "Use a shared admin-managed GitHub App connection.",
+          },
+        ]
+      : []),
+    {
+      value: "deploy_key",
+      title: "Manual Deploy Key",
+      description: "Generate a deploy key yourself if you do not want to connect GitHub.",
+    },
+  ];
 
   return (
     <AnimatePresence>
@@ -953,14 +1066,16 @@ function CreateSiteModal({
                     <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
                       Repository Access
                     </label>
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {accessOptions.map((option) => {
                         const active = repoAccessMode === option.value;
                         return (
                           <button
                             key={option.value}
                             type="button"
+                            disabled={option.disabled}
                             onClick={() => {
+                              if (option.disabled) return;
                               setRepoAccessMode(option.value);
                               setDeployKey(null);
                               setDeployKeyCopied(false);
@@ -971,7 +1086,9 @@ function CreateSiteModal({
                               "rounded-2xl border p-4 text-left transition-all",
                               active
                                 ? "border-white/25 bg-white/[0.07]"
-                                : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]",
+                                : option.disabled
+                                  ? "cursor-not-allowed border-white/5 bg-white/[0.015] text-white/35 opacity-60"
+                                  : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]",
                             )}
                           >
                             <div className="text-sm font-bold text-white">
@@ -1028,6 +1145,38 @@ function CreateSiteModal({
                       <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                         GitHub App connections are restricted to administrators.
                       </div>
+                    ) : repoAccessMode === "connected_account" ? (
+                      !githubConnection.configured ? (
+                        <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+                          GitHub OAuth is not configured on this panel yet. Add
+                          the OAuth app credentials first, then come back to use
+                          one-click private repo onboarding.
+                        </div>
+                      ) : !githubConnection.connected ? (
+                        <div className="flex flex-col gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm text-amber-100 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            Connect your GitHub account once, then the panel can
+                            add the deploy key to private repositories you
+                            administer.
+                          </div>
+                          <a
+                            href="/api/github/oauth/start?returnTo=/app/sites?new=1"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
+                          >
+                            <Github className="h-4 w-4" />
+                            Connect GitHub
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                          Connected as{" "}
+                          <span className="font-semibold text-white">
+                            @{githubConnection.login || githubConnection.name || "github-user"}
+                          </span>
+                          . The panel will add the deploy key to the selected
+                          private repository automatically.
+                        </div>
+                      )
                     ) : repoAccessMode === "deploy_key" ? (
                       <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
                         This mode generates a tenant-owned deploy key so normal
@@ -1083,7 +1232,9 @@ function CreateSiteModal({
                     </datalist>
                     {repoOptionsState === "loading" && (
                       <p className="text-xs text-white/45">
-                        Loading repositories from the selected GitHub app...
+                        {repoAccessMode === "connected_account"
+                          ? "Loading repositories from your connected GitHub account..."
+                          : "Loading repositories from the selected GitHub app..."}
                       </p>
                     )}
                     {repoOptionsError && (
@@ -1093,9 +1244,20 @@ function CreateSiteModal({
                     )}
                     {!repoOptionsError && repoOptions.length > 0 && (
                       <p className="text-xs text-white/45">
-                        Start typing to pick one of the connected repositories.
+                        {repoAccessMode === "connected_account"
+                          ? "Start typing to pick a repository where this GitHub account can manage deploy keys."
+                          : "Start typing to pick one of the connected repositories."}
                       </p>
                     )}
+                    {repoAccessMode === "connected_account" &&
+                      isConnectedGithubReady &&
+                      repoOptions.length === 0 &&
+                      repoOptionsState === "ready" && (
+                        <p className="text-xs text-amber-200">
+                          No repositories with deploy-key admin access were found
+                          for this GitHub account.
+                        </p>
+                      )}
                     {repoAccessMode === "deploy_key" && (
                       <p className="text-xs text-white/45">
                         Private-repo mode will normalize GitHub URLs into the
@@ -1125,7 +1287,9 @@ function CreateSiteModal({
                     </datalist>
                     {branchOptionsState === "loading" && (
                       <p className="text-xs text-white/45">
-                        Loading branches for this repository...
+                        {repoAccessMode === "connected_account"
+                          ? "Loading branches from your connected GitHub account..."
+                          : "Loading branches for this repository..."}
                       </p>
                     )}
                     {branchOptionsError && (

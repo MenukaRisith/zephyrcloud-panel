@@ -8,6 +8,7 @@ import { HealthController } from './health.controller';
 
 import { CoolifyModule } from './services/coolify/coolify.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { GithubModule } from './modules/github/github.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AdminModule } from './modules/admin/admin.module';
     SitesModule,
     CoolifyModule,
     AdminModule,
+    GithubModule,
   ],
   controllers: [HealthController],
 })

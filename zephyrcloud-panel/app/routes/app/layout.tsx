@@ -1,23 +1,27 @@
-// app/routes/app/layout.tsx
 import * as React from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigation, useLoaderData, Form } from "react-router";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard,
-  Globe,
-  Database,
-  Boxes,
-  Users,
-  Settings,
-  LifeBuoy,
-  LogOut,
-  ChevronRight,
-  Search,
+  Form,
+  Link,
+  NavLink,
+  Outlet,
+  useLoaderData,
+  useLocation,
+  useNavigation,
+} from "react-router";
+import { AnimatePresence, motion } from "framer-motion";
+import {
   Bell,
-  Shield,
+  Boxes,
+  ChevronRight,
+  Github,
+  LayoutDashboard,
+  LifeBuoy,
   Loader2,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Shield,
+  Users,
 } from "lucide-react";
 
 import { requireUser } from "../../services/session.server";
@@ -31,15 +35,12 @@ type LoaderData = {
   };
 };
 
-export async function loader({ request }: { request: Request }): Promise<LoaderData> {
+export async function loader({
+  request,
+}: {
+  request: Request;
+}): Promise<LoaderData> {
   const { user } = await requireUser(request);
-
-  // DEV: log user data
-  if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.debug("[app layout loader] user:", user);
-  }
-
   return { user };
 }
 
@@ -52,12 +53,28 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { to: "/app", label: "Overview", icon: <LayoutDashboard className="h-4 w-4" />, end: true },
-  { to: "/app/sites", label: "Sites", icon: <Boxes className="h-4 w-4" /> },
-  { to: "/app/domains", label: "Domains", icon: <Globe className="h-4 w-4" /> },
-  { to: "/app/databases", label: "Databases", icon: <Database className="h-4 w-4" /> },
-  { to: "/app/team", label: "Team", icon: <Users className="h-4 w-4" />, badge: "Optional" },
-  { to: "/app/settings", label: "Settings", icon: <Settings className="h-4 w-4" /> },
+  {
+    to: "/app",
+    label: "Overview",
+    icon: <LayoutDashboard className="h-4 w-4" />,
+    end: true,
+  },
+  {
+    to: "/app/sites",
+    label: "Sites",
+    icon: <Boxes className="h-4 w-4" />,
+  },
+  {
+    to: "/app/team",
+    label: "Team",
+    icon: <Users className="h-4 w-4" />,
+    badge: "Shared",
+  },
+  {
+    to: "/app/settings",
+    label: "Integrations",
+    icon: <Github className="h-4 w-4" />,
+  },
 ];
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -75,26 +92,22 @@ function initialsFromEmail(email: string) {
 function pageTitleFromPath(pathname: string) {
   if (pathname === "/app") return "Overview";
   if (pathname.startsWith("/app/sites")) return "Sites";
-  if (pathname.startsWith("/app/domains")) return "Domains";
-  if (pathname.startsWith("/app/databases")) return "Databases";
   if (pathname.startsWith("/app/team")) return "Team";
-  if (pathname.startsWith("/app/settings")) return "Settings";
+  if (pathname.startsWith("/app/settings")) return "Integrations";
   return "Dashboard";
 }
 
 export default function AppLayout() {
   const { user } = useLoaderData() as LoaderData;
-
   const location = useLocation();
-  const nav = useNavigation();
-  const isNavigating = nav.state !== "idle";
+  const navigation = useNavigation();
+  const isNavigating = navigation.state !== "idle";
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
   const title = pageTitleFromPath(location.pathname);
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white">
-      {/* Background */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 h-[34rem] w-[34rem] -translate-x-1/2 rounded-full bg-indigo-600/18 blur-3xl" />
         <div className="absolute -bottom-40 right-[-10rem] h-[26rem] w-[26rem] rounded-full bg-cyan-500/10 blur-3xl" />
@@ -103,7 +116,6 @@ export default function AppLayout() {
       </div>
 
       <div className="relative flex min-h-screen">
-        {/* Sidebar */}
         <AnimatePresence initial={false}>
           {sidebarOpen ? (
             <motion.aside
@@ -121,8 +133,12 @@ export default function AppLayout() {
                       <Shield className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold tracking-tight">ZephyrCloud</div>
-                      <div className="text-xs text-white/55">Tenant Dashboard</div>
+                      <div className="text-sm font-semibold tracking-tight">
+                        ZephyrCloud
+                      </div>
+                      <div className="text-xs text-white/55">
+                        Control Plane
+                      </div>
                     </div>
                   </Link>
 
@@ -155,7 +171,9 @@ export default function AppLayout() {
                       <div className="truncate text-sm font-semibold text-white/90">
                         {user?.name || user?.email || "User"}
                       </div>
-                      <div className="truncate text-xs text-white/55">{user?.role || "member"}</div>
+                      <div className="truncate text-xs text-white/55">
+                        {user?.role || "member"}
+                      </div>
                     </div>
 
                     <Form method="post" action="/logout">
@@ -172,10 +190,10 @@ export default function AppLayout() {
                   <div className="mt-3 flex items-center justify-between px-1 text-xs text-white/45">
                     <span>Need help?</span>
                     <Link
-                      to="/app/support"
+                      to="/app/settings"
                       className="inline-flex items-center gap-1 text-white/70 hover:text-white"
                     >
-                      <LifeBuoy className="h-3.5 w-3.5" /> Support
+                      <LifeBuoy className="h-3.5 w-3.5" /> Integrations
                     </Link>
                   </div>
                 </div>
@@ -184,16 +202,19 @@ export default function AppLayout() {
           ) : null}
         </AnimatePresence>
 
-        {/* Content */}
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 border-b border-white/10 bg-[#070A12]/60 backdrop-blur">
             <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 lg:px-6">
               <button
-                onClick={() => setSidebarOpen((v) => !v)}
+                onClick={() => setSidebarOpen((value) => !value)}
                 className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2 text-white/75 hover:bg-white/10 hover:text-white lg:hidden"
                 aria-label="Toggle sidebar"
               >
-                {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+                {sidebarOpen ? (
+                  <PanelLeftClose className="h-4 w-4" />
+                ) : (
+                  <PanelLeftOpen className="h-4 w-4" />
+                )}
               </button>
 
               {!sidebarOpen ? (
@@ -207,21 +228,30 @@ export default function AppLayout() {
               ) : null}
 
               <div className="flex min-w-0 items-center gap-2">
-                <div className="truncate text-sm font-semibold tracking-tight">{title}</div>
+                <div className="truncate text-sm font-semibold tracking-tight">
+                  {title}
+                </div>
                 <ChevronRight className="h-4 w-4 text-white/25" />
-                <div className="truncate text-sm text-white/60">{user?.tenant_name ?? "Workspace"}</div>
+                <div className="truncate text-sm text-white/60">
+                  {user?.tenant_name ?? "Workspace"}
+                </div>
               </div>
 
-              <div className="ml-auto hidden w-full max-w-sm lg:block">
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-white/45">
-                    <Search className="h-4 w-4" />
-                  </div>
-                  <input
-                    placeholder="Search sites, domains…"
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-10 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/20 focus:ring-4 focus:ring-white/10"
-                  />
-                </div>
+              <div className="ml-auto hidden items-center gap-3 lg:flex">
+                <Link
+                  to="/app/settings"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/75 transition hover:bg-white/10 hover:text-white"
+                >
+                  <Github className="h-4 w-4" />
+                  Integrations
+                </Link>
+                <Link
+                  to="/app/sites?new=1"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3.5 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
+                >
+                  <Boxes className="h-4 w-4" />
+                  New Site
+                </Link>
               </div>
 
               <button
@@ -243,7 +273,11 @@ export default function AppLayout() {
                   <motion.div
                     initial={{ x: "-30%" }}
                     animate={{ x: "100%" }}
-                    transition={{ duration: 0.85, repeat: Infinity, ease: "linear" }}
+                    transition={{
+                      duration: 0.85,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
                     className="h-full w-1/3 bg-white/60"
                   />
                 </motion.div>
@@ -265,16 +299,16 @@ export default function AppLayout() {
 
           <footer className="border-t border-white/10 bg-white/5">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 text-xs text-white/45 lg:px-6">
-              <span>© {new Date().getFullYear()} ZephyrCloud</span>
+              <span>(c) {new Date().getFullYear()} ZephyrCloud</span>
               <div className="flex items-center gap-4">
-                <Link to="/app/status" className="hover:text-white">
-                  Status
+                <Link to="/app" className="hover:text-white">
+                  Overview
                 </Link>
-                <Link to="/app/docs" className="hover:text-white">
-                  Docs
+                <Link to="/app/sites" className="hover:text-white">
+                  Sites
                 </Link>
-                <Link to="/app/support" className="hover:text-white">
-                  Support
+                <Link to="/app/settings" className="hover:text-white">
+                  Integrations
                 </Link>
               </div>
             </div>
@@ -284,10 +318,27 @@ export default function AppLayout() {
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070A12]/70 backdrop-blur lg:hidden">
         <div className="mx-auto grid max-w-7xl grid-cols-4 gap-1 px-2 py-2">
-          <MobileNav to="/app" label="Home" icon={<LayoutDashboard className="h-4 w-4" />} end />
-          <MobileNav to="/app/sites" label="Sites" icon={<Boxes className="h-4 w-4" />} />
-          <MobileNav to="/app/domains" label="Domains" icon={<Globe className="h-4 w-4" />} />
-          <MobileNav to="/app/databases" label="DB" icon={<Database className="h-4 w-4" />} />
+          <MobileNav
+            to="/app"
+            label="Home"
+            icon={<LayoutDashboard className="h-4 w-4" />}
+            end
+          />
+          <MobileNav
+            to="/app/sites"
+            label="Sites"
+            icon={<Boxes className="h-4 w-4" />}
+          />
+          <MobileNav
+            to="/app/team"
+            label="Team"
+            icon={<Users className="h-4 w-4" />}
+          />
+          <MobileNav
+            to="/app/settings"
+            label="GitHub"
+            icon={<Github className="h-4 w-4" />}
+          />
         </div>
       </div>
 
@@ -300,7 +351,7 @@ export default function AppLayout() {
             className="fixed bottom-20 right-4 z-40 hidden items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 backdrop-blur md:inline-flex"
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading…
+            Loading...
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -318,7 +369,7 @@ function NavItemLink({ item }: { item: NavItem }) {
           "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition",
           isActive
             ? "border border-white/12 bg-white/10 text-white shadow-[0_12px_30px_-18px_rgba(0,0,0,0.9)]"
-            : "text-white/70 hover:bg-white/5 hover:text-white"
+            : "text-white/70 hover:bg-white/5 hover:text-white",
         )
       }
     >
@@ -354,7 +405,9 @@ function MobileNav({
       className={({ isActive }) =>
         cx(
           "flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs transition",
-          isActive ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+          isActive
+            ? "bg-white/10 text-white"
+            : "text-white/60 hover:bg-white/5 hover:text-white",
         )
       }
     >

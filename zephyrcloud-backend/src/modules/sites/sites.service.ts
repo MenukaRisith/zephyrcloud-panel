@@ -18,6 +18,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { JwtPayload } from '../../common/types/auth.types';
+import { GithubService } from '../github/github.service';
 import {
   CoolifyService,
   type CoolifyResourceType,
@@ -122,6 +123,7 @@ export class SitesService {
   public constructor(
     private readonly prisma: PrismaService,
     private readonly coolify: CoolifyService,
+    private readonly github: GithubService,
   ) {}
 
   // -------------------------
@@ -322,15 +324,10 @@ export class SitesService {
   // Create Site
   // -------------------------
 
-  public async createDeployKey(
+  private async createDeployKeyRecord(
     user: JwtPayload,
     dto: CreateDeployKeyDto,
-  ): Promise<{
-    uuid: string;
-    public_key: string;
-    fingerprint: string;
-    repo_full_name: string | null;
-  }> {
+  ): Promise<SiteDeployKeyPayload> {
     const tenantId = this.requireTenantId(user);
     const userId = this.requireUserId(user);
     const siteName = String(dto.site_name ?? '').trim() || 'private-node-app';
@@ -360,23 +357,67 @@ export class SitesService {
       is_git_related: true,
     });
 
-    await this.prisma.siteDeployKey.create({
-      data: {
-        tenant_id: tenantId,
-        created_by_user_id: userId,
-        coolify_key_uuid: created.uuid,
-        name: keyName,
-        description,
-        public_key: publicKeyValue,
-        fingerprint,
-      },
-    });
+    try {
+      return await this.prisma.siteDeployKey.create({
+        data: {
+          tenant_id: tenantId,
+          created_by_user_id: userId,
+          coolify_key_uuid: created.uuid,
+          name: keyName,
+          description,
+          public_key: publicKeyValue,
+          fingerprint,
+          github_repo_full_name: repoFullName,
+        },
+      });
+    } catch (error) {
+      await this.coolify.deletePrivateKey(created.uuid).catch(() => {});
+      throw error;
+    }
+  }
+
+  private async cleanupAutoProvisionedDeployKey(
+    user: JwtPayload,
+    deployKeyRecord: SiteDeployKeyPayload,
+  ): Promise<void> {
+    if (
+      deployKeyRecord.github_repo_full_name &&
+      typeof deployKeyRecord.github_deploy_key_id === 'number'
+    ) {
+      await this.github.removeRepositoryDeployKey(
+        user,
+        deployKeyRecord.github_repo_full_name,
+        deployKeyRecord.github_deploy_key_id,
+      );
+    }
+
+    await this.coolify
+      .deletePrivateKey(deployKeyRecord.coolify_key_uuid)
+      .catch(() => {});
+
+    await this.prisma.siteDeployKey
+      .delete({
+        where: { id: deployKeyRecord.id },
+      })
+      .catch(() => {});
+  }
+
+  public async createDeployKey(
+    user: JwtPayload,
+    dto: CreateDeployKeyDto,
+  ): Promise<{
+    uuid: string;
+    public_key: string;
+    fingerprint: string;
+    repo_full_name: string | null;
+  }> {
+    const deployKey = await this.createDeployKeyRecord(user, dto);
 
     return {
-      uuid: created.uuid,
-      public_key: publicKeyValue,
-      fingerprint,
-      repo_full_name: repoFullName,
+      uuid: deployKey.coolify_key_uuid,
+      public_key: deployKey.public_key,
+      fingerprint: deployKey.fingerprint ?? '',
+      repo_full_name: deployKey.github_repo_full_name,
     };
   }
 
@@ -400,9 +441,11 @@ export class SitesService {
       );
     }
 
-    // 1. Create DB Record (Provisioning state)
-    const privateKeyUuid = String(dto.private_key_uuid ?? '').trim() || undefined;
-    const usesPrivateDeployKey = Boolean(privateKeyUuid);
+    const requestedPrivateKeyUuid =
+      String(dto.private_key_uuid ?? '').trim() || undefined;
+    const usesGithubConnection = Boolean(dto.use_github_connection);
+    let privateKeyUuid = requestedPrivateKeyUuid;
+    const usesPrivateDeployKey = Boolean(privateKeyUuid) || usesGithubConnection;
     const repoForCoolify = dto.repo_url
       ? usesPrivateDeployKey
         ? this.normalizePrivateGitRepositoryForCoolify(dto.repo_url)
@@ -437,6 +480,12 @@ export class SitesService {
       );
     }
 
+    if (usesGithubConnection && requestedPrivateKeyUuid) {
+      throw new BadRequestException(
+        'Choose either a connected GitHub account or a manual deploy key, not both.',
+      );
+    }
+
     if (isNodeSite && !repoForCoolify) {
       throw new BadRequestException(
         'Node.js site creation requires a GitHub repository.',
@@ -453,35 +502,76 @@ export class SitesService {
     }
 
     let deployKeyRecord: SiteDeployKeyPayload | null = null;
-    if (privateKeyUuid) {
-      deployKeyRecord = await this.getAvailableDeployKeyOrThrow(
-        tenantId,
-        userId,
-        privateKeyUuid,
-      );
-    }
+    let shouldCleanupAutoProvisionedKey = false;
 
-    const site = await this.prisma.site.create({
-      data: {
-        tenant_id: tenantId,
-        name: siteName,
-        type: dto.type,
-        status: 'provisioning',
-        cpu_limit: 1,
-        memory_mb: 512,
-        repo_url: repoForCoolify,
-        repo_branch: repoForCoolify ? dto.repo_branch || 'main' : null,
-        auto_deploy:
-          dto.auto_deploy ?? (isNodeSite && !usesPrivateDeployKey),
-        coolify_project_id: null,
-        coolify_resource_id: null,
-        coolify_server_uuid: null,
-        coolify_resource_type: null,
-        coolify_destination_uuid: null,
-      },
-    });
-
+    let site: SitePayload | null = null;
     try {
+      if (usesGithubConnection) {
+        if (!repoFullName) {
+          throw new BadRequestException(
+            'Connected GitHub automation requires a valid GitHub repository.',
+          );
+        }
+
+        deployKeyRecord = await this.createDeployKeyRecord(user, {
+          site_name: siteName,
+          repo_url: repoFullName,
+        });
+
+        shouldCleanupAutoProvisionedKey = true;
+        privateKeyUuid = deployKeyRecord.coolify_key_uuid;
+
+        const githubDeployKey = await this.github.createRepositoryDeployKey(
+          user,
+          repoFullName,
+          {
+            title: deployKeyRecord.name,
+            key: deployKeyRecord.public_key,
+            read_only: true,
+          },
+        );
+
+        deployKeyRecord = {
+          ...deployKeyRecord,
+          github_repo_full_name: repoFullName,
+          github_deploy_key_id: githubDeployKey.id,
+        };
+
+        deployKeyRecord = await this.prisma.siteDeployKey.update({
+          where: { id: deployKeyRecord.id },
+          data: {
+            github_repo_full_name: repoFullName,
+            github_deploy_key_id: githubDeployKey.id,
+          },
+        });
+      } else if (privateKeyUuid) {
+        deployKeyRecord = await this.getAvailableDeployKeyOrThrow(
+          tenantId,
+          userId,
+          privateKeyUuid,
+        );
+      }
+
+      site = await this.prisma.site.create({
+        data: {
+          tenant_id: tenantId,
+          name: siteName,
+          type: dto.type,
+          status: 'provisioning',
+          cpu_limit: 1,
+          memory_mb: 512,
+          repo_url: repoForCoolify,
+          repo_branch: repoForCoolify ? dto.repo_branch || 'main' : null,
+          auto_deploy:
+            dto.auto_deploy ?? (isNodeSite && !usesPrivateDeployKey),
+          coolify_project_id: null,
+          coolify_resource_id: null,
+          coolify_server_uuid: null,
+          coolify_resource_type: null,
+          coolify_destination_uuid: null,
+        },
+      });
+
       // 2. Prepare config and send to Coolify
       const coolifyPayload: CoolifyCreateProjectInput = {
         name: siteName,
@@ -569,10 +659,16 @@ export class SitesService {
         `[createSite] Failed: ${error instanceof Error ? error.message : String(error)}`,
       );
 
-      await this.prisma.site.update({
-        where: { id: site.id },
-        data: { status: 'error' },
-      });
+      if (site) {
+        await this.prisma.site.update({
+          where: { id: site.id },
+          data: { status: 'error' },
+        });
+      }
+
+      if (shouldCleanupAutoProvisionedKey && deployKeyRecord) {
+        await this.cleanupAutoProvisionedDeployKey(user, deployKeyRecord);
+      }
 
       throw error;
     }

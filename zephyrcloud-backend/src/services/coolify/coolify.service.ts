@@ -316,6 +316,10 @@ export class CoolifyService {
     return this.client.post<{ uuid: string }>('/api/v1/security/keys', payload);
   }
 
+  async deletePrivateKey(keyUuid: string): Promise<void> {
+    await this.client.delete(`/api/v1/security/keys/${keyUuid}`);
+  }
+
   // --- GitHub Helpers ---
 
   async getGithubApps(): Promise<GithubAppListItem[]> {

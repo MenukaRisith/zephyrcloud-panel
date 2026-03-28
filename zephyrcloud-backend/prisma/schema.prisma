@@ -25,6 +25,7 @@ model Tenant {
   users        User[]
   sites        Site[]
   deploy_keys  SiteDeployKey[]
+  github_connections UserGithubConnection[]
   domains      Domain[]
   site_invites SiteInvite[]
 
@@ -63,6 +64,7 @@ model User {
   password_resets    PasswordReset[]
   site_members       SiteMember[]
   deploy_keys        SiteDeployKey[]
+  github_connection  UserGithubConnection?
 
   @@index([tenant_id])
 }
@@ -225,12 +227,38 @@ model SiteDeployKey {
   description      String?
   public_key       String
   fingerprint      String?
+  github_repo_full_name String?
+  github_deploy_key_id  Int?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@index([tenant_id])
   @@index([created_by_user_id])
+}
+
+model UserGithubConnection {
+  id BigInt @id @default(autoincrement())
+
+  tenant_id BigInt
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  user_id BigInt @unique
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  provider               String @default("github_oauth")
+  github_user_id         String
+  github_login           String
+  github_name            String?
+  github_avatar_url      String?
+  access_token_encrypted String
+  token_scope            String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@index([github_login])
 }
 
 model Domain {

@@ -49,4 +49,8 @@ export class CreateSiteDto {
   @IsOptional()
   @IsString()
   private_key_uuid?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  use_github_connection?: boolean;
 }

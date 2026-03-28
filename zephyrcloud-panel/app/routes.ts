@@ -21,6 +21,13 @@ export default [
     "api/github/branches/:appUuid/:owner/:repo",
     "routes/api.github.branches.$appUuid.$owner.$repo.ts",
   ),
+  route("api/github/connection", "routes/api.github.connection.ts"),
+  route("api/github/connected/repos", "routes/api.github.connected.repos.ts"),
+  route(
+    "api/github/connected/branches/:owner/:repo",
+    "routes/api.github.connected.branches.$owner.$repo.ts",
+  ),
+  route("api/github/oauth/start", "routes/api.github.oauth.start.ts"),
   route("api/deploy-keys", "routes/api.deploy-keys.ts"),
 
   route("app", "routes/app/layout.tsx", [
@@ -31,6 +38,10 @@ export default [
 
     // Team access overview
     route("team", "routes/app/team.tsx"),
+
+    // Personal integrations
+    route("settings", "routes/app/settings.tsx"),
+    route("settings/github/callback", "routes/app/settings.github.callback.tsx"),
 
     // Site page
     route("sites/:id", "routes/app/site.$id.tsx"),

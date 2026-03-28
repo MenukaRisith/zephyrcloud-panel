@@ -44,6 +44,11 @@ type LoaderData = {
   stats: DashboardStats;
   recent: ActivityItem[];
   userName?: string;
+  github: {
+    configured: boolean;
+    connected: boolean;
+    login?: string;
+  };
 };
 
 // --- Loader ---
@@ -51,10 +56,25 @@ type LoaderData = {
 export async function loader({ request }: { request: Request }): Promise<LoaderData> {
   try {
     // 1. Fetch Sites
-    const sitesRes = await apiFetchAuthed(request, "/api/sites", { method: "GET" });
+    const [sitesRes, githubRes] = await Promise.all([
+      apiFetchAuthed(request, "/api/sites", { method: "GET" }),
+      apiFetchAuthed(request, "/api/github/connection", { method: "GET" }),
+    ]);
     if (!sitesRes.ok) throw new Error("Failed to fetch sites");
-    
+
     const sitesData = await sitesRes.json();
+    const githubPayload = await githubRes.json().catch(() => null);
+    const github =
+      githubPayload && typeof githubPayload === "object"
+        ? {
+            configured: githubPayload.configured === true,
+            connected: githubPayload.connected === true,
+            login:
+              typeof (githubPayload as Record<string, unknown>).login === "string"
+                ? ((githubPayload as Record<string, unknown>).login as string)
+                : undefined,
+          }
+        : { configured: false, connected: false, login: undefined };
     
     // Normalize response
     let sites: Site[] = [];
@@ -165,13 +185,22 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
       }
     }
 
-    return { stats, recent };
+    if (github.configured && !github.connected) {
+      recent.unshift({
+        title: "Connect GitHub",
+        desc: "Link your GitHub account to automate private repository onboarding.",
+        tone: "warn",
+      });
+    }
+
+    return { stats, recent, github };
 
   } catch (error) {
     console.error("Dashboard loader error:", error);
     return {
       stats: { sites: 0, domains: 0, databases: 0, deployments: 0 },
       recent: [{ title: "Connection Error", desc: "Could not load dashboard stats.", tone: "warn" }],
+      github: { configured: false, connected: false },
     };
   }
 }
@@ -183,7 +212,7 @@ function cx(...classes: Array<string | false | null | undefined>) {
 }
 
 export default function AppIndex() {
-  const { stats, recent } = useLoaderData() as LoaderData;
+  const { stats, recent, github } = useLoaderData() as LoaderData;
 
   const cards = [
     { label: "Active Sites", value: stats.sites, icon: <Server className="h-5 w-5 text-indigo-400" />, border: "border-indigo-500/20", bg: "bg-indigo-500/5" },
@@ -298,9 +327,18 @@ export default function AppIndex() {
           </div>
 
           <div className="space-y-2">
-            <Step num="01" title="Create Application" desc="Deploy a WordPress site with managed resources." to="/app/sites?new=1" />
-            <Step num="02" title="Connect Domain" desc="Attach custom domains to sites." to="/app/sites" />
-            <Step num="03" title="Check Database" desc="View credentials and connection strings." to="/app/sites" />
+            <Step
+              num="01"
+              title={github.connected ? "Deploy Private Repo" : "Connect GitHub"}
+              desc={
+                github.connected
+                  ? `GitHub is linked${github.login ? ` as @${github.login}` : ""}. Private repo onboarding is now one-click.`
+                  : "Link GitHub once so the panel can add private-repo deploy keys automatically."
+              }
+              to={github.connected ? "/app/sites?new=1" : "/app/settings"}
+            />
+            <Step num="02" title="Create Application" desc="Deploy a public or private Node.js app or spin up WordPress." to="/app/sites?new=1" />
+            <Step num="03" title="Review Team Access" desc="Share the right sites with the right teammates." to="/app/team" />
           </div>
         </motion.div>
       </div>
