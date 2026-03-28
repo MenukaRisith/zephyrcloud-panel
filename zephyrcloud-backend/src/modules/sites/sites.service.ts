@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import * as sshpk from 'sshpk';
 
 import {
   BadRequestException,
@@ -12,6 +13,7 @@ import {
   type Site,
   type Domain,
   type SiteDatabase,
+  type SiteDeployKey,
   SiteMemberRole,
 } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -22,6 +24,7 @@ import {
   type CoolifyDbDetails,
 } from '../../services/coolify/coolify.service';
 import { SiteTypeDto, type CreateSiteDto } from './dto/create-site.dto';
+import type { CreateDeployKeyDto } from './dto/create-deploy-key.dto';
 import type { AddDomainDto } from './dto/add-domain.dto';
 import type { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import type { AddSiteMemberDto } from './dto/add-site-member.dto';
@@ -86,6 +89,7 @@ type DeploymentPayload = {
   updated_at: Date;
 };
 type SiteDatabasePayload = SiteDatabase;
+type SiteDeployKeyPayload = SiteDeployKey;
 type CoolifyCreateProjectInput = Parameters<CoolifyService['createProject']>[0];
 type CoolifyCreateProjectResult = Awaited<
   ReturnType<CoolifyService['createProject']>
@@ -213,23 +217,41 @@ export class SitesService {
   // Git Helpers
   // -------------------------
 
-  private normalizeGitRepositoryForCoolify(input: string): string | null {
+  private extractGithubRepositoryRef(input: string): string | null {
     const v = String(input || '').trim();
     if (!v) return null;
 
     const simple = v.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
     if (simple) return `${simple[1]}/${simple[2]}`;
 
-    const https = v.match(/github\.com\/([^/]+)\/([^/.?#]+)(?:\.git)?/i);
-    if (https) return `${https[1]}/${https[2]}`;
+    const https = v.match(
+      /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/?#]+)(?:[/?#].*)?$/i,
+    );
+    if (https) {
+      const repo = https[2].replace(/\.git$/i, '');
+      if (repo) return `${https[1]}/${repo}`;
+    }
 
-    const ssh = v.match(/git@github\.com:([^/]+)\/([^/.]+)(?:\.git)?/i);
-    if (ssh) return `${ssh[1]}/${ssh[2]}`;
+    const ssh = v.match(/^git@github\.com:([^/]+)\/([^/]+)$/i);
+    if (ssh) {
+      const repo = ssh[2].replace(/\.git$/i, '');
+      if (repo) return `${ssh[1]}/${repo}`;
+    }
 
     this.logger.warn(
-      `[normalizeGitRepositoryForCoolify] Could not parse owner/repo from: "${v}"`,
+      `[extractGithubRepositoryRef] Could not parse owner/repo from: "${v}"`,
     );
     return null;
+  }
+
+  private normalizeGitRepositoryForCoolify(input: string): string | null {
+    return this.extractGithubRepositoryRef(input);
+  }
+
+  private normalizePrivateGitRepositoryForCoolify(input: string): string | null {
+    const repoRef = this.extractGithubRepositoryRef(input);
+    if (!repoRef) return null;
+    return `git@github.com:${repoRef}.git`;
   }
 
   private requireAdminForPrivateGithubApp(user: JwtPayload) {
@@ -238,6 +260,29 @@ export class SitesService {
         'Private GitHub app connections are only available to administrators.',
       );
     }
+  }
+
+  private async getAvailableDeployKeyOrThrow(
+    tenantId: bigint,
+    userId: bigint,
+    coolifyKeyUuid: string,
+  ): Promise<SiteDeployKeyPayload> {
+    const deployKey = await this.prisma.siteDeployKey.findFirst({
+      where: {
+        tenant_id: tenantId,
+        created_by_user_id: userId,
+        coolify_key_uuid: coolifyKeyUuid,
+        site_id: null,
+      },
+    });
+
+    if (!deployKey) {
+      throw new ForbiddenException(
+        'Deploy key not found or no longer available for this tenant.',
+      );
+    }
+
+    return deployKey;
   }
 
   private normalizeCoolifyStatus(
@@ -277,11 +322,70 @@ export class SitesService {
   // Create Site
   // -------------------------
 
+  public async createDeployKey(
+    user: JwtPayload,
+    dto: CreateDeployKeyDto,
+  ): Promise<{
+    uuid: string;
+    public_key: string;
+    fingerprint: string;
+    repo_full_name: string | null;
+  }> {
+    const tenantId = this.requireTenantId(user);
+    const userId = this.requireUserId(user);
+    const siteName = String(dto.site_name ?? '').trim() || 'private-node-app';
+    const repoFullName = dto.repo_url
+      ? this.extractGithubRepositoryRef(dto.repo_url)
+      : null;
+
+    if (dto.repo_url && !repoFullName) {
+      throw new BadRequestException(
+        'Only GitHub repositories in owner/repo or GitHub URL format are supported.',
+      );
+    }
+
+    const privateKey = sshpk.generatePrivateKey('ed25519');
+    const privateKeyValue = privateKey.toString('openssh');
+    const publicKeyValue = privateKey.toPublic().toString('ssh');
+    const fingerprint = privateKey.toPublic().fingerprint('sha256').toString();
+    const keyName = `${safeSvc(siteName)}-${rand(4)}`;
+    const description = repoFullName
+      ? `Tenant ${tenantId.toString()} deploy key for ${repoFullName}`
+      : `Tenant ${tenantId.toString()} deploy key for private repository access`;
+
+    const created = await this.coolify.createPrivateKey({
+      name: keyName,
+      description,
+      private_key: privateKeyValue,
+      is_git_related: true,
+    });
+
+    await this.prisma.siteDeployKey.create({
+      data: {
+        tenant_id: tenantId,
+        created_by_user_id: userId,
+        coolify_key_uuid: created.uuid,
+        name: keyName,
+        description,
+        public_key: publicKeyValue,
+        fingerprint,
+      },
+    });
+
+    return {
+      uuid: created.uuid,
+      public_key: publicKeyValue,
+      fingerprint,
+      repo_full_name: repoFullName,
+    };
+  }
+
   public async createSite(
     user: JwtPayload,
     dto: CreateSiteDto,
   ): Promise<SitePayload> {
     const tenantId = this.requireTenantId(user);
+    const userId = this.requireUserId(user);
     this.logger.debug(
       `[createSite] Starting creation for ${dto.name} (tenant: ${tenantId})`,
     );
@@ -297,8 +401,15 @@ export class SitesService {
     }
 
     // 1. Create DB Record (Provisioning state)
+    const privateKeyUuid = String(dto.private_key_uuid ?? '').trim() || undefined;
+    const usesPrivateDeployKey = Boolean(privateKeyUuid);
     const repoForCoolify = dto.repo_url
-      ? this.normalizeGitRepositoryForCoolify(dto.repo_url)
+      ? usesPrivateDeployKey
+        ? this.normalizePrivateGitRepositoryForCoolify(dto.repo_url)
+        : this.normalizeGitRepositoryForCoolify(dto.repo_url)
+      : null;
+    const repoFullName = dto.repo_url
+      ? this.extractGithubRepositoryRef(dto.repo_url)
       : null;
     const githubAppId = normalizeGithubAppSelection(dto.github_app_id);
     const isNodeSite = dto.type === SiteTypeDto.node;
@@ -310,12 +421,20 @@ export class SitesService {
 
     if (dto.repo_url && !repoForCoolify) {
       throw new BadRequestException(
-        'Only GitHub repositories in owner/repo or GitHub URL format are supported.',
+        usesPrivateDeployKey
+          ? 'Private repositories must be valid GitHub repositories. SSH, HTTPS, and owner/repo formats are supported.'
+          : 'Only GitHub repositories in owner/repo or GitHub URL format are supported.',
       );
     }
 
     if (githubAppId) {
       this.requireAdminForPrivateGithubApp(user);
+    }
+
+    if (githubAppId && usesPrivateDeployKey) {
+      throw new BadRequestException(
+        'Choose either a GitHub App connection or a private deploy key, not both.',
+      );
     }
 
     if (isNodeSite && !repoForCoolify) {
@@ -324,8 +443,22 @@ export class SitesService {
       );
     }
 
-    if (repoForCoolify && !isGithubOwnerRepo(repoForCoolify)) {
-      throw new BadRequestException('Repository must be a valid GitHub owner/repo pair.');
+    if (
+      repoFullName &&
+      !isGithubOwnerRepo(repoFullName)
+    ) {
+      throw new BadRequestException(
+        'Repository must be a valid GitHub owner/repo pair.',
+      );
+    }
+
+    let deployKeyRecord: SiteDeployKeyPayload | null = null;
+    if (privateKeyUuid) {
+      deployKeyRecord = await this.getAvailableDeployKeyOrThrow(
+        tenantId,
+        userId,
+        privateKeyUuid,
+      );
     }
 
     const site = await this.prisma.site.create({
@@ -338,7 +471,8 @@ export class SitesService {
         memory_mb: 512,
         repo_url: repoForCoolify,
         repo_branch: repoForCoolify ? dto.repo_branch || 'main' : null,
-        auto_deploy: dto.auto_deploy ?? isNodeSite,
+        auto_deploy:
+          dto.auto_deploy ?? (isNodeSite && !usesPrivateDeployKey),
         coolify_project_id: null,
         coolify_resource_id: null,
         coolify_server_uuid: null,
@@ -354,6 +488,7 @@ export class SitesService {
         type: dto.type,
         cpu_limit: 1,
         memory_mb: 512,
+        auto_deploy: dto.auto_deploy ?? (isNodeSite && !usesPrivateDeployKey),
       };
 
       if (repoForCoolify) {
@@ -364,6 +499,10 @@ export class SitesService {
       if (githubAppId) {
         coolifyPayload.github_app_id =
           await this.coolify.resolveGithubAppUuid(githubAppId);
+      }
+
+      if (privateKeyUuid) {
+        coolifyPayload.private_key_uuid = privateKeyUuid;
       }
 
       let wpDb: CoolifyDbDetails | null = null;
@@ -406,7 +545,7 @@ export class SitesService {
       }
 
       // 4. Update Site with Coolify IDs
-      return await this.prisma.site.update({
+      const updatedSite = await this.prisma.site.update({
         where: { id: site.id },
         data: {
           coolify_project_id: coolifyResult.projectId,
@@ -416,6 +555,15 @@ export class SitesService {
           coolify_destination_uuid: coolifyResult.destinationUuid,
         },
       });
+
+      if (deployKeyRecord) {
+        await this.prisma.siteDeployKey.update({
+          where: { id: deployKeyRecord.id },
+          data: { site_id: site.id },
+        });
+      }
+
+      return updatedSite;
     } catch (error) {
       this.logger.error(
         `[createSite] Failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -458,6 +606,10 @@ export class SitesService {
   ) {
     this.requireAdminForPrivateGithubApp(user);
     return this.coolify.getGithubBranches(appUuid, owner, repo);
+  }
+
+  public createSiteDeployKey(user: JwtPayload, dto: CreateDeployKeyDto) {
+    return this.createDeployKey(user, dto);
   }
 
   // --- Read Site ---

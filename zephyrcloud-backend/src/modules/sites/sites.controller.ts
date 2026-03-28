@@ -16,6 +16,7 @@ import type { JwtPayload } from '../../common/types/auth.types';
 
 import { SitesService } from './sites.service';
 import { CreateSiteDto } from './dto/create-site.dto';
+import { CreateDeployKeyDto } from './dto/create-deploy-key.dto';
 import { AddDomainDto } from './dto/add-domain.dto';
 import { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import { AddSiteMemberDto } from './dto/add-site-member.dto';
@@ -112,6 +113,14 @@ export class SitesController {
     @Param('repo') repo: string,
   ) {
     return this.sites.getGithubBranches(user, appId, owner, repo);
+  }
+
+  @Post('deploy-keys')
+  public createDeployKey(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateDeployKeyDto,
+  ) {
+    return this.sites.createSiteDeployKey(user, dto);
   }
 
   // --- Single Site Ops ---

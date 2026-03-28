@@ -45,4 +45,8 @@ export class CreateSiteDto {
   @IsOptional()
   @IsString() // Using string to support UUIDs if needed
   github_app_id?: string;
+
+  @IsOptional()
+  @IsString()
+  private_key_uuid?: string;
 }

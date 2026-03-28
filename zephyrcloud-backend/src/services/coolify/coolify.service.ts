@@ -82,17 +82,26 @@ type CoolifyEnvInput = {
   is_shown_once?: boolean;
 };
 
+type CreatePrivateKeyInput = {
+  name: string;
+  description?: string;
+  private_key: string;
+  is_git_related?: boolean;
+};
+
 type CreateProjectConfig = {
   name: string;
   type: string;
   repo_url?: string;
   repo_branch?: string;
+  auto_deploy?: boolean;
   cpu_limit: number;
   memory_mb: number;
   build_command?: string;
   start_command?: string;
   install_command?: string;
   github_app_id?: string | number;
+  private_key_uuid?: string;
   db?: CoolifyDbDetails;
 };
 
@@ -292,6 +301,19 @@ export class CoolifyService {
     } catch (error: unknown) {
       throw new Error(`Failed to delete env: ${this.formatError(error)}`);
     }
+  }
+
+  async createPrivateKey(
+    input: CreatePrivateKeyInput,
+  ): Promise<{ uuid: string }> {
+    const payload = this.stripUndefined({
+      name: input.name,
+      description: input.description,
+      private_key: input.private_key,
+      is_git_related: input.is_git_related ?? true,
+    });
+
+    return this.client.post<{ uuid: string }>('/api/v1/security/keys', payload);
   }
 
   // --- GitHub Helpers ---
@@ -602,6 +624,9 @@ export class CoolifyService {
     const { config, projectUuid, serverUuid, environment, destinationUuid } =
       args;
     const hasGithubApp = this.hasGithubAppSelection(config.github_app_id);
+    const hasPrivateDeployKey = this.hasPrivateDeployKeySelection(
+      config.private_key_uuid,
+    );
     const exposedPort = this.getExposedPortForType(config.type);
     const basePayload = this.stripUndefined({
       project_uuid: projectUuid,
@@ -616,6 +641,7 @@ export class CoolifyService {
       install_command: config.install_command,
       build_command: config.build_command,
       start_command: config.start_command,
+      is_auto_deploy_enabled: config.auto_deploy ?? false,
     });
 
     let appUuid = '';
@@ -626,6 +652,19 @@ export class CoolifyService {
         ...basePayload,
         build_pack: config.type === 'static' ? 'static' : 'nixpacks',
         github_app_uuid: String(config.github_app_id),
+        git_repository: config.repo_url,
+        git_branch: config.repo_branch ?? 'main',
+        is_static: config.type === 'static',
+        instant_deploy: true,
+      });
+      const app = await this.client.post<CoolifyApplication>(endpoint, payload);
+      appUuid = app.uuid;
+    } else if (hasPrivateDeployKey) {
+      const endpoint = '/api/v1/applications/private-deploy-key';
+      const payload = this.stripUndefined({
+        ...basePayload,
+        build_pack: config.type === 'static' ? 'static' : 'nixpacks',
+        private_key_uuid: String(config.private_key_uuid),
         git_repository: config.repo_url,
         git_branch: config.repo_branch ?? 'main',
         is_static: config.type === 'static',
@@ -655,7 +694,7 @@ export class CoolifyService {
       appUuid = app.uuid;
     }
 
-    if (!hasGithubApp && !config.repo_url) {
+    if (!hasGithubApp && !hasPrivateDeployKey && !config.repo_url) {
       this.deployResource('application', appUuid).catch(() => {});
     }
 
@@ -904,6 +943,12 @@ export class CoolifyService {
     if (githubAppId === undefined || githubAppId === null) return false;
     const normalized = String(githubAppId).trim();
     return normalized !== '' && normalized !== '0';
+  }
+
+  private hasPrivateDeployKeySelection(
+    privateKeyUuid: string | undefined,
+  ): boolean {
+    return typeof privateKeyUuid === 'string' && privateKeyUuid.trim() !== '';
   }
 
   private getExposedPortForType(type: string): string {

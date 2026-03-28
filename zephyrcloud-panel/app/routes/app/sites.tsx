@@ -14,8 +14,11 @@ import {
   ArrowRight,
   Boxes,
   Code2,
+  Copy,
+  ExternalLink,
   Github,
   Globe,
+  KeyRound,
   Loader2,
   Plus,
   Rocket,
@@ -26,6 +29,7 @@ type SiteStatus = "RUNNING" | "STOPPED" | "BUILDING" | "ERROR" | "PROVISIONING";
 type SiteType = "wordpress" | "node" | "static" | "php";
 type SupportedCreateType = "wordpress" | "node";
 type LoadState = "idle" | "loading" | "ready" | "error";
+type RepoAccessMode = "public" | "github_app" | "deploy_key";
 
 type Site = {
   id: string;
@@ -58,6 +62,13 @@ type GithubRepoOption = {
 
 type GithubBranchOption = {
   name: string;
+};
+
+type DeployKeyPayload = {
+  uuid: string;
+  public_key: string;
+  fingerprint?: string;
+  repo_full_name?: string | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -154,14 +165,22 @@ function extractGithubRepoParts(
     return { owner: simple[1], repo: simple[2] };
   }
 
-  const https = input.match(/github\.com\/([^/]+)\/([^/.?#]+)(?:\.git)?/i);
+  const https = input.match(
+    /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/?#]+)(?:[/?#].*)?$/i,
+  );
   if (https) {
-    return { owner: https[1], repo: https[2] };
+    const repo = https[2].replace(/\.git$/i, "");
+    if (repo) {
+      return { owner: https[1], repo };
+    }
   }
 
-  const ssh = input.match(/git@github\.com:([^/]+)\/([^/.]+)(?:\.git)?/i);
+  const ssh = input.match(/^git@github\.com:([^/]+)\/([^/]+)$/i);
   if (ssh) {
-    return { owner: ssh[1], repo: ssh[2] };
+    const repo = ssh[2].replace(/\.git$/i, "");
+    if (repo) {
+      return { owner: ssh[1], repo };
+    }
   }
 
   return null;
@@ -171,19 +190,22 @@ async function fetchJsonList<T>(
   url: string,
   normalize: (payload: unknown) => T[],
 ): Promise<T[]> {
-  const response = await fetch(url, {
+  const payload = await fetchJson(url, {
     method: "GET",
     credentials: "same-origin",
   });
+  return normalize(payload);
+}
 
+async function fetchJson(url: string, init: RequestInit): Promise<unknown> {
+  const response = await fetch(url, init);
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(
       parseApiError(payload, `Request failed with status ${response.status}.`),
     );
   }
-
-  return normalize(payload);
+  return payload;
 }
 
 // ------------------------------
@@ -237,7 +259,9 @@ export async function action({
   if (rawType === "node") {
     const repoUrl = String(fd.get("repo_url") || "").trim();
     const repoBranch = String(fd.get("repo_branch") || "").trim() || "main";
+    const repoAccess = String(fd.get("repo_access") || "public").trim();
     const githubAppId = String(fd.get("github_app_id") || "").trim();
+    const privateKeyUuid = String(fd.get("private_key_uuid") || "").trim();
 
     if (!repoUrl) {
       return {
@@ -248,10 +272,26 @@ export async function action({
 
     payload.repo_url = repoUrl;
     payload.repo_branch = repoBranch;
-    payload.auto_deploy = true;
+    payload.auto_deploy = repoAccess !== "deploy_key";
 
-    if (githubAppId) {
+    if (repoAccess === "github_app") {
+      if (!githubAppId) {
+        return {
+          ok: false,
+          error: "Select a GitHub App connection for private GitHub App deployments.",
+        };
+      }
       payload.github_app_id = githubAppId;
+    }
+
+    if (repoAccess === "deploy_key") {
+      if (!privateKeyUuid) {
+        return {
+          ok: false,
+          error: "Generate a deploy key before creating a private repository site.",
+        };
+      }
+      payload.private_key_uuid = privateKeyUuid;
     }
   }
 
@@ -446,6 +486,9 @@ function CreateSiteModal({
 }) {
   const [createType, setCreateType] =
     React.useState<SupportedCreateType>("wordpress");
+  const [siteName, setSiteName] = React.useState("");
+  const [repoAccessMode, setRepoAccessMode] =
+    React.useState<RepoAccessMode>("public");
   const [githubApps, setGithubApps] = React.useState<GithubAppOption[]>([]);
   const [githubAppsState, setGithubAppsState] =
     React.useState<LoadState>("idle");
@@ -468,6 +511,14 @@ function CreateSiteModal({
     React.useState<LoadState>("idle");
   const [branchOptionsError, setBranchOptionsError] =
     React.useState<string | null>(null);
+  const [deployKey, setDeployKey] = React.useState<DeployKeyPayload | null>(
+    null,
+  );
+  const [deployKeyState, setDeployKeyState] = React.useState<LoadState>("idle");
+  const [deployKeyError, setDeployKeyError] = React.useState<string | null>(
+    null,
+  );
+  const [deployKeyCopied, setDeployKeyCopied] = React.useState(false);
 
   React.useEffect(() => {
     if (!canUsePrivateGithubApps) {
@@ -478,7 +529,9 @@ function CreateSiteModal({
       return;
     }
 
-    if (!open || createType !== "node") return;
+    if (!open || createType !== "node" || repoAccessMode !== "github_app") {
+      return;
+    }
     if (
       githubAppsState === "ready" ||
       githubAppsState === "loading" ||
@@ -517,6 +570,7 @@ function CreateSiteModal({
     githubApps.length,
     githubAppsState,
     open,
+    repoAccessMode,
   ]);
 
   React.useEffect(() => {
@@ -527,7 +581,14 @@ function CreateSiteModal({
     setBranchOptionsState("idle");
     setBranchOptionsError(null);
 
-    if (!open || createType !== "node" || !selectedGithubApp) return;
+    if (
+      !open ||
+      createType !== "node" ||
+      repoAccessMode !== "github_app" ||
+      !selectedGithubApp
+    ) {
+      return;
+    }
 
     let cancelled = false;
     setRepoOptionsState("loading");
@@ -555,14 +616,21 @@ function CreateSiteModal({
     return () => {
       cancelled = true;
     };
-  }, [createType, open, selectedGithubApp]);
+  }, [createType, open, repoAccessMode, selectedGithubApp]);
 
   React.useEffect(() => {
     setBranchOptions([]);
     setBranchOptionsState("idle");
     setBranchOptionsError(null);
 
-    if (!open || createType !== "node" || !selectedGithubApp) return;
+    if (
+      !open ||
+      createType !== "node" ||
+      repoAccessMode !== "github_app" ||
+      !selectedGithubApp
+    ) {
+      return;
+    }
 
     const repoParts = extractGithubRepoParts(repoInput);
     if (!repoParts) return;
@@ -599,7 +667,95 @@ function CreateSiteModal({
     return () => {
       cancelled = true;
     };
-  }, [createType, open, repoBranch, repoInput, selectedGithubApp]);
+  }, [
+    createType,
+    open,
+    repoAccessMode,
+    repoBranch,
+    repoInput,
+    selectedGithubApp,
+  ]);
+
+  React.useEffect(() => {
+    if (repoAccessMode !== "github_app") {
+      setSelectedGithubApp("");
+    }
+  }, [repoAccessMode]);
+
+  const repoParts = extractGithubRepoParts(repoInput);
+  const repoSettingsUrl = repoParts
+    ? `https://github.com/${repoParts.owner}/${repoParts.repo}/settings/keys`
+    : null;
+
+  async function generateDeployKey() {
+    if (!siteName.trim()) {
+      setDeployKey(null);
+      setDeployKeyState("error");
+      setDeployKeyError("Enter a site name before generating a deploy key.");
+      return;
+    }
+
+    if (!repoInput.trim()) {
+      setDeployKey(null);
+      setDeployKeyState("error");
+      setDeployKeyError("Enter the GitHub repository before generating a deploy key.");
+      return;
+    }
+
+    setDeployKeyCopied(false);
+    setDeployKey(null);
+    setDeployKeyError(null);
+    setDeployKeyState("loading");
+
+    try {
+      const payload = await fetchJson("/api/deploy-keys", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          site_name: siteName,
+          repo_url: repoInput,
+        }),
+      });
+
+      if (!isRecord(payload)) {
+        throw new Error("Deploy key response was invalid.");
+      }
+
+      const uuid = getStringValue(payload.uuid);
+      const publicKey = getStringValue(payload.public_key);
+      if (!uuid || !publicKey) {
+        throw new Error("Deploy key response was incomplete.");
+      }
+
+      setDeployKey({
+        uuid,
+        public_key: publicKey,
+        fingerprint: getStringValue(payload.fingerprint) ?? undefined,
+        repo_full_name: getStringValue(payload.repo_full_name),
+      });
+      setDeployKeyState("ready");
+    } catch (error: unknown) {
+      setDeployKey(null);
+      setDeployKeyState("error");
+      setDeployKeyError(
+        error instanceof Error
+          ? error.message
+          : "Could not generate a deploy key.",
+      );
+    }
+  }
+
+  async function copyDeployKey() {
+    if (!deployKey?.public_key) return;
+
+    try {
+      await navigator.clipboard.writeText(deployKey.public_key);
+      setDeployKeyCopied(true);
+    } catch {
+      setDeployKeyCopied(false);
+    }
+  }
 
   const createOptions: Array<{
     type: SupportedCreateType;
@@ -620,6 +776,41 @@ function CreateSiteModal({
       icon: <Server className="h-5 w-5" />,
     },
   ];
+
+  const accessOptions: Array<{
+    value: RepoAccessMode;
+    title: string;
+    description: string;
+  }> = canUsePrivateGithubApps
+    ? [
+        {
+          value: "public",
+          title: "Public Repo",
+          description: "Use a public GitHub repository with no extra credentials.",
+        },
+        {
+          value: "github_app",
+          title: "GitHub App",
+          description: "Use a connected GitHub App for private repositories.",
+        },
+        {
+          value: "deploy_key",
+          title: "Deploy Key",
+          description: "Generate a tenant-owned deploy key for a private repository.",
+        },
+      ]
+    : [
+        {
+          value: "public",
+          title: "Public Repo",
+          description: "Use a public GitHub repository with no extra credentials.",
+        },
+        {
+          value: "deploy_key",
+          title: "Deploy Key",
+          description: "Generate a tenant-owned deploy key for a private repository.",
+        },
+      ];
 
   return (
     <AnimatePresence>
@@ -658,6 +849,9 @@ function CreateSiteModal({
 
             <Form method="post" className="mt-8 space-y-6">
               <input type="hidden" name="type" value={createType} />
+              {createType === "node" && (
+                <input type="hidden" name="repo_access" value={repoAccessMode} />
+              )}
 
               <div className="space-y-3">
                 <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
@@ -711,6 +905,8 @@ function CreateSiteModal({
                 <input
                   name="name"
                   required
+                  value={siteName}
+                  onChange={(event) => setSiteName(event.target.value)}
                   placeholder={
                     createType === "node" ? "my-node-app" : "my-wordpress-site"
                   }
@@ -746,10 +942,47 @@ function CreateSiteModal({
                         Node.js Deployment
                       </div>
                       <p className="text-xs text-white/45">
-                        Public repos work without a GitHub app. Select a
-                        connected GitHub app for private repositories and branch
-                        discovery.
+                        Deploy public repositories directly, use a connected
+                        GitHub App, or generate a private deploy key for
+                        customer-owned private repositories.
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
+                      Repository Access
+                    </label>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {accessOptions.map((option) => {
+                        const active = repoAccessMode === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              setRepoAccessMode(option.value);
+                              setDeployKey(null);
+                              setDeployKeyCopied(false);
+                              setDeployKeyError(null);
+                              setDeployKeyState("idle");
+                            }}
+                            className={cx(
+                              "rounded-2xl border p-4 text-left transition-all",
+                              active
+                                ? "border-white/25 bg-white/[0.07]"
+                                : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]",
+                            )}
+                          >
+                            <div className="text-sm font-bold text-white">
+                              {option.title}
+                            </div>
+                            <p className="mt-1 text-xs text-white/45">
+                              {option.description}
+                            </p>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -757,7 +990,7 @@ function CreateSiteModal({
                     <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
                       GitHub Connection
                     </label>
-                    {canUsePrivateGithubApps ? (
+                    {repoAccessMode === "github_app" && canUsePrivateGithubApps ? (
                       <>
                         <select
                           name="github_app_id"
@@ -791,10 +1024,20 @@ function CreateSiteModal({
                           </p>
                         )}
                       </>
+                    ) : repoAccessMode === "github_app" ? (
+                      <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                        GitHub App connections are restricted to administrators.
+                      </div>
+                    ) : repoAccessMode === "deploy_key" ? (
+                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                        This mode generates a tenant-owned deploy key so normal
+                        users can connect a private repository without access to
+                        any shared panel GitHub app.
+                      </div>
                     ) : (
                       <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
-                        Private GitHub app connections are restricted to panel
-                        administrators. Use a public GitHub repository here.
+                        Public repositories do not need any extra GitHub
+                        credentials.
                       </div>
                     )}
                   </div>
@@ -811,6 +1054,12 @@ function CreateSiteModal({
                       onChange={(event) => {
                         const nextRepo = event.target.value;
                         setRepoInput(nextRepo);
+                        if (repoAccessMode === "deploy_key") {
+                          setDeployKey(null);
+                          setDeployKeyCopied(false);
+                          setDeployKeyError(null);
+                          setDeployKeyState("idle");
+                        }
                         const matchedRepo = repoOptions.find(
                           (repo) => repo.full_name === nextRepo,
                         );
@@ -818,7 +1067,11 @@ function CreateSiteModal({
                           setRepoBranch(matchedRepo.default_branch);
                         }
                       }}
-                      placeholder="owner/repo or https://github.com/owner/repo"
+                      placeholder={
+                        repoAccessMode === "deploy_key"
+                          ? "owner/repo, https://github.com/owner/repo, or git@github.com:owner/repo.git"
+                          : "owner/repo or https://github.com/owner/repo"
+                      }
                       className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all placeholder:text-white/20 focus:ring-2 ring-white/10"
                     />
                     <datalist id="node-repository-options">
@@ -841,6 +1094,12 @@ function CreateSiteModal({
                     {!repoOptionsError && repoOptions.length > 0 && (
                       <p className="text-xs text-white/45">
                         Start typing to pick one of the connected repositories.
+                      </p>
+                    )}
+                    {repoAccessMode === "deploy_key" && (
+                      <p className="text-xs text-white/45">
+                        Private-repo mode will normalize GitHub URLs into the
+                        SSH URL Coolify needs for deploy-key cloning.
                       </p>
                     )}
                   </div>
@@ -879,6 +1138,103 @@ function CreateSiteModal({
                       expose it on port 3000.
                     </p>
                   </div>
+
+                  {repoAccessMode === "deploy_key" && (
+                    <div className="space-y-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <input
+                        type="hidden"
+                        name="private_key_uuid"
+                        value={deployKey?.uuid ?? ""}
+                      />
+
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <div className="text-sm font-bold text-white">
+                            Private Repository Deploy Key
+                          </div>
+                          <p className="text-xs text-white/45">
+                            Generate a new read-only key, add it to GitHub, then
+                            create the site.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void generateDeployKey()}
+                          disabled={deployKeyState === "loading"}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {deployKeyState === "loading" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <KeyRound className="h-4 w-4" />
+                          )}
+                          {deployKey ? "Regenerate Key" : "Generate Key"}
+                        </button>
+                      </div>
+
+                      {deployKeyError && (
+                        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                          {deployKeyError}
+                        </div>
+                      )}
+
+                      {deployKey && (
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
+                            1. Add this public key to the repository as a
+                            read-only GitHub deploy key.
+                            <br />
+                            2. Leave the branch set correctly.
+                            <br />
+                            3. Submit the form to provision the application.
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-white/40">
+                              Public Deploy Key
+                            </label>
+                            <textarea
+                              readOnly
+                              value={deployKey.public_key}
+                              rows={4}
+                              className="w-full rounded-2xl border border-white/10 bg-[#05070d] px-4 py-3 font-mono text-xs text-white/85 outline-none"
+                            />
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => void copyDeployKey()}
+                              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                            >
+                              <Copy className="h-4 w-4" />
+                              {deployKeyCopied ? "Copied" : "Copy Key"}
+                            </button>
+                            {repoSettingsUrl && (
+                              <a
+                                href={repoSettingsUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                                Open GitHub Deploy Keys
+                              </a>
+                            )}
+                          </div>
+
+                          {deployKey.fingerprint && (
+                            <p className="text-xs text-white/45">
+                              Fingerprint:{" "}
+                              <span className="font-mono text-white/70">
+                                {deployKey.fingerprint}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

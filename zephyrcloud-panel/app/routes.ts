@@ -21,6 +21,7 @@ export default [
     "api/github/branches/:appUuid/:owner/:repo",
     "routes/api.github.branches.$appUuid.$owner.$repo.ts",
   ),
+  route("api/deploy-keys", "routes/api.deploy-keys.ts"),
 
   route("app", "routes/app/layout.tsx", [
     index("routes/app/index.tsx"),

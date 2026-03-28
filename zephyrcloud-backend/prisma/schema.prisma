@@ -24,6 +24,7 @@ model Tenant {
 
   users        User[]
   sites        Site[]
+  deploy_keys  SiteDeployKey[]
   domains      Domain[]
   site_invites SiteInvite[]
 
@@ -61,6 +62,7 @@ model User {
   email_verification EmailVerification?
   password_resets    PasswordReset[]
   site_members       SiteMember[]
+  deploy_keys        SiteDeployKey[]
 
   @@index([tenant_id])
 }
@@ -197,12 +199,38 @@ model Site {
   domains     Domain[]
   deployments Deployment[]
   database    SiteDatabase?
+  deploy_key  SiteDeployKey?
   members     SiteMember[]
   invites     SiteInvite[]
 
   @@index([tenant_id])
   @@index([coolify_project_id])
   @@index([coolify_resource_id])
+}
+
+model SiteDeployKey {
+  id BigInt @id @default(autoincrement())
+
+  tenant_id BigInt
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  created_by_user_id BigInt
+  created_by_user    User   @relation(fields: [created_by_user_id], references: [id], onDelete: Cascade)
+
+  site_id BigInt? @unique
+  site    Site?   @relation(fields: [site_id], references: [id], onDelete: SetNull)
+
+  coolify_key_uuid String @unique
+  name             String
+  description      String?
+  public_key       String
+  fingerprint      String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@index([created_by_user_id])
 }
 
 model Domain {
