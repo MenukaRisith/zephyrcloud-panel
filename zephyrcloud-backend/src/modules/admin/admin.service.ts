@@ -399,10 +399,10 @@ export class AdminService {
       name?: string;
       plan?: SubscriptionPlan;
       is_active?: boolean;
-      max_sites?: number;
-      max_cpu_per_site?: number;
-      max_memory_mb_per_site?: number;
-      max_team_members_per_site?: number;
+      max_sites?: number | null;
+      max_cpu_per_site?: number | null;
+      max_memory_mb_per_site?: number | null;
+      max_team_members_per_site?: number | null;
     },
   ) {
     this.requireAdmin(user);
@@ -415,10 +415,10 @@ export class AdminService {
       plan?: SubscriptionPlan;
       is_active?: boolean;
       suspended_at?: Date | null;
-      max_sites?: number;
-      max_cpu_per_site?: number;
-      max_memory_mb_per_site?: number;
-      max_team_members_per_site?: number;
+      max_sites?: number | null;
+      max_cpu_per_site?: number | null;
+      max_memory_mb_per_site?: number | null;
+      max_team_members_per_site?: number | null;
     } = {};
 
     if (body.name !== undefined) {
@@ -434,18 +434,24 @@ export class AdminService {
       data.is_active = body.is_active;
       data.suspended_at = body.is_active ? null : new Date();
     }
-    if (body.max_sites !== undefined)
-      data.max_sites = Math.trunc(body.max_sites);
+    if (body.max_sites !== undefined) {
+      data.max_sites =
+        body.max_sites === null ? null : Math.trunc(body.max_sites);
+    }
     if (body.max_cpu_per_site !== undefined) {
       data.max_cpu_per_site = body.max_cpu_per_site;
     }
     if (body.max_memory_mb_per_site !== undefined) {
-      data.max_memory_mb_per_site = Math.trunc(body.max_memory_mb_per_site);
+      data.max_memory_mb_per_site =
+        body.max_memory_mb_per_site === null
+          ? null
+          : Math.trunc(body.max_memory_mb_per_site);
     }
     if (body.max_team_members_per_site !== undefined) {
-      data.max_team_members_per_site = Math.trunc(
-        body.max_team_members_per_site,
-      );
+      data.max_team_members_per_site =
+        body.max_team_members_per_site === null
+          ? null
+          : Math.trunc(body.max_team_members_per_site);
     }
 
     if (!Object.keys(data).length) {
@@ -652,8 +658,27 @@ export class AdminService {
       tenant_id?: bigint | null;
     } = {};
 
-    if (body.name !== undefined) data.name = body.name.trim();
-    if (body.email !== undefined) data.email = body.email.trim().toLowerCase();
+    if (body.name !== undefined) {
+      const normalizedName = body.name.trim();
+      if (!normalizedName) {
+        throw new BadRequestException('Name cannot be empty.');
+      }
+      data.name = normalizedName;
+    }
+    if (body.email !== undefined) {
+      const normalizedEmail = body.email.trim().toLowerCase();
+      const duplicate = await this.prisma.user.findFirst({
+        where: {
+          email: normalizedEmail,
+          NOT: { id: userId },
+        },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new BadRequestException('Email already in use.');
+      }
+      data.email = normalizedEmail;
+    }
     if (body.role !== undefined) data.role = body.role;
     if (body.is_active !== undefined) data.is_active = body.is_active;
     if (body.tenant_id !== undefined) {

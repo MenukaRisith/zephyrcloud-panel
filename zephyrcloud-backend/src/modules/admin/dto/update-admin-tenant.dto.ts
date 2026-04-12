@@ -32,6 +32,14 @@ function toOptionalNumber(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function toNullableNumber(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const parsed =
+    typeof value === 'number' ? value : Number.parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export class UpdateAdminTenantDto {
   @IsOptional()
   @Transform(({ value }) => String(value ?? '').trim())
@@ -49,26 +57,26 @@ export class UpdateAdminTenantDto {
   public is_active?: boolean;
 
   @IsOptional()
-  @Transform(({ value }) => toOptionalNumber(value))
+  @Transform(({ value }) => toNullableNumber(value))
   @IsNumber()
   @Min(1)
-  public max_sites?: number;
+  public max_sites?: number | null;
 
   @IsOptional()
-  @Transform(({ value }) => toOptionalNumber(value))
+  @Transform(({ value }) => toNullableNumber(value))
   @IsNumber()
   @Min(0.1)
-  public max_cpu_per_site?: number;
+  public max_cpu_per_site?: number | null;
 
   @IsOptional()
-  @Transform(({ value }) => toOptionalNumber(value))
+  @Transform(({ value }) => toNullableNumber(value))
   @IsNumber()
   @Min(128)
-  public max_memory_mb_per_site?: number;
+  public max_memory_mb_per_site?: number | null;
 
   @IsOptional()
-  @Transform(({ value }) => toOptionalNumber(value))
+  @Transform(({ value }) => toNullableNumber(value))
   @IsNumber()
   @Min(1)
-  public max_team_members_per_site?: number;
+  public max_team_members_per_site?: number | null;
 }

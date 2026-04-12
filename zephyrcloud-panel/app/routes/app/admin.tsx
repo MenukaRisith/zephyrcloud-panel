@@ -207,6 +207,15 @@ function optionalNumberField(formData: FormData, name: string) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function nullableNumberField(formData: FormData, name: string) {
+  const raw = formData.get(name);
+  if (raw === null) return undefined;
+  const value = String(raw).trim();
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function formatDate(value: string | null) {
   if (!value) return "Never";
   const date = new Date(value);
@@ -837,13 +846,13 @@ export async function action({
           name: optionalStringField(formData, "name"),
           plan: optionalStringField(formData, "plan"),
           is_active: String(formData.get("is_active") || "true") === "true",
-          max_sites: optionalNumberField(formData, "max_sites"),
-          max_cpu_per_site: optionalNumberField(formData, "max_cpu_per_site"),
-          max_memory_mb_per_site: optionalNumberField(
+          max_sites: nullableNumberField(formData, "max_sites"),
+          max_cpu_per_site: nullableNumberField(formData, "max_cpu_per_site"),
+          max_memory_mb_per_site: nullableNumberField(
             formData,
             "max_memory_mb_per_site",
           ),
-          max_team_members_per_site: optionalNumberField(
+          max_team_members_per_site: nullableNumberField(
             formData,
             "max_team_members_per_site",
           ),
@@ -932,6 +941,7 @@ export default function AdminPage() {
   const actionData = useActionData() as ActionData | undefined;
   const navigation = useNavigation();
   const [query, setQuery] = React.useState("");
+  const [createSiteTenantId, setCreateSiteTenantId] = React.useState("");
 
   const currentIntent =
     navigation.state !== "idle"
@@ -996,6 +1006,12 @@ export default function AdminPage() {
           .includes(search),
       )
     : sites;
+  const createSiteAssignableUsers = users.filter(
+    (user) =>
+      !createSiteTenantId ||
+      user.role === "admin" ||
+      user.tenant_id === createSiteTenantId,
+  );
 
   return (
     <div className="space-y-6 pb-20 lg:pb-0">
@@ -1208,7 +1224,8 @@ export default function AdminPage() {
                 name="tenant_id"
                 className={fieldClassName}
                 required
-                defaultValue=""
+                value={createSiteTenantId}
+                onChange={(event) => setCreateSiteTenantId(event.target.value)}
               >
                 <option value="" disabled>
                   Select tenant
@@ -1241,7 +1258,7 @@ export default function AdminPage() {
                 className={fieldClassName}
               >
                 <option value="">Leave unassigned</option>
-                {users.map((user) => (
+                {createSiteAssignableUsers.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.email}{" "}
                     {user.tenant_name ? `(${user.tenant_name})` : "(admin)"}
@@ -1303,6 +1320,10 @@ export default function AdminPage() {
                 className={fieldClassName}
               />
             </div>
+            <p className="text-xs text-white/45">
+              Owner choices are filtered to admins plus users already inside
+              the selected tenant.
+            </p>
             <button
               type="submit"
               disabled={currentIntent === "create-site"}
@@ -2071,6 +2092,10 @@ function TenantRow({
             className={fieldClassName}
           />
         </div>
+        <p className="text-xs text-white/45">
+          Leave a quota field blank to remove the override and fall back to the
+          plan default.
+        </p>
         <button
           type="submit"
           disabled={isUpdating}
