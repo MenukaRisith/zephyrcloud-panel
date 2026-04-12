@@ -11,7 +11,6 @@ import {
 import {
   Boxes,
   ChevronRight,
-  Command,
   Github,
   LayoutDashboard,
   Loader2,
@@ -22,7 +21,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
-import { Separator } from "~/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -56,7 +54,7 @@ type NavItem = {
 type PageMeta = {
   eyebrow: string;
   title: string;
-  description: string;
+  description?: string;
 };
 
 export async function loader({
@@ -81,7 +79,6 @@ function pageMetaFromPath(pathname: string): PageMeta {
     return {
       eyebrow: "Workspace",
       title: "Overview",
-      description: "Operational health, GitHub access, and managed database state for this workspace.",
     };
   }
 
@@ -89,7 +86,6 @@ function pageMetaFromPath(pathname: string): PageMeta {
     return {
       eyebrow: "Sites",
       title: "Application inventory",
-      description: "Create, filter, and manage live applications from the same control plane.",
     };
   }
 
@@ -97,7 +93,6 @@ function pageMetaFromPath(pathname: string): PageMeta {
     return {
       eyebrow: "Sites",
       title: "Site workspace",
-      description: "Runtime controls, domains, database access, logs, and deployment history for one application.",
     };
   }
 
@@ -105,7 +100,6 @@ function pageMetaFromPath(pathname: string): PageMeta {
     return {
       eyebrow: "Workspace",
       title: "Team access",
-      description: "See which sites can be shared and jump directly into collaborator management.",
     };
   }
 
@@ -113,7 +107,6 @@ function pageMetaFromPath(pathname: string): PageMeta {
     return {
       eyebrow: "Integrations",
       title: "GitHub automation",
-      description: "Control repository access and private deployment onboarding for this workspace.",
     };
   }
 
@@ -121,14 +114,12 @@ function pageMetaFromPath(pathname: string): PageMeta {
     return {
       eyebrow: "Admin",
       title: "Platform control",
-      description: "Manage panel runtime, users, tenants, quotas, and imported Coolify applications.",
     };
   }
 
   return {
     eyebrow: "Control plane",
     title: "Dashboard",
-    description: "Monitor workspace operations and keep delivery flows moving.",
   };
 }
 
@@ -205,35 +196,6 @@ function Sidebar({
           ))}
         </nav>
       </div>
-
-      <div className="px-5 pt-6">
-        <div className={cn(shellInsetClass, "space-y-4 p-4")}>
-          <div>
-            <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/38">
-              Operating mode
-            </div>
-            <div className="mt-2 text-sm leading-6 text-white/62">
-              Build sites, wire GitHub, and manage runtime resources without leaving the panel.
-            </div>
-          </div>
-          <Separator />
-          <div className="grid gap-2 text-xs text-white/56">
-            <div className="flex items-center justify-between gap-3">
-              <span>Tenant</span>
-              <span className="truncate text-white/78">
-                {user.tenant_name || "Workspace"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span>Access</span>
-              <span className="uppercase tracking-[0.18em] text-white/78">
-                {user.role || "member"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="mt-auto px-5 pb-5 pt-6">
         <div className={cn(shellInsetClass, "space-y-4 p-4")}>
           <div className="flex items-center gap-3">
@@ -244,7 +206,9 @@ function Sidebar({
               <div className="truncate text-sm font-semibold text-white">
                 {user.name || user.email}
               </div>
-              <div className="truncate text-xs text-white/44">{user.email}</div>
+              <div className="truncate text-xs uppercase tracking-[0.16em] text-white/44">
+                {user.role || "member"}
+              </div>
             </div>
           </div>
           <Form method="post" action="/logout">
@@ -349,16 +313,14 @@ export default function AppLayout() {
                     </div>
                   </div>
                 </div>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-white/56">
-                  {meta.description}
-                </p>
+                {meta.description ? (
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/56">
+                    {meta.description}
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                <div className="hidden items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/62 sm:flex">
-                  <Command className="h-4 w-4 text-[var(--accent)]" />
-                  <span>{user.role === "admin" ? "Admin workspace" : "Workspace user"}</span>
-                </div>
                 <Link to="/sites?new=1">
                   <Button variant="dark">Create site</Button>
                 </Link>

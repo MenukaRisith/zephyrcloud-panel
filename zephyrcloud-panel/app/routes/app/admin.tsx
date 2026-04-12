@@ -1105,10 +1105,6 @@ export default function AdminPage() {
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
             Platform control
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/55">
-            Control live runtime config, bootstrap customers, manage plans and
-            resource limits, and create or assign sites from one place.
-          </p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
           <ShieldCheck className="h-4 w-4" />
@@ -1234,10 +1230,6 @@ export default function AdminPage() {
             <h2 className="mt-2 text-2xl font-semibold text-white">
               Create users
             </h2>
-            <p className="mt-2 text-sm leading-6 text-white/55">
-              Provision admins directly, or create customer users with a new or
-              existing workspace.
-            </p>
           </div>
           <Form
             method="post"
@@ -1332,10 +1324,6 @@ export default function AdminPage() {
             <h2 className="mt-2 text-2xl font-semibold text-white">
               Create sites
             </h2>
-            <p className="mt-2 text-sm leading-6 text-white/55">
-              Spin up a site under any tenant, cap its resources, and optionally
-              assign an owner immediately.
-            </p>
           </div>
           <Form
             method="post"
@@ -1491,20 +1479,16 @@ export default function AdminPage() {
         transition={{ duration: 0.18, delay: 0.06 }}
         className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-              Coolify inventory
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
-              Import existing Coolify sites
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/55">
-              Find Coolify applications that are not in this dashboard, attach
-              them to a tenant, and assign a user in one step.
-            </p>
-          </div>
-          <Badge>{coolifySites.length} available</Badge>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+                Coolify inventory
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">
+                Import existing Coolify sites
+              </h2>
+            </div>
+            <Badge>{coolifySites.length} available</Badge>
         </div>
 
         {coolifySites.length > 0 ? (
@@ -1690,19 +1674,15 @@ export default function AdminPage() {
         transition={{ duration: 0.18, delay: 0.08 }}
         className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-              Tenants and plans
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
-              Manage plans and resource caps
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-white/55">
-              Adjust customer plans, suspend workspaces, and override quotas
-              without touching the database.
-            </p>
-          </div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+                Tenants and plans
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">
+                Manage plans and resource caps
+              </h2>
+            </div>
           <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/60">
             <Search className="h-4 w-4" />
             <input
@@ -1757,10 +1737,6 @@ export default function AdminPage() {
           <h2 className="mt-2 text-2xl font-semibold text-white">
             Assign existing sites
           </h2>
-          <p className="mt-2 text-sm leading-6 text-white/55">
-            Claim orphaned sites, add collaborators, and inspect tenant
-            allocation at a glance.
-          </p>
         </div>
 
         <div className="mt-6 space-y-4">
@@ -1799,8 +1775,7 @@ export default function AdminPage() {
               Manage users
             </h2>
             <p className="mt-2 text-sm leading-6 text-white/55">
-              Existing admin emails:{" "}
-              {adminEmails.length ? adminEmails.join(", ") : "none"}
+              {adminEmails.length ? `${adminEmails.length} admin accounts` : "No admin accounts"}
             </p>
           </div>
         </div>
@@ -2008,7 +1983,6 @@ function WorkflowLink({
       </div>
       <div>
         <div className="text-sm font-semibold text-white">{title}</div>
-        <div className="mt-1 text-xs leading-5 text-white/50">{desc}</div>
       </div>
     </a>
   );

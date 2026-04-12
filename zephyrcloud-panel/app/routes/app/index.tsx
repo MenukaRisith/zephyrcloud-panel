@@ -7,14 +7,10 @@ import {
 } from "react-router";
 import {
   Activity,
-  ArrowRight,
-  Boxes,
-  CheckCircle2,
   Copy,
   Database,
   Github,
   Globe,
-  Loader2,
   Rocket,
   Server,
 } from "lucide-react";
@@ -28,7 +24,6 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Separator } from "~/components/ui/separator";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { requireUser } from "~/services/session.server";
 
@@ -223,8 +218,8 @@ export async function loader({
     const recent: ActivityItem[] = [];
     if (!workspaceDatabase) {
       recent.push({
-        title: "Managed database is available",
-        desc: "Provision one public database for this user directly from the dashboard.",
+        title: "Database available",
+        desc: "Not provisioned",
         tone: "neutral",
       });
     }
@@ -232,7 +227,7 @@ export async function loader({
     if (sites.length === 0) {
       recent.push({
         title: "No sites yet",
-        desc: "Create the first site to start routing traffic through the panel.",
+        desc: "Create the first site",
         tone: "neutral",
       });
     } else {
@@ -247,15 +242,15 @@ export async function loader({
       if (building > 0) {
         recent.push({
           title: "Deployments active",
-          desc: `${building} site(s) are still building or provisioning.`,
+          desc: `${building} in progress`,
           tone: "neutral",
         });
       }
 
       if (failed > 0) {
         recent.push({
-          title: "Attention required",
-          desc: `${failed} site(s) need review in logs or runtime status.`,
+          title: "Attention",
+          desc: `${failed} need review`,
           tone: "warn",
         });
       }
@@ -263,7 +258,7 @@ export async function loader({
       if (running > 0 && failed === 0) {
         recent.push({
           title: "Runtime healthy",
-          desc: `${running} site(s) are serving traffic without reported failures.`,
+          desc: `${running} running`,
           tone: "ok",
         });
       }
@@ -272,7 +267,7 @@ export async function loader({
     if (github.configured && !github.connected) {
       recent.unshift({
         title: "Connect GitHub",
-        desc: "Private repository onboarding is available after you connect your account.",
+        desc: "Private repos unavailable",
         tone: "warn",
       });
     }
@@ -454,25 +449,35 @@ export default function AppIndex() {
       icon: <Server className="h-5 w-5" />,
       label: "Sites",
       value: String(stats.sites),
-      note: "Live applications tracked inside this workspace.",
     },
     {
       icon: <Globe className="h-5 w-5" />,
       label: "Domains",
       value: String(stats.domains),
-      note: "Attached public domains across all routed sites.",
     },
     {
       icon: <Database className="h-5 w-5" />,
       label: "Databases",
       value: String(stats.databases),
-      note: "Workspace database plus per-site database resources.",
     },
     {
       icon: <Activity className="h-5 w-5" />,
       label: "Deployments",
       value: String(stats.deployments),
-      note: "Deploy history entries currently available from the API.",
+    },
+  ];
+  const statusCards = [
+    {
+      label: "GitHub",
+      value: github.connected ? "Connected" : github.configured ? "Pending" : "Disabled",
+    },
+    {
+      label: "Database",
+      value: workspaceDatabase ? formatEngineLabel(workspaceDatabase.engine) : "Not provisioned",
+    },
+    {
+      label: "Access",
+      value: isAdmin ? "Admin" : "Member",
     },
   ];
 
@@ -484,14 +489,11 @@ export default function AppIndex() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                  Workspace pulse
+                  Workspace
                 </div>
                 <CardTitle className="mt-2 text-3xl">
                   {user.name || user.email}
                 </CardTitle>
-                <CardDescription className="mt-1 max-w-2xl">
-                  Run sites, manage one public database for this workspace, and keep Git-backed delivery inside a single operating surface.
-                </CardDescription>
               </div>
               <div className="flex flex-wrap gap-3">
                 <Link to="/sites?new=1">
@@ -509,7 +511,7 @@ export default function AppIndex() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {summaryStats.map((item) => (
                 <StatCard
@@ -517,54 +519,22 @@ export default function AppIndex() {
                   icon={item.icon}
                   label={item.label}
                   value={item.value}
-                  note={item.note}
+                  note=""
                 />
               ))}
             </div>
-            <Separator />
-            <div className="grid gap-4 lg:grid-cols-3">
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/40">
-                  Access
-                </div>
-                <div className="mt-2 text-lg font-semibold text-white">
-                  {github.connected ? "GitHub linked" : "GitHub pending"}
-                </div>
-                <div className="mt-2 text-sm leading-6 text-white/52">
-                  {github.connected
-                    ? `Connected as ${github.login || "GitHub user"} for private repository onboarding.`
-                    : github.configured
-                      ? "OAuth is configured. Connect an account to enable private repository automation."
-                      : "OAuth is not configured on the panel yet."}
-                </div>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/40">
-                  Database posture
-                </div>
-                <div className="mt-2 text-lg font-semibold text-white">
-                  {workspaceDatabase ? formatEngineLabel(workspaceDatabase.engine) : "Not provisioned"}
-                </div>
-                <div className="mt-2 text-sm leading-6 text-white/52">
-                  {workspaceDatabase
-                    ? "Connection details are ready below for direct client or framework use."
-                    : "Provision one managed workspace database when you need a public endpoint."}
-                </div>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/40">
-                  Access tier
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="text-lg font-semibold text-white">
-                    {isAdmin ? "Administrator" : "Workspace member"}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {statusCards.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-3"
+                >
+                  <div className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-white/38">
+                    {item.label}
                   </div>
-                  {isAdmin ? <Badge>Admin</Badge> : null}
+                  <div className="mt-2 text-base font-semibold text-white">{item.value}</div>
                 </div>
-                <div className="mt-2 text-sm leading-6 text-white/52">
-                  Use the admin console for panel runtime, tenant allocation, and platform-level controls.
-                </div>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -590,9 +560,7 @@ export default function AppIndex() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="font-medium text-white">{item.title}</div>
-                    <div className="mt-1 text-sm leading-6 text-white/54">
-                      {item.desc}
-                    </div>
+                    <div className="mt-1 text-sm text-white/54">{item.desc}</div>
                   </div>
                   <ActivityToneBadge tone={item.tone} />
                 </div>
@@ -624,9 +592,6 @@ export default function AppIndex() {
               <CardTitle className="mt-2">
                 {workspaceDatabase ? "Connection details" : "Create one public database"}
               </CardTitle>
-              <CardDescription className="mt-1 max-w-3xl">
-                Each user can provision one public MariaDB, MySQL, or PostgreSQL database. WordPress site creation stays on the existing automatic site-and-database flow and does not use this selector.
-              </CardDescription>
             </div>
             {workspaceDatabase ? (
               <Badge>{formatEngineLabel(workspaceDatabase.engine)}</Badge>
@@ -650,47 +615,32 @@ export default function AppIndex() {
                   value={workspaceDatabase.ssl_mode || "default"}
                 />
               </div>
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4 text-sm text-white/52">
-                <div className="font-medium text-white">
-                  Public database is provisioned
-                </div>
-                <div className="mt-1 leading-6">
-                  Use the public URL directly in clients that accept connection strings, or use the host, port, username, password, and database values above in manual connection setups.
-                </div>
-              </div>
             </div>
           ) : (
-            <Form method="post" className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <Form method="post" className="space-y-4">
               <input type="hidden" name="intent" value="create-workspace-database" />
 
               <div className="rounded-md border border-white/10 bg-white/[0.04] p-5">
                 <div className="text-sm font-medium text-white">
                   Engine selection
                 </div>
-                <p className="mt-2 text-sm leading-6 text-white/54">
-                  The panel provisions the database in Coolify, exposes a public endpoint, and stores the returned credentials on this dashboard.
-                </p>
-
                 <div className="mt-4 space-y-3">
                   <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
                     <input type="radio" name="engine" value="mariadb" defaultChecked />
                     <div>
                       <div className="font-medium text-white">MariaDB</div>
-                      <div className="text-sm text-white/52">MySQL-compatible runtime with the existing WordPress stack pattern.</div>
                     </div>
                   </label>
                   <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
                     <input type="radio" name="engine" value="mysql" />
                     <div>
                       <div className="font-medium text-white">MySQL</div>
-                      <div className="text-sm text-white/52">Native MySQL 8 database with a public connection string.</div>
                     </div>
                   </label>
                   <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
                     <input type="radio" name="engine" value="postgresql" />
                     <div>
                       <div className="font-medium text-white">PostgreSQL</div>
-                      <div className="text-sm text-white/52">Public PostgreSQL endpoint with Coolify-managed credentials.</div>
                     </div>
                   </label>
                 </div>
@@ -702,113 +652,10 @@ export default function AppIndex() {
                   </Button>
                 </div>
               </div>
-
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-5">
-                <div className="text-sm font-medium text-white">
-                  What this creates
-                </div>
-                <div className="mt-3 space-y-3 text-sm text-white/54">
-                  <div className="rounded-md border border-white/10 bg-[var(--surface-elevated)] p-4">
-                    1. A dedicated Coolify database resource under your workspace user.
-                  </div>
-                  <div className="rounded-md border border-white/10 bg-[var(--surface-elevated)] p-4">
-                    2. A public connection endpoint with the returned host and port.
-                  </div>
-                  <div className="rounded-md border border-white/10 bg-[var(--surface-elevated)] p-4">
-                    3. Stored credentials visible on this dashboard for later use.
-                  </div>
-                </div>
-              </div>
             </Form>
           )}
         </CardContent>
       </Card>
-
-      <div className="grid gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle>Next actions</CardTitle>
-            <CardDescription>Quick links into the areas used most often after provisioning.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <Link
-              to="/sites?new=1"
-              className="rounded-md border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/18 hover:bg-white/[0.06]"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-medium text-white">Create site</div>
-                <ArrowRight className="h-4 w-4 text-white/40" />
-              </div>
-              <div className="mt-2 text-sm leading-6 text-white/54">
-                Start a Node, static, PHP, Python, or WordPress site.
-              </div>
-            </Link>
-            <Link
-              to="/sites"
-              className="rounded-md border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/18 hover:bg-white/[0.06]"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-medium text-white">Review sites</div>
-                <ArrowRight className="h-4 w-4 text-white/40" />
-              </div>
-              <div className="mt-2 text-sm leading-6 text-white/54">
-                Inspect runtime status, logs, domains, and site-specific settings.
-              </div>
-            </Link>
-            <Link
-              to="/settings"
-              className="rounded-md border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/18 hover:bg-white/[0.06]"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-medium text-white">GitHub access</div>
-                <ArrowRight className="h-4 w-4 text-white/40" />
-              </div>
-              <div className="mt-2 text-sm leading-6 text-white/54">
-                Connect a GitHub account for private repository onboarding.
-              </div>
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>GitHub</CardTitle>
-            <CardDescription>Repository automation status for this user.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-medium text-white">
-                  {github.connected ? "Connected" : "Not connected"}
-                </div>
-                <Badge>{github.connected ? "Ready" : "Pending"}</Badge>
-              </div>
-              <div className="mt-2 text-sm leading-6 text-white/54">
-                {github.connected
-                  ? `Connected as ${github.login || "GitHub user"}.`
-                  : github.configured
-                    ? "Connect GitHub to automate private repository deployments."
-                    : "GitHub OAuth is not configured on the panel yet."}
-              </div>
-            </div>
-            <Link to={github.connected ? "/sites?new=1" : "/settings"}>
-              <Button variant="secondary" className="w-full justify-center">
-                {github.connected ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Use GitHub for a site
-                  </>
-                ) : (
-                  <>
-                    <Github className="h-4 w-4" />
-                    Open GitHub settings
-                  </>
-                )}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
