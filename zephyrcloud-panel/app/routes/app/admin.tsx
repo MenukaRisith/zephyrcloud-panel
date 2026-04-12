@@ -137,11 +137,20 @@ type AdminSite = {
   updated_at: string;
 };
 
+type CoolifySiteCandidate = {
+  uuid: string;
+  name: string;
+  status?: string;
+  fqdn?: string;
+  base_directory?: string;
+};
+
 type LoaderData = {
   panelApps: PanelApp[];
   users: AdminUser[];
   tenants: AdminTenant[];
   sites: AdminSite[];
+  coolifySites: CoolifySiteCandidate[];
   planCatalog: PlanCatalogItem[];
   adminEmails: string[];
   stats: {
@@ -595,6 +604,29 @@ function parseSites(
   };
 }
 
+function parseCoolifySites(coolifySitesPayload: unknown): CoolifySiteCandidate[] {
+  if (
+    !isRecord(coolifySitesPayload) ||
+    !Array.isArray(coolifySitesPayload.coolify_sites)
+  ) {
+    return [];
+  }
+
+  return coolifySitesPayload.coolify_sites
+    .filter(isRecord)
+    .map((site) => ({
+      uuid: typeof site.uuid === "string" ? site.uuid : "",
+      name: typeof site.name === "string" ? site.name : "",
+      status: typeof site.status === "string" ? site.status : undefined,
+      fqdn: typeof site.fqdn === "string" ? site.fqdn : undefined,
+      base_directory:
+        typeof site.base_directory === "string"
+          ? site.base_directory
+          : undefined,
+    }))
+    .filter((site) => site.uuid.length > 0);
+}
+
 export async function loader({
   request,
 }: {
@@ -604,12 +636,20 @@ export async function loader({
   if (user.role !== "admin") return redirect("/app");
 
   const errors: string[] = [];
-  const [appsRes, usersRes, tenantsRes, sitesRes, healthRes] =
+  const [
+    appsRes,
+    usersRes,
+    tenantsRes,
+    sitesRes,
+    coolifySitesRes,
+    healthRes,
+  ] =
     await Promise.all([
       apiFetchAuthed(request, "/api/admin/panel-apps"),
       apiFetchAuthed(request, "/api/admin/users"),
       apiFetchAuthed(request, "/api/admin/tenants"),
       apiFetchAuthed(request, "/api/admin/sites"),
+      apiFetchAuthed(request, "/api/admin/coolify-sites"),
       apiFetchAuthed(request, "/api/admin/coolify/health"),
     ]);
 
@@ -617,6 +657,7 @@ export async function loader({
   const usersPayload = await safeJson(usersRes);
   const tenantsPayload = await safeJson(tenantsRes);
   const sitesPayload = await safeJson(sitesRes);
+  const coolifySitesPayload = await safeJson(coolifySitesRes);
   const healthPayload = await safeJson(healthRes);
 
   if (!appsRes.ok) {
@@ -631,6 +672,11 @@ export async function loader({
   if (!sitesRes.ok) {
     errors.push(messageFrom(sitesPayload, "Could not load sites."));
   }
+  if (!coolifySitesRes.ok) {
+    errors.push(
+      messageFrom(coolifySitesPayload, "Could not load Coolify sites."),
+    );
+  }
   if (!healthRes.ok) {
     errors.push(messageFrom(healthPayload, "Could not load Coolify health."));
   }
@@ -644,6 +690,7 @@ export async function loader({
     users: usersData.users,
     tenants: tenantsData.tenants,
     sites: sitesData.sites,
+    coolifySites: parseCoolifySites(coolifySitesPayload),
     planCatalog: tenantsData.planCatalog,
     adminEmails: usersData.adminEmails,
     stats: {
@@ -899,6 +946,31 @@ export async function action({
     return { ok: true, message: "Site created." };
   }
 
+  if (intent === "import-coolify-site") {
+    const res = await apiFetchAuthed(request, "/api/admin/coolify-sites/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        coolify_resource_id: String(
+          formData.get("coolify_resource_id") || "",
+        ).trim(),
+        tenant_id: String(formData.get("tenant_id") || "").trim(),
+        assign_user_id: optionalStringField(formData, "assign_user_id"),
+        name: optionalStringField(formData, "name"),
+        type: String(formData.get("type") || "node"),
+        role: String(formData.get("role") || "editor"),
+      }),
+    });
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not import that Coolify site."),
+      };
+    }
+    return { ok: true, message: "Coolify site imported." };
+  }
+
   if (intent === "assign-site") {
     const siteId = String(formData.get("site_id") || "");
     const res = await apiFetchAuthed(
@@ -932,6 +1004,7 @@ export default function AdminPage() {
     users,
     tenants,
     sites,
+    coolifySites,
     planCatalog,
     adminEmails,
     stats,
@@ -942,6 +1015,7 @@ export default function AdminPage() {
   const navigation = useNavigation();
   const [query, setQuery] = React.useState("");
   const [createSiteTenantId, setCreateSiteTenantId] = React.useState("");
+  const [importSiteTenantId, setImportSiteTenantId] = React.useState("");
 
   const currentIntent =
     navigation.state !== "idle"
@@ -1011,6 +1085,12 @@ export default function AdminPage() {
       !createSiteTenantId ||
       user.role === "admin" ||
       user.tenant_id === createSiteTenantId,
+  );
+  const importSiteAssignableUsers = users.filter(
+    (user) =>
+      !importSiteTenantId ||
+      user.role === "admin" ||
+      user.tenant_id === importSiteTenantId,
   );
 
   return (
@@ -1098,8 +1178,48 @@ export default function AdminPage() {
         </Banner>
       ) : null}
 
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <WorkflowLink
+          href="#create-users"
+          icon={<Plus className="h-4 w-4" />}
+          title="Create users"
+          desc="Add admins or customer accounts."
+        />
+        <WorkflowLink
+          href="#manage-users"
+          icon={<Users className="h-4 w-4" />}
+          title="Manage users"
+          desc="Edit access, tenants, and passwords."
+        />
+        <WorkflowLink
+          href="#plans-resources"
+          icon={<ShieldCheck className="h-4 w-4" />}
+          title="Plans and resources"
+          desc="Set plans and quota overrides."
+        />
+        <WorkflowLink
+          href="#create-sites"
+          icon={<Rocket className="h-4 w-4" />}
+          title="Create sites"
+          desc="Provision sites for any tenant."
+        />
+        <WorkflowLink
+          href="#coolify-sites"
+          icon={<Server className="h-4 w-4" />}
+          title="Import Coolify"
+          desc="Find apps outside the dashboard."
+        />
+        <WorkflowLink
+          href="#assign-sites"
+          icon={<Globe className="h-4 w-4" />}
+          title="Assign sites"
+          desc="Connect sites to users."
+        />
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <motion.section
+          id="create-users"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
@@ -1197,6 +1317,7 @@ export default function AdminPage() {
         </motion.section>
 
         <motion.section
+          id="create-sites"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, delay: 0.04 }}
@@ -1339,6 +1460,138 @@ export default function AdminPage() {
           </Form>
         </motion.section>
       </div>
+
+      <motion.section
+        id="coolify-sites"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, delay: 0.06 }}
+        className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+      >
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+              Coolify inventory
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">
+              Import existing Coolify sites
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/55">
+              Find Coolify applications that are not in this dashboard, attach
+              them to a tenant, and assign a user in one step.
+            </p>
+          </div>
+          <Badge>{coolifySites.length} available</Badge>
+        </div>
+
+        {coolifySites.length > 0 ? (
+          <Form
+            method="post"
+            className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4"
+          >
+            <input
+              type="hidden"
+              name="intent"
+              value="import-coolify-site"
+            />
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <select
+                name="coolify_resource_id"
+                className={fieldClassName}
+                required
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select Coolify app
+                </option>
+                {coolifySites.map((site) => (
+                  <option key={site.uuid} value={site.uuid}>
+                    {site.name || site.uuid} {site.status ? `(${site.status})` : ""}
+                  </option>
+                ))}
+              </select>
+              <select
+                name="tenant_id"
+                className={fieldClassName}
+                required
+                value={importSiteTenantId}
+                onChange={(event) => setImportSiteTenantId(event.target.value)}
+              >
+                <option value="" disabled>
+                  Select tenant
+                </option>
+                {tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name} ({tenant.plan})
+                  </option>
+                ))}
+              </select>
+              <select
+                name="assign_user_id"
+                defaultValue=""
+                className={fieldClassName}
+              >
+                <option value="">Import unassigned</option>
+                {importSiteAssignableUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.email}{" "}
+                    {user.tenant_name ? `(${user.tenant_name})` : "(admin)"}
+                  </option>
+                ))}
+              </select>
+              <input
+                name="name"
+                placeholder="Dashboard name override"
+                className={fieldClassName}
+              />
+              <select name="type" defaultValue="node" className={fieldClassName}>
+                <option value="node">Node</option>
+                <option value="wordpress">WordPress</option>
+                <option value="php">PHP</option>
+                <option value="static">Static</option>
+              </select>
+              <select
+                name="role"
+                defaultValue="editor"
+                className={fieldClassName}
+              >
+                <option value="editor">Editor</option>
+                <option value="viewer">Viewer</option>
+              </select>
+            </div>
+            <div className="space-y-2 text-xs text-white/45">
+              {coolifySites.slice(0, 5).map((site) => (
+                <div
+                  key={`coolify-preview:${site.uuid}`}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
+                >
+                  <span className="font-mono text-white/65">{site.uuid}</span>
+                  {site.fqdn ? (
+                    <span className="ml-2 break-all">{site.fqdn}</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <button
+              type="submit"
+              disabled={currentIntent === "import-coolify-site"}
+              className={primaryButtonClassName}
+            >
+              {currentIntent === "import-coolify-site" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Server className="h-4 w-4" />
+              )}
+              Import and assign
+            </button>
+          </Form>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
+            No untracked Coolify applications found. Panel backend and frontend
+            apps are excluded from import.
+          </div>
+        )}
+      </motion.section>
 
       <div className="grid gap-6 xl:grid-cols-2">
         {panelApps.map((app, index) => (
@@ -1494,6 +1747,7 @@ export default function AdminPage() {
       </div>
 
       <motion.section
+        id="plans-resources"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.08 }}
@@ -1545,6 +1799,7 @@ export default function AdminPage() {
       </motion.section>
 
       <motion.section
+        id="assign-sites"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.1 }}
@@ -1584,6 +1839,7 @@ export default function AdminPage() {
       </motion.section>
 
       <motion.section
+        id="manage-users"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.12 }}
@@ -1635,6 +1891,38 @@ const fieldClassName =
 
 const primaryButtonClassName =
   "inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60";
+
+function WorkflowLink({
+  href,
+  icon,
+  title,
+  desc,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <a
+      href={href}
+      className="group flex min-h-[108px] flex-col justify-between rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-white/20 hover:bg-white/[0.06]"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-white/75 ring-1 ring-white/10">
+          {icon}
+        </span>
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/30 transition group-hover:text-white/60">
+          Open
+        </span>
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-white">{title}</div>
+        <div className="mt-1 text-xs leading-5 text-white/50">{desc}</div>
+      </div>
+    </a>
+  );
+}
 
 function Banner({
   title,

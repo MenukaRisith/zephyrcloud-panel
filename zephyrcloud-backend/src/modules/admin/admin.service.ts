@@ -5,8 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  DomainStatus,
   Role,
   SiteMemberRole,
+  SiteStatus,
   SubscriptionPlan,
   type SiteType,
 } from '@prisma/client';
@@ -119,6 +121,14 @@ type SerializedSite = {
   }>;
   created_at: Date;
   updated_at: Date;
+};
+
+type CoolifySiteCandidate = {
+  uuid: string;
+  name: string;
+  status?: string;
+  fqdn?: string;
+  base_directory?: string;
 };
 
 function slugify(input: string): string {
@@ -552,6 +562,147 @@ export class AdminService {
     };
   }
 
+  public async listCoolifySiteCandidates(user: JwtPayload) {
+    this.requireAdmin(user);
+
+    const applications = (await this.coolify.getApplications()).filter(
+      (app) => !this.isPanelApplication(app),
+    );
+    const appUuids = applications.map((app) => app.uuid).filter(Boolean);
+
+    const trackedSites = appUuids.length
+      ? await this.prisma.site.findMany({
+          where: {
+            OR: [
+              { coolify_resource_id: { in: appUuids } },
+              { coolify_app_id: { in: appUuids } },
+            ],
+          },
+          select: {
+            coolify_resource_id: true,
+            coolify_app_id: true,
+          },
+        })
+      : [];
+
+    const trackedUuids = new Set<string>();
+    for (const site of trackedSites) {
+      if (site.coolify_resource_id) trackedUuids.add(site.coolify_resource_id);
+      if (site.coolify_app_id) trackedUuids.add(site.coolify_app_id);
+    }
+
+    const candidates = applications
+      .filter((app) => !trackedUuids.has(app.uuid))
+      .map((app) => this.serializeCoolifySiteCandidate(app));
+
+    return {
+      stats: {
+        total_coolify_apps: applications.length,
+        tracked_sites: trackedUuids.size,
+        untracked_sites: candidates.length,
+      },
+      coolify_sites: candidates,
+    };
+  }
+
+  public async importCoolifySite(
+    user: JwtPayload,
+    body: {
+      coolify_resource_id: string;
+      tenant_id: string;
+      assign_user_id?: string;
+      name?: string;
+      type?: CreateSiteDto['type'];
+      role?: string;
+    },
+  ) {
+    this.requireAdmin(user);
+    const coolifyResourceId = body.coolify_resource_id.trim();
+    if (!coolifyResourceId) {
+      throw new BadRequestException('Coolify resource id is required.');
+    }
+
+    const tenantId = this.toBigIntStrict(body.tenant_id, 'tenantId');
+    await this.assertTenantExists(tenantId);
+
+    const applications = await this.coolify.getApplications();
+    const application = applications.find(
+      (app) => app.uuid === coolifyResourceId,
+    );
+    if (!application) {
+      throw new NotFoundException('Coolify application not found.');
+    }
+    if (this.isPanelApplication(application)) {
+      throw new BadRequestException('Panel applications cannot be imported.');
+    }
+
+    const existing = await this.prisma.site.findFirst({
+      where: {
+        OR: [
+          { coolify_resource_id: coolifyResourceId },
+          { coolify_app_id: coolifyResourceId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      if (body.assign_user_id) {
+        await this.assignUserToSiteInternal(
+          existing.id,
+          this.toBigIntStrict(body.assign_user_id, 'assign_user_id'),
+          toSiteMemberRole(body.role),
+        );
+      }
+
+      return {
+        ok: true,
+        imported: false,
+        site: await this.getSerializedSiteOrThrow(existing.id),
+      };
+    }
+
+    const created = await this.prisma.site.create({
+      data: {
+        tenant_id: tenantId,
+        name:
+          body.name?.trim() ||
+          application.name?.trim() ||
+          `Coolify ${coolifyResourceId.slice(0, 8)}`,
+        type: this.normalizeSiteType(body.type),
+        status: this.toSiteStatus(application.status),
+        coolify_resource_id: application.uuid,
+        coolify_app_id: application.uuid,
+        coolify_resource_type: 'application',
+        cpu_limit: 0.5,
+        memory_mb: 512,
+        auto_deploy: false,
+        last_status_sync_at: new Date(),
+      },
+      select: { id: true },
+    });
+
+    await this.attachCoolifyDomainsToSite(
+      created.id,
+      tenantId,
+      application.fqdn,
+    );
+
+    if (body.assign_user_id) {
+      await this.assignUserToSiteInternal(
+        created.id,
+        this.toBigIntStrict(body.assign_user_id, 'assign_user_id'),
+        toSiteMemberRole(body.role),
+      );
+    }
+
+    return {
+      ok: true,
+      imported: true,
+      site: await this.getSerializedSiteOrThrow(created.id),
+    };
+  }
+
   public async createSite(
     user: JwtPayload,
     body: {
@@ -891,6 +1042,93 @@ export class AdminService {
       created_at: entry.created_at,
       updated_at: entry.updated_at,
     };
+  }
+
+  private serializeCoolifySiteCandidate(
+    entry: CoolifyApplicationSummary,
+  ): CoolifySiteCandidate {
+    return {
+      uuid: entry.uuid,
+      name: entry.name,
+      status: entry.status,
+      fqdn: entry.fqdn,
+      base_directory: entry.base_directory,
+    };
+  }
+
+  private async attachCoolifyDomainsToSite(
+    siteId: bigint,
+    tenantId: bigint,
+    fqdn?: string,
+  ): Promise<void> {
+    const domains = this.parseCoolifyDomains(fqdn);
+    if (!domains.length) return;
+
+    await this.prisma.domain.createMany({
+      data: domains.map((domain) => ({
+        tenant_id: tenantId,
+        site_id: siteId,
+        domain,
+        status: DomainStatus.active,
+        ssl_enabled: true,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  private parseCoolifyDomains(fqdn?: string): string[] {
+    if (!fqdn) return [];
+
+    const domains = new Set<string>();
+    for (const entry of fqdn.split(',')) {
+      const trimmed = entry.trim();
+      if (!trimmed) continue;
+
+      try {
+        const url = new URL(
+          /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+            ? trimmed
+            : `https://${trimmed}`,
+        );
+        if (url.host) domains.add(url.host);
+      } catch {
+        // Ignore malformed Coolify FQDN fragments.
+      }
+    }
+
+    return Array.from(domains);
+  }
+
+  private normalizeSiteType(type?: CreateSiteDto['type']): SiteType {
+    if (
+      type === 'wordpress' ||
+      type === 'php' ||
+      type === 'static' ||
+      type === 'node'
+    ) {
+      return type;
+    }
+
+    return 'node';
+  }
+
+  private toSiteStatus(status?: string): SiteStatus {
+    const normalized = (status ?? '').toLowerCase();
+
+    if (normalized.includes('running') || normalized.includes('healthy')) {
+      return SiteStatus.running;
+    }
+    if (normalized.includes('stopped')) {
+      return SiteStatus.stopped;
+    }
+    if (normalized.includes('error') || normalized.includes('failed')) {
+      return SiteStatus.error;
+    }
+    if (normalized.includes('building')) {
+      return SiteStatus.building;
+    }
+
+    return SiteStatus.provisioning;
   }
 
   private async resolveTenantForUserCreation(
@@ -1259,6 +1497,21 @@ export class AdminService {
           ? config.defaultBaseDirectories.includes(app.base_directory)
           : false),
     );
+  }
+
+  private isPanelApplication(app: CoolifyApplicationSummary): boolean {
+    return (['backend', 'frontend'] as const).some((target) => {
+      const config = this.getPanelTargetConfig(target);
+
+      return (
+        (config.overrideUuid.length > 0 && app.uuid === config.overrideUuid) ||
+        (config.overrideName.length > 0 && app.name === config.overrideName) ||
+        config.defaultNames.includes(app.name) ||
+        (app.base_directory
+          ? config.defaultBaseDirectories.includes(app.base_directory)
+          : false)
+      );
+    });
   }
 
   private normalizePanelTarget(target: string): AdminPanelTarget {

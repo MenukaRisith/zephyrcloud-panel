@@ -19,6 +19,7 @@ import { UpdateAdminTenantDto } from './dto/update-admin-tenant.dto';
 import { CreateAdminSiteDto } from './dto/create-admin-site.dto';
 import { AssignAdminSiteDto } from './dto/assign-admin-site.dto';
 import { SetAdminUserPasswordDto } from './dto/set-admin-user-password.dto';
+import { ImportCoolifySiteDto } from './dto/import-coolify-site.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('admin')
@@ -124,12 +125,25 @@ export class AdminController {
     return this.admin.listSites(user);
   }
 
+  @Get('coolify-sites')
+  public coolifySites(@CurrentUser() user: JwtPayload) {
+    return this.admin.listCoolifySiteCandidates(user);
+  }
+
   @Post('sites')
   public createSite(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateAdminSiteDto,
   ) {
     return this.admin.createSite(user, dto);
+  }
+
+  @Post('coolify-sites/import')
+  public importCoolifySite(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ImportCoolifySiteDto,
+  ) {
+    return this.admin.importCoolifySite(user, dto);
   }
 
   @Post('sites/:id/assign')

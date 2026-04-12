@@ -13,11 +13,16 @@ import {
   AlertTriangle,
   Loader2,
   Server,
-  Cpu
+  Cpu,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserPlus,
+  Users,
 } from "lucide-react";
 
 import { apiFetchAuthed } from "../../services/api.authed.server";
 import { PANEL_NAME } from "../../lib/brand";
+import { requireUser } from "../../services/session.server";
 
 // --- Types ---
 
@@ -44,7 +49,11 @@ type ActivityItem = {
 type LoaderData = {
   stats: DashboardStats;
   recent: ActivityItem[];
-  userName?: string;
+  user: {
+    email: string;
+    name?: string;
+    role?: string;
+  };
   github: {
     configured: boolean;
     connected: boolean;
@@ -55,6 +64,8 @@ type LoaderData = {
 // --- Loader ---
 
 export async function loader({ request }: { request: Request }): Promise<LoaderData> {
+  const { user } = await requireUser(request);
+
   try {
     // 1. Fetch Sites
     const [sitesRes, githubRes] = await Promise.all([
@@ -194,7 +205,16 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
       });
     }
 
-    return { stats, recent, github };
+    return {
+      stats,
+      recent,
+      github,
+      user: {
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
 
   } catch (error) {
     console.error("Dashboard loader error:", error);
@@ -202,6 +222,11 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
       stats: { sites: 0, domains: 0, databases: 0, deployments: 0 },
       recent: [{ title: "Connection Error", desc: "Could not load dashboard stats.", tone: "warn" }],
       github: { configured: false, connected: false },
+      user: {
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     };
   }
 }
@@ -213,7 +238,8 @@ function cx(...classes: Array<string | false | null | undefined>) {
 }
 
 export default function AppIndex() {
-  const { stats, recent, github } = useLoaderData() as LoaderData;
+  const { stats, recent, github, user } = useLoaderData() as LoaderData;
+  const isAdmin = user.role === "admin";
 
   const cards = [
     { label: "Total Sites", value: stats.sites, icon: <Server className="h-5 w-5 text-indigo-400" />, border: "border-indigo-500/20", bg: "bg-indigo-500/5" },
@@ -252,6 +278,76 @@ export default function AppIndex() {
           </Link>
         </div>
       </div>
+
+      {isAdmin ? (
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.05 }}
+          className="rounded-[28px] border border-emerald-400/15 bg-emerald-400/[0.06] p-5 backdrop-blur-xl"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Admin access
+              </div>
+              <h2 className="mt-3 text-xl font-semibold tracking-tight text-white">
+                Platform operations
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">
+                Manage customer users, plans, quota overrides, and site ownership.
+              </p>
+            </div>
+            <Link
+              to="/app/admin"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-black shadow-lg shadow-white/5 transition-all hover:bg-white/90 active:scale-95"
+            >
+              Open Admin Console
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <AdminAction
+              to="/app/admin#create-users"
+              icon={<UserPlus className="h-4 w-4" />}
+              title="Create users"
+              desc="Add admins or customers with a plan."
+            />
+            <AdminAction
+              to="/app/admin#manage-users"
+              icon={<Users className="h-4 w-4" />}
+              title="Manage users"
+              desc="Edit access, tenants, and passwords."
+            />
+            <AdminAction
+              to="/app/admin#plans-resources"
+              icon={<SlidersHorizontal className="h-4 w-4" />}
+              title="Plans and resources"
+              desc="Set plans and quota overrides."
+            />
+            <AdminAction
+              to="/app/admin#create-sites"
+              icon={<Rocket className="h-4 w-4" />}
+              title="Create sites"
+              desc="Provision sites for any tenant."
+            />
+            <AdminAction
+              to="/app/admin#coolify-sites"
+              icon={<Server className="h-4 w-4" />}
+              title="Import Coolify"
+              desc="Find apps outside the dashboard."
+            />
+            <AdminAction
+              to="/app/admin#assign-sites"
+              icon={<Boxes className="h-4 w-4" />}
+              title="Assign sites"
+              desc="Connect unassigned sites to users."
+            />
+          </div>
+        </motion.section>
+      ) : null}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -348,6 +444,36 @@ export default function AppIndex() {
 }
 
 // --- Subcomponents ---
+
+function AdminAction({
+  to,
+  icon,
+  title,
+  desc,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="group flex min-h-[112px] flex-col justify-between rounded-2xl border border-white/10 bg-black/20 p-4 transition-all hover:border-emerald-300/25 hover:bg-emerald-300/10"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-emerald-100 ring-1 ring-white/10">
+          {icon}
+        </span>
+        <ArrowUpRight className="h-4 w-4 text-white/25 transition group-hover:text-emerald-100" />
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-white">{title}</div>
+        <div className="mt-1 text-xs leading-5 text-white/55">{desc}</div>
+      </div>
+    </Link>
+  );
+}
 
 function ActivityRow({
   title,

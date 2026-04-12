@@ -303,6 +303,15 @@ export default function AppLayout() {
               </div>
 
               <div className="ml-auto hidden items-center gap-3 lg:flex">
+                {user?.role === "admin" ? (
+                  <Link
+                    to="/app/admin"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/15"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Admin Console
+                  </Link>
+                ) : null}
                 <Link
                   to="/app/settings"
                   className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/75 transition hover:bg-white/10 hover:text-white"
