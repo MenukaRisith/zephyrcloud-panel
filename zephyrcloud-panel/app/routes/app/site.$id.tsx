@@ -613,6 +613,19 @@ export default function SiteOverview() {
     }
   }, [statusFetcher.data]);
 
+  React.useEffect(() => {
+    if (!isSubmitting) return;
+
+    if (
+      currentIntent === "deploy" ||
+      currentIntent === "deploy_force" ||
+      currentIntent === "restart" ||
+      currentIntent === "start"
+    ) {
+      setLiveStatus("PROVISIONING");
+    }
+  }, [currentIntent, isSubmitting]);
+
   // --- Optimized Polling Effects ---
 
   // 1. Logs Polling

@@ -5,6 +5,7 @@ import {
   useActionData,
   useLoaderData,
   useNavigation,
+  useSearchParams,
 } from "react-router";
 import { motion } from "framer-motion";
 import {
@@ -25,6 +26,12 @@ import {
   Users,
 } from "lucide-react";
 
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
 import { inputOnDarkClass } from "~/lib/ui";
 import { apiFetchAuthed } from "~/services/api.authed.server";
@@ -173,6 +180,7 @@ type LoaderData = {
 };
 
 type ActionData = { ok: true; message: string } | { ok: false; error: string };
+type AdminTab = "users" | "plans" | "sites" | "platform";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -1015,7 +1023,10 @@ export default function AdminPage() {
   } = useLoaderData() as LoaderData;
   const actionData = useActionData() as ActionData | undefined;
   const navigation = useNavigation();
-  const [query, setQuery] = React.useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [userQuery, setUserQuery] = React.useState("");
+  const [planQuery, setPlanQuery] = React.useState("");
+  const [siteQuery, setSiteQuery] = React.useState("");
   const [createSiteTenantId, setCreateSiteTenantId] = React.useState("");
 
   const currentIntent =
@@ -1047,8 +1058,20 @@ export default function AdminPage() {
       ? String(navigation.formData?.get("coolify_resource_id") || "")
       : "";
 
-  const search = query.trim().toLowerCase();
-  const filteredUsers = search
+  const rawTab = searchParams.get("tab");
+  const currentTab: AdminTab =
+    rawTab === "users" ||
+    rawTab === "plans" ||
+    rawTab === "sites" ||
+    rawTab === "platform"
+      ? rawTab
+      : "sites";
+
+  const userSearch = userQuery.trim().toLowerCase();
+  const planSearch = planQuery.trim().toLowerCase();
+  const siteSearch = siteQuery.trim().toLowerCase();
+
+  const filteredUsers = userSearch
     ? users.filter((user) =>
         [
           user.email,
@@ -1059,18 +1082,18 @@ export default function AdminPage() {
         ]
           .join(" ")
           .toLowerCase()
-          .includes(search),
+          .includes(userSearch),
       )
     : users;
-  const filteredTenants = search
+  const filteredTenants = planSearch
     ? tenants.filter((tenant) =>
         [tenant.name, tenant.slug, tenant.plan]
           .join(" ")
           .toLowerCase()
-          .includes(search),
+          .includes(planSearch),
       )
     : tenants;
-  const filteredSites = search
+  const filteredSites = siteSearch
     ? sites.filter((site) =>
         [
           site.name,
@@ -1082,7 +1105,7 @@ export default function AdminPage() {
         ]
           .join(" ")
           .toLowerCase()
-          .includes(search),
+          .includes(siteSearch),
       )
     : sites;
   const createSiteAssignableUsers = users.filter(
@@ -1094,6 +1117,12 @@ export default function AdminPage() {
   const createSiteTenant = tenants.find(
     (tenant) => tenant.id === createSiteTenantId,
   );
+
+  function handleTabChange(nextTab: string) {
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", nextTab);
+    setSearchParams(params, { replace: true });
+  }
 
   return (
     <div className="space-y-6 pb-20 lg:pb-0">
@@ -1176,46 +1205,129 @@ export default function AdminPage() {
         </Banner>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-        <WorkflowLink
-          href="#create-users"
-          icon={<Plus className="h-4 w-4" />}
-          title="Create people"
-          desc="Add administrators or workspace members."
-        />
-        <WorkflowLink
-          href="#manage-users"
-          icon={<Users className="h-4 w-4" />}
-          title="Manage people"
-          desc="Update access, workspaces, and passwords."
-        />
-        <WorkflowLink
-          href="#plans-resources"
-          icon={<ShieldCheck className="h-4 w-4" />}
-          title="Plans and limits"
-          desc="Set plans and custom limits."
-        />
-        <WorkflowLink
-          href="#create-sites"
-          icon={<Rocket className="h-4 w-4" />}
-          title="Create sites"
-          desc="Create sites for any workspace."
-        />
-        <WorkflowLink
-          href="#coolify-sites"
-          icon={<Server className="h-4 w-4" />}
-          title="Import apps"
-          desc="Bring in apps created outside the panel."
-        />
-        <WorkflowLink
-          href="#assign-sites"
-          icon={<Globe className="h-4 w-4" />}
-          title="Assign sites"
-          desc="Connect sites to people."
-        />
-      </div>
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="users">
+            <Users className="h-4 w-4" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="plans">
+            <ShieldCheck className="h-4 w-4" />
+            Plans
+          </TabsTrigger>
+          <TabsTrigger value="sites">
+            <Globe className="h-4 w-4" />
+            Sites
+          </TabsTrigger>
+          <TabsTrigger value="platform">
+            <Server className="h-4 w-4" />
+            Platform
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <TabsContent value="users" className="space-y-6">
+          <AdminUsersTab
+            adminEmails={adminEmails}
+            currentIntent={currentIntent}
+            currentUserId={currentUserId}
+            filteredUsers={filteredUsers}
+            planCatalog={planCatalog}
+            stats={stats}
+            tenants={tenants}
+            userQuery={userQuery}
+            onUserQueryChange={setUserQuery}
+          />
+        </TabsContent>
+
+        <TabsContent value="plans" className="space-y-6">
+          <AdminPlansTab
+            currentIntent={currentIntent}
+            currentTenantId={currentTenantId}
+            filteredTenants={filteredTenants}
+            planCatalog={planCatalog}
+            planQuery={planQuery}
+            onPlanQueryChange={setPlanQuery}
+          />
+        </TabsContent>
+
+        <TabsContent value="sites" className="space-y-6">
+          <AdminSitesTab
+            createSiteAssignableUsers={createSiteAssignableUsers}
+            createSiteTenant={createSiteTenant}
+            createSiteTenantId={createSiteTenantId}
+            currentCoolifyResourceId={currentCoolifyResourceId}
+            currentIntent={currentIntent}
+            currentSiteId={currentSiteId}
+            coolifySites={coolifySites}
+            filteredSites={filteredSites}
+            siteQuery={siteQuery}
+            stats={stats}
+            tenants={tenants}
+            users={users}
+            onCreateSiteTenantChange={setCreateSiteTenantId}
+            onSiteQueryChange={setSiteQuery}
+          />
+        </TabsContent>
+
+        <TabsContent value="platform" className="space-y-6">
+          <AdminPlatformTab
+            currentIntent={currentIntent}
+            currentKey={currentKey}
+            currentTarget={currentTarget}
+            panelApps={panelApps}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function SearchField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/60">
+      <Search className="h-4 w-4" />
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="w-full min-w-0 bg-transparent text-white outline-none placeholder:text-white/35 md:w-72"
+      />
+    </label>
+  );
+}
+
+function AdminUsersTab({
+  adminEmails,
+  currentIntent,
+  currentUserId,
+  filteredUsers,
+  planCatalog,
+  stats,
+  tenants,
+  userQuery,
+  onUserQueryChange,
+}: {
+  adminEmails: string[];
+  currentIntent: string;
+  currentUserId: string;
+  filteredUsers: AdminUser[];
+  planCatalog: PlanCatalogItem[];
+  stats: LoaderData["stats"];
+  tenants: AdminTenant[];
+  userQuery: string;
+  onUserQueryChange: (value: string) => void;
+}) {
+  return (
+    <>
+      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <motion.section
           id="create-users"
           initial={{ opacity: 0, y: 10 }}
@@ -1311,10 +1423,178 @@ export default function AdminPage() {
         </motion.section>
 
         <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, delay: 0.03 }}
+          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+            Directory
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">
+            Manage users
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-white/55">
+            {adminEmails.length
+              ? `${adminEmails.length} admin accounts`
+              : "No admin accounts"}
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <PlanLimit label="Total users" value={String(stats.total_users)} />
+            <PlanLimit label="Active users" value={String(stats.active_users)} />
+            <PlanLimit label="Admins" value={String(stats.admin_users)} />
+          </div>
+          <div className="mt-5">
+            <SearchField
+              value={userQuery}
+              onChange={onUserQueryChange}
+              placeholder="Search people"
+            />
+          </div>
+        </motion.section>
+      </div>
+
+      <motion.section
+        id="manage-users"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, delay: 0.05 }}
+        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+      >
+        <div className="space-y-4">
+          {filteredUsers.length > 0 ? (
+            filteredUsers.map((user) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                tenants={tenants}
+                isUpdating={
+                  currentIntent === "update-user" && currentUserId === user.id
+                }
+                isChangingPassword={
+                  currentIntent === "set-password" && currentUserId === user.id
+                }
+              />
+            ))
+          ) : (
+            <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
+              No users matched that search.
+            </div>
+          )}
+        </div>
+      </motion.section>
+    </>
+  );
+}
+
+function AdminPlansTab({
+  currentIntent,
+  currentTenantId,
+  filteredTenants,
+  planCatalog,
+  planQuery,
+  onPlanQueryChange,
+}: {
+  currentIntent: string;
+  currentTenantId: string;
+  filteredTenants: AdminTenant[];
+  planCatalog: PlanCatalogItem[];
+  planQuery: string;
+  onPlanQueryChange: (value: string) => void;
+}) {
+  return (
+    <motion.section
+      id="plans-resources"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+            Workspaces and plans
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">
+            Manage plans and limits
+          </h2>
+        </div>
+        <SearchField
+          value={planQuery}
+          onChange={onPlanQueryChange}
+          placeholder="Search workspaces and plans"
+        />
+      </div>
+
+      {planCatalog.length > 0 ? (
+        <div className="mt-6 grid gap-3 lg:grid-cols-3">
+          {planCatalog.map((plan) => (
+            <PlanCatalogCard key={plan.key} plan={plan} />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-6 space-y-4">
+        {filteredTenants.length > 0 ? (
+          filteredTenants.map((tenant) => (
+            <TenantRow
+              key={tenant.id}
+              tenant={tenant}
+              planCatalog={planCatalog}
+              isUpdating={
+                currentIntent === "update-tenant" && currentTenantId === tenant.id
+              }
+            />
+          ))
+        ) : (
+          <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
+            No workspaces matched that search.
+          </div>
+        )}
+      </div>
+    </motion.section>
+  );
+}
+
+function AdminSitesTab({
+  createSiteAssignableUsers,
+  createSiteTenant,
+  createSiteTenantId,
+  currentCoolifyResourceId,
+  currentIntent,
+  currentSiteId,
+  coolifySites,
+  filteredSites,
+  siteQuery,
+  stats,
+  tenants,
+  users,
+  onCreateSiteTenantChange,
+  onSiteQueryChange,
+}: {
+  createSiteAssignableUsers: AdminUser[];
+  createSiteTenant: AdminTenant | undefined;
+  createSiteTenantId: string;
+  currentCoolifyResourceId: string;
+  currentIntent: string;
+  currentSiteId: string;
+  coolifySites: CoolifySiteCandidate[];
+  filteredSites: AdminSite[];
+  siteQuery: string;
+  stats: LoaderData["stats"];
+  tenants: AdminTenant[];
+  users: AdminUser[];
+  onCreateSiteTenantChange: (value: string) => void;
+  onSiteQueryChange: (value: string) => void;
+}) {
+  return (
+    <>
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <motion.section
           id="create-sites"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.18, delay: 0.04 }}
+          transition={{ duration: 0.18 }}
           className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
         >
           <div>
@@ -1336,7 +1616,7 @@ export default function AdminPage() {
                 className={fieldClassName}
                 required
                 value={createSiteTenantId}
-                onChange={(event) => setCreateSiteTenantId(event.target.value)}
+                onChange={(event) => onCreateSiteTenantChange(event.target.value)}
               >
                 <option value="" disabled>
                   Select workspace
@@ -1470,25 +1750,53 @@ export default function AdminPage() {
             </button>
           </Form>
         </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, delay: 0.03 }}
+          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+            Directory
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">
+            Browse sites
+          </h2>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <PlanLimit label="Total sites" value={String(stats.total_sites)} />
+            <PlanLimit
+              label="Unassigned sites"
+              value={String(stats.unassigned_sites)}
+            />
+          </div>
+          <div className="mt-5">
+            <SearchField
+              value={siteQuery}
+              onChange={onSiteQueryChange}
+              placeholder="Search sites, domains, or repositories"
+            />
+          </div>
+        </motion.section>
       </div>
 
       <motion.section
         id="coolify-sites"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, delay: 0.06 }}
+        transition={{ duration: 0.18, delay: 0.05 }}
         className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
       >
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-                Imported apps
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">
-                Import existing apps
-              </h2>
-            </div>
-            <Badge>{coolifySites.length} available</Badge>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+              Imported apps
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">
+              Import existing apps
+            </h2>
+          </div>
+          <Badge>{coolifySites.length} available</Badge>
         </div>
 
         {coolifySites.length > 0 ? (
@@ -1513,218 +1821,11 @@ export default function AdminPage() {
         )}
       </motion.section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        {panelApps.map((app, index) => (
-          <motion.section
-            key={app.uuid}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.18, delay: index * 0.04 }}
-            className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-                  {app.target}
-                </div>
-                <h2 className="mt-2 text-xl font-semibold text-white">
-                  {app.label}
-                </h2>
-                <p className="mt-2 text-sm text-white/55">
-                  {app.name}
-                  {app.base_directory ? ` - ${app.base_directory}` : ""}
-                </p>
-              </div>
-              <span
-                className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] ${statusTone(app.status)}`}
-              >
-                {app.status || "unknown"}
-              </span>
-            </div>
-
-            {app.fqdn ? (
-              <div className="mt-4 rounded-md border border-white/10 bg-black/20 px-4 py-3">
-                <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-white/40">
-                  <Globe className="h-4 w-4" />
-                  Public endpoints
-                </div>
-                <div className="break-all text-xs font-mono text-white/70">
-                  {app.fqdn}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Form method="post">
-                <input type="hidden" name="intent" value="restart-panel-app" />
-                <input type="hidden" name="target" value={app.target} />
-                <button
-                  type="submit"
-                  disabled={
-                    currentIntent === "restart-panel-app" &&
-                    currentTarget === app.target
-                  }
-                  className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/[0.1] hover:text-white disabled:opacity-60"
-                >
-                  {currentIntent === "restart-panel-app" &&
-                  currentTarget === app.target ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  Restart
-                </button>
-              </Form>
-
-              <Form method="post">
-                <input type="hidden" name="intent" value="redeploy-panel-app" />
-                <input type="hidden" name="target" value={app.target} />
-                <button
-                  type="submit"
-                  disabled={
-                    currentIntent === "redeploy-panel-app" &&
-                    currentTarget === app.target
-                  }
-                  className="inline-flex items-center gap-2 rounded-md border border-cyan-400/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
-                >
-                  {currentIntent === "redeploy-panel-app" &&
-                  currentTarget === app.target ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Rocket className="h-4 w-4" />
-                  )}
-                  Republish
-                </button>
-              </Form>
-            </div>
-
-            <Form
-              method="post"
-              className="mt-5 space-y-3 rounded-md border border-white/10 bg-[#111823] p-4"
-            >
-              <input type="hidden" name="intent" value="upsert-env" />
-              <input type="hidden" name="target" value={app.target} />
-              <div className="text-sm font-semibold text-white">Add variable</div>
-              <input
-                name="key"
-                placeholder="GITHUB_OAUTH_CLIENT_ID"
-                className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
-                required
-              />
-              <textarea
-                name="value"
-                rows={3}
-                placeholder="Value"
-                className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
-                required
-              />
-              <EnvFlags />
-              <button
-                type="submit"
-                disabled={
-                  navigation.state !== "idle" &&
-                  currentIntent === "upsert-env" &&
-                  currentTarget === app.target &&
-                  !currentKey
-                }
-                  className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
-              >
-                {navigation.state !== "idle" &&
-                currentIntent === "upsert-env" &&
-                currentTarget === app.target &&
-                !currentKey ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-                Add variable
-              </button>
-            </Form>
-
-            <div className="mt-5 space-y-3">
-              {app.envs.length > 0 ? (
-                app.envs.map((env) => (
-                  <EnvRow
-                    key={`${app.target}:${env.key}`}
-                    target={app.target}
-                    env={env}
-                    isBusy={
-                      currentTarget === app.target && currentKey === env.key
-                    }
-                    currentIntent={currentIntent}
-                  />
-                ))
-              ) : (
-                <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
-                  No variables added yet.
-                </div>
-              )}
-            </div>
-          </motion.section>
-        ))}
-      </div>
-
-      <motion.section
-        id="plans-resources"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, delay: 0.08 }}
-        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
-      >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-                Workspaces and plans
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">
-                Manage plans and limits
-              </h2>
-            </div>
-          <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/60">
-            <Search className="h-4 w-4" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search people, workspaces, sites"
-              className="w-64 bg-transparent text-white outline-none placeholder:text-white/35"
-            />
-          </label>
-        </div>
-
-        {planCatalog.length > 0 ? (
-          <div className="mt-6 grid gap-3 lg:grid-cols-3">
-            {planCatalog.map((plan) => (
-              <PlanCatalogCard key={plan.key} plan={plan} />
-            ))}
-          </div>
-        ) : null}
-
-        <div className="mt-6 space-y-4">
-          {filteredTenants.length > 0 ? (
-            filteredTenants.map((tenant) => (
-              <TenantRow
-                key={tenant.id}
-                tenant={tenant}
-                planCatalog={planCatalog}
-                isUpdating={
-                  currentIntent === "update-tenant" &&
-                  currentTenantId === tenant.id
-                }
-              />
-            ))
-          ) : (
-            <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
-              No workspaces matched that search.
-            </div>
-          )}
-        </div>
-      </motion.section>
-
       <motion.section
         id="assign-sites"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, delay: 0.1 }}
+        transition={{ duration: 0.18, delay: 0.07 }}
         className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
       >
         <div>
@@ -1755,50 +1856,169 @@ export default function AdminPage() {
           )}
         </div>
       </motion.section>
+    </>
+  );
+}
 
-      <motion.section
-        id="manage-users"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, delay: 0.12 }}
-        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
-      >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-              User directory
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
-              Manage users
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-white/55">
-              {adminEmails.length ? `${adminEmails.length} admin accounts` : "No admin accounts"}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 space-y-4">
-          {filteredUsers.length > 0 ? (
-            filteredUsers.map((user) => (
-              <UserRow
-                key={user.id}
-                user={user}
-                tenants={tenants}
-                isUpdating={
-                  currentIntent === "update-user" && currentUserId === user.id
-                }
-                isChangingPassword={
-                  currentIntent === "set-password" && currentUserId === user.id
-                }
-              />
-            ))
-          ) : (
-            <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
-              No users matched that search.
+function AdminPlatformTab({
+  currentIntent,
+  currentKey,
+  currentTarget,
+  panelApps,
+}: {
+  currentIntent: string;
+  currentKey: string;
+  currentTarget: string;
+  panelApps: PanelApp[];
+}) {
+  return (
+    <div className="grid gap-6 xl:grid-cols-2">
+      {panelApps.map((app, index) => (
+        <motion.section
+          key={app.uuid}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, delay: index * 0.04 }}
+          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+                {app.target}
+              </div>
+              <h2 className="mt-2 text-xl font-semibold text-white">
+                {app.label}
+              </h2>
+              <p className="mt-2 text-sm text-white/55">
+                {app.name}
+                {app.base_directory ? ` - ${app.base_directory}` : ""}
+              </p>
             </div>
-          )}
-        </div>
-      </motion.section>
+            <span
+              className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] ${statusTone(app.status)}`}
+            >
+              {app.status || "unknown"}
+            </span>
+          </div>
+
+          {app.fqdn ? (
+            <div className="mt-4 rounded-md border border-white/10 bg-black/20 px-4 py-3">
+              <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-white/40">
+                <Globe className="h-4 w-4" />
+                Public endpoints
+              </div>
+              <div className="break-all text-xs font-mono text-white/70">
+                {app.fqdn}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Form method="post">
+              <input type="hidden" name="intent" value="restart-panel-app" />
+              <input type="hidden" name="target" value={app.target} />
+              <button
+                type="submit"
+                disabled={
+                  currentIntent === "restart-panel-app" &&
+                  currentTarget === app.target
+                }
+                className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/[0.1] hover:text-white disabled:opacity-60"
+              >
+                {currentIntent === "restart-panel-app" &&
+                currentTarget === app.target ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Restart
+              </button>
+            </Form>
+
+            <Form method="post">
+              <input type="hidden" name="intent" value="redeploy-panel-app" />
+              <input type="hidden" name="target" value={app.target} />
+              <button
+                type="submit"
+                disabled={
+                  currentIntent === "redeploy-panel-app" &&
+                  currentTarget === app.target
+                }
+                className="inline-flex items-center gap-2 rounded-md border border-cyan-400/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
+              >
+                {currentIntent === "redeploy-panel-app" &&
+                currentTarget === app.target ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Rocket className="h-4 w-4" />
+                )}
+                Republish
+              </button>
+            </Form>
+          </div>
+
+          <Form
+            method="post"
+            className="mt-5 space-y-3 rounded-md border border-white/10 bg-[#111823] p-4"
+          >
+            <input type="hidden" name="intent" value="upsert-env" />
+            <input type="hidden" name="target" value={app.target} />
+            <div className="text-sm font-semibold text-white">Add variable</div>
+            <input
+              name="key"
+              placeholder="GITHUB_OAUTH_CLIENT_ID"
+              className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+              required
+            />
+            <textarea
+              name="value"
+              rows={3}
+              placeholder="Value"
+              className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+              required
+            />
+            <EnvFlags />
+            <button
+              type="submit"
+              disabled={
+                currentIntent === "upsert-env" &&
+                currentTarget === app.target &&
+                !currentKey
+              }
+              className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
+            >
+              {currentIntent === "upsert-env" &&
+              currentTarget === app.target &&
+              !currentKey ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Add variable
+            </button>
+          </Form>
+
+          <div className="mt-5 space-y-3">
+            {app.envs.length > 0 ? (
+              app.envs.map((env) => (
+                <EnvRow
+                  key={`${app.target}:${env.key}`}
+                  target={app.target}
+                  env={env}
+                  isBusy={
+                    currentTarget === app.target && currentKey === env.key
+                  }
+                  currentIntent={currentIntent}
+                />
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
+                No variables added yet.
+              </div>
+            )}
+          </div>
+        </motion.section>
+      ))}
     </div>
   );
 }
@@ -1951,37 +2171,6 @@ function CoolifySiteImportCard({
         </button>
       </div>
     </Form>
-  );
-}
-
-function WorkflowLink({
-  href,
-  icon,
-  title,
-  desc,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <a
-      href={href}
-        className="group panel-surface flex min-h-[108px] flex-col justify-between rounded-md border border-white/10 p-4 transition hover:border-white/20 hover:bg-white/[0.06]"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span className="grid h-9 w-9 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
-          {icon}
-        </span>
-        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/30 transition group-hover:text-white/60">
-          Open
-        </span>
-      </div>
-      <div>
-        <div className="text-sm font-semibold text-white">{title}</div>
-      </div>
-    </a>
   );
 }
 
