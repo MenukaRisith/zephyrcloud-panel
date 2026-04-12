@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 type SiteStatus = "RUNNING" | "STOPPED" | "BUILDING" | "ERROR" | "PROVISIONING";
-type SiteType = "wordpress" | "node" | "static" | "php";
+type SiteType = "wordpress" | "node" | "static" | "php" | "python";
 type SupportedCreateType = SiteType;
 type LoadState = "idle" | "loading" | "ready" | "error";
 type RepoAccessMode =
@@ -110,7 +110,8 @@ function isSupportedCreateType(value: string): value is SupportedCreateType {
     value === "wordpress" ||
     value === "node" ||
     value === "static" ||
-    value === "php"
+    value === "php" ||
+    value === "python"
   );
 }
 
@@ -340,13 +341,16 @@ export async function action({
             ? "Static app hosting requires a GitHub repository."
             : rawType === "php"
               ? "PHP app hosting requires a GitHub repository."
-              : "Node.js hosting requires a GitHub repository.",
+              : rawType === "python"
+                ? "Python app hosting requires a GitHub repository."
+                : "Node.js hosting requires a GitHub repository.",
       };
     }
 
     payload.repo_url = repoUrl;
     payload.repo_branch = repoBranch;
-    payload.auto_deploy = repoAccess === "public" || repoAccess === "github_app";
+    payload.auto_deploy =
+      repoAccess === "public" || repoAccess === "github_app";
 
     if (repoAccess === "connected_account") {
       payload.use_github_connection = true;
@@ -356,7 +360,8 @@ export async function action({
       if (!githubAppId) {
         return {
           ok: false,
-          error: "Select a GitHub App connection for private GitHub App deployments.",
+          error:
+            "Select a GitHub App connection for private GitHub App deployments.",
         };
       }
       payload.github_app_id = githubAppId;
@@ -366,7 +371,8 @@ export async function action({
       if (!privateKeyUuid) {
         return {
           ok: false,
-          error: "Generate a deploy key before creating a private repository site.",
+          error:
+            "Generate a deploy key before creating a private repository site.",
         };
       }
       payload.private_key_uuid = privateKeyUuid;
@@ -420,6 +426,8 @@ function typeMeta(type: SiteType) {
       return { label: "Node.js", icon: <Github className="h-4 w-4" /> };
     case "php":
       return { label: "PHP", icon: <Code2 className="h-4 w-4" /> };
+    case "python":
+      return { label: "Python", icon: <Code2 className="h-4 w-4" /> };
     case "static":
       return { label: "Static", icon: <Globe className="h-4 w-4" /> };
     default:
@@ -452,6 +460,14 @@ function createTypeMeta(type: SupportedCreateType) {
         repoHelp:
           "Coolify will deploy this repository with Nixpacks and expose it on port 80.",
         submitLabel: "Create PHP Application",
+      };
+    case "python":
+      return {
+        title: "Python",
+        placeholder: "fastapi-service",
+        repoHelp:
+          "Coolify will deploy this Python repository with Nixpacks and expose it on port 8000.",
+        submitLabel: "Create Python Application",
       };
     default:
       return {
@@ -528,7 +544,8 @@ export default function SitesPage() {
         <div className="rounded-[28px] border border-red-400/20 bg-red-400/10 px-5 py-4 text-sm text-red-100">
           <div className="font-semibold">GitHub connection failed</div>
           <p className="mt-1 opacity-85">
-            {githubMessage || "The GitHub callback did not complete successfully."}
+            {githubMessage ||
+              "The GitHub callback did not complete successfully."}
           </p>
         </div>
       ) : null}
@@ -640,13 +657,14 @@ function CreateSiteModal({
   const [repoOptionsError, setRepoOptionsError] = React.useState<string | null>(
     null,
   );
-  const [branchOptions, setBranchOptions] = React.useState<GithubBranchOption[]>(
-    [],
-  );
+  const [branchOptions, setBranchOptions] = React.useState<
+    GithubBranchOption[]
+  >([]);
   const [branchOptionsState, setBranchOptionsState] =
     React.useState<LoadState>("idle");
-  const [branchOptionsError, setBranchOptionsError] =
-    React.useState<string | null>(null);
+  const [branchOptionsError, setBranchOptionsError] = React.useState<
+    string | null
+  >(null);
   const [deployKey, setDeployKey] = React.useState<DeployKeyPayload | null>(
     null,
   );
@@ -669,7 +687,11 @@ function CreateSiteModal({
       return;
     }
 
-    if (!open || createType !== "node" || repoAccessMode !== "github_app") {
+    if (
+      !open ||
+      createType === "wordpress" ||
+      repoAccessMode !== "github_app"
+    ) {
       return;
     }
     if (
@@ -723,7 +745,7 @@ function CreateSiteModal({
 
     if (
       !open ||
-      createType !== "node" ||
+      createType === "wordpress" ||
       !(
         (repoAccessMode === "github_app" && selectedGithubApp) ||
         (repoAccessMode === "connected_account" && isConnectedGithubReady)
@@ -780,7 +802,7 @@ function CreateSiteModal({
 
     if (
       !open ||
-      createType !== "node" ||
+      createType === "wordpress" ||
       !(
         (repoAccessMode === "github_app" && selectedGithubApp) ||
         (repoAccessMode === "connected_account" && isConnectedGithubReady)
@@ -859,7 +881,9 @@ function CreateSiteModal({
     if (!repoInput.trim()) {
       setDeployKey(null);
       setDeployKeyState("error");
-      setDeployKeyError("Enter the GitHub repository before generating a deploy key.");
+      setDeployKeyError(
+        "Enter the GitHub repository before generating a deploy key.",
+      );
       return;
     }
 
@@ -948,6 +972,12 @@ function CreateSiteModal({
       description: "Deploy PHP applications from Git with Coolify.",
       icon: <Code2 className="h-5 w-5" />,
     },
+    {
+      type: "python",
+      title: "Python",
+      description: "Host FastAPI, Django, Flask, or Python web services.",
+      icon: <Code2 className="h-5 w-5" />,
+    },
   ];
 
   const accessOptions: Array<{
@@ -981,7 +1011,8 @@ function CreateSiteModal({
     {
       value: "deploy_key",
       title: "Manual Deploy Key",
-      description: "Generate a deploy key yourself if you do not want to connect GitHub.",
+      description:
+        "Generate a deploy key yourself if you do not want to connect GitHub.",
     },
   ];
 
@@ -1023,7 +1054,11 @@ function CreateSiteModal({
             <Form method="post" className="mt-8 space-y-6">
               <input type="hidden" name="type" value={createType} />
               {createType !== "wordpress" && (
-                <input type="hidden" name="repo_access" value={repoAccessMode} />
+                <input
+                  type="hidden"
+                  name="repo_access"
+                  value={repoAccessMode}
+                />
               )}
 
               <div className="space-y-3">
@@ -1083,6 +1118,11 @@ function CreateSiteModal({
                   placeholder={selectedTypeMeta.placeholder}
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all placeholder:text-white/20 focus:ring-2 ring-white/10"
                 />
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/50">
+                Workspace plan caps apply before provisioning: site count, CPU,
+                memory, and team access.
               </div>
 
               {createType === "wordpress" ? (
@@ -1165,7 +1205,8 @@ function CreateSiteModal({
                     <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
                       GitHub Connection
                     </label>
-                    {repoAccessMode === "github_app" && canUsePrivateGithubApps ? (
+                    {repoAccessMode === "github_app" &&
+                    canUsePrivateGithubApps ? (
                       <>
                         <select
                           name="github_app_id"
@@ -1229,7 +1270,10 @@ function CreateSiteModal({
                         <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
                           Connected as{" "}
                           <span className="font-semibold text-white">
-                            @{githubConnection.login || githubConnection.name || "github-user"}
+                            @
+                            {githubConnection.login ||
+                              githubConnection.name ||
+                              "github-user"}
                           </span>
                           . The panel will add the deploy key to the selected
                           private repository automatically.
@@ -1312,8 +1356,8 @@ function CreateSiteModal({
                       repoOptions.length === 0 &&
                       repoOptionsState === "ready" && (
                         <p className="text-xs text-amber-200">
-                          No repositories with deploy-key admin access were found
-                          for this GitHub account.
+                          No repositories with deploy-key admin access were
+                          found for this GitHub account.
                         </p>
                       )}
                     {repoAccessMode === "deploy_key" && (

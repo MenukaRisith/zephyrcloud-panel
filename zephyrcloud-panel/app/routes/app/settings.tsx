@@ -1,6 +1,21 @@
-import { Form, Link, redirect, useActionData, useLoaderData, useSearchParams } from "react-router";
+import {
+  Form,
+  Link,
+  redirect,
+  useActionData,
+  useLoaderData,
+  useSearchParams,
+} from "react-router";
 import { motion } from "framer-motion";
-import { ArrowRight, CheckCircle2, Github, KeyRound, ShieldAlert, ShieldCheck, Unplug } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Github,
+  KeyRound,
+  ShieldAlert,
+  ShieldCheck,
+  Unplug,
+} from "lucide-react";
 
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { PANEL_NAME } from "~/lib/brand";
@@ -41,13 +56,18 @@ function parseConnection(payload: unknown): GithubConnectionData {
       typeof payload.avatar_url === "string" ? payload.avatar_url : null,
     scopes: Array.isArray(payload.scopes)
       ? payload.scopes.filter(
-          (value): value is string => typeof value === "string" && value.trim().length > 0,
+          (value): value is string =>
+            typeof value === "string" && value.trim().length > 0,
         )
       : [],
   };
 }
 
-export async function loader({ request }: { request: Request }): Promise<LoaderData> {
+export async function loader({
+  request,
+}: {
+  request: Request;
+}): Promise<LoaderData> {
   try {
     const res = await apiFetchAuthed(request, "/api/github/connection", {
       method: "GET",
@@ -94,7 +114,7 @@ function statusCopy(status: string | null, message: string | null) {
       return {
         tone: "emerald",
         title: "GitHub connected",
-        body: "Private repository automation is ready. You can now deploy private Node.js repos without pasting deploy keys manually.",
+        body: "Private repository automation is ready. You can now deploy private app repos without pasting deploy keys manually.",
       };
     case "disconnected":
       return {
@@ -118,7 +138,9 @@ function statusCopy(status: string | null, message: string | null) {
       return {
         tone: "red",
         title: "GitHub connection failed",
-        body: message || "GitHub could not be connected. Check the app configuration and repository permissions, then try again.",
+        body:
+          message ||
+          "GitHub could not be connected. Check the app configuration and repository permissions, then try again.",
       };
     default:
       return null;
@@ -157,8 +179,8 @@ export default function SettingsPage() {
             Personal automation
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-            Connect GitHub once and let {PANEL_NAME} add private-repository deploy
-            keys for you during Git-backed app creation.
+            Connect GitHub once and let {PANEL_NAME} add private-repository
+            deploy keys for you during Git-backed app creation.
           </p>
         </div>
 
@@ -224,10 +246,12 @@ export default function SettingsPage() {
 
           {!github.configured ? (
             <div className="mt-6 rounded-[24px] border border-red-400/20 bg-red-400/10 p-5 text-sm text-red-100">
-              <div className="font-semibold">Panel-side setup still required</div>
+              <div className="font-semibold">
+                Panel-side setup still required
+              </div>
               <p className="mt-2 leading-6 opacity-85">
-                Add `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET`
-                to the panel before one-click private repo onboarding can work.
+                Add `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET` to
+                the panel before one-click private repo onboarding can work.
               </p>
             </div>
           ) : github.connected ? (
@@ -250,7 +274,9 @@ export default function SettingsPage() {
                       {github.name || github.login || "GitHub account"}
                     </div>
                     {github.login ? (
-                      <div className="text-sm text-white/55">@{github.login}</div>
+                      <div className="text-sm text-white/55">
+                        @{github.login}
+                      </div>
                     ) : null}
                   </div>
                 </div>
@@ -282,7 +308,11 @@ export default function SettingsPage() {
                   <ArrowRight className="h-4 w-4" />
                 </a>
                 <Form method="post">
-                  <input type="hidden" name="intent" value="disconnect-github" />
+                  <input
+                    type="hidden"
+                    name="intent"
+                    value="disconnect-github"
+                  />
                   <button
                     type="submit"
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
@@ -301,8 +331,8 @@ export default function SettingsPage() {
                 </div>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
                   After you connect, the panel can list your repos, generate the
-                  SSH deploy key, add it to GitHub, and provision the site in one
-                  flow.
+                  SSH deploy key, add it to GitHub, and provision the site in
+                  one flow.
                 </p>
               </div>
               <a

@@ -29,7 +29,7 @@ import { requireUser } from "../../services/session.server";
 type Site = {
   id: string;
   name: string;
-  type: "wordpress" | "node" | "static" | "php";
+  type: "wordpress" | "node" | "static" | "php" | "python";
   status: string; // e.g. "RUNNING", "STOPPED", "ERROR", "PROVISIONING"
 };
 
@@ -63,7 +63,11 @@ type LoaderData = {
 
 // --- Loader ---
 
-export async function loader({ request }: { request: Request }): Promise<LoaderData> {
+export async function loader({
+  request,
+}: {
+  request: Request;
+}): Promise<LoaderData> {
   const { user } = await requireUser(request);
 
   try {
@@ -82,12 +86,13 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
             configured: githubPayload.configured === true,
             connected: githubPayload.connected === true,
             login:
-              typeof (githubPayload as Record<string, unknown>).login === "string"
+              typeof (githubPayload as Record<string, unknown>).login ===
+              "string"
                 ? ((githubPayload as Record<string, unknown>).login as string)
                 : undefined,
           }
         : { configured: false, connected: false, login: undefined };
-    
+
     // Normalize response
     let sites: Site[] = [];
     if (Array.isArray(sitesData)) {
@@ -115,36 +120,51 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
 
       // Fetch Domains
       try {
-        const res = await apiFetchAuthed(request, `/api/sites/${site.id}/domains`);
+        const res = await apiFetchAuthed(
+          request,
+          `/api/sites/${site.id}/domains`,
+        );
         if (res.ok) {
           const data = await res.json();
-          const list = Array.isArray(data) ? data : (data.domains || []);
+          const list = Array.isArray(data) ? data : data.domains || [];
           dCount = list.length;
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        /* ignore */
+      }
 
       // Fetch Database
       try {
-        const res = await apiFetchAuthed(request, `/api/sites/${site.id}/database`);
+        const res = await apiFetchAuthed(
+          request,
+          `/api/sites/${site.id}/database`,
+        );
         if (res.ok) {
-            // Some backends return 204 or empty text if no DB
-            const text = await res.text();
-            if (text) {
-                const data = JSON.parse(text);
-                if (data && (data.id || data.engine)) dbCount = 1;
-            }
+          // Some backends return 204 or empty text if no DB
+          const text = await res.text();
+          if (text) {
+            const data = JSON.parse(text);
+            if (data && (data.id || data.engine)) dbCount = 1;
+          }
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        /* ignore */
+      }
 
       // Fetch Deployments
       try {
-        const res = await apiFetchAuthed(request, `/api/sites/${site.id}/deployments`);
+        const res = await apiFetchAuthed(
+          request,
+          `/api/sites/${site.id}/deployments`,
+        );
         if (res.ok) {
           const data = await res.json();
-          const list = Array.isArray(data) ? data : (data.deployments || []);
+          const list = Array.isArray(data) ? data : data.deployments || [];
           deployCount = list.length;
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        /* ignore */
+      }
 
       return { dCount, dbCount, deployCount };
     });
@@ -168,9 +188,15 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
         tone: "neutral",
       });
     } else {
-      const running = sites.filter(s => s.status.toUpperCase() === 'RUNNING').length;
-      const provisioning = sites.filter(s => ['BUILDING', 'PROVISIONING', 'QUEUED'].includes(s.status.toUpperCase())).length;
-      const errors = sites.filter(s => ['ERROR', 'FAILED'].includes(s.status.toUpperCase())).length;
+      const running = sites.filter(
+        (s) => s.status.toUpperCase() === "RUNNING",
+      ).length;
+      const provisioning = sites.filter((s) =>
+        ["BUILDING", "PROVISIONING", "QUEUED"].includes(s.status.toUpperCase()),
+      ).length;
+      const errors = sites.filter((s) =>
+        ["ERROR", "FAILED"].includes(s.status.toUpperCase()),
+      ).length;
 
       if (provisioning > 0) {
         recent.push({
@@ -189,7 +215,7 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
       }
 
       if (running > 0 && errors === 0) {
-         recent.push({
+        recent.push({
           title: "Systems operational",
           desc: `${running} site(s) are running healthy and serving traffic.`,
           tone: "ok",
@@ -215,12 +241,17 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
         role: user.role,
       },
     };
-
   } catch (error) {
     console.error("Dashboard loader error:", error);
     return {
       stats: { sites: 0, domains: 0, databases: 0, deployments: 0 },
-      recent: [{ title: "Connection Error", desc: "Could not load dashboard stats.", tone: "warn" }],
+      recent: [
+        {
+          title: "Connection Error",
+          desc: "Could not load dashboard stats.",
+          tone: "warn",
+        },
+      ],
       github: { configured: false, connected: false },
       user: {
         email: user.email,
@@ -242,21 +273,47 @@ export default function AppIndex() {
   const isAdmin = user.role === "admin";
 
   const cards = [
-    { label: "Total Sites", value: stats.sites, icon: <Server className="h-5 w-5 text-indigo-400" />, border: "border-indigo-500/20", bg: "bg-indigo-500/5" },
-    { label: "Domains", value: stats.domains, icon: <Globe className="h-5 w-5 text-emerald-400" />, border: "border-emerald-500/20", bg: "bg-emerald-500/5" },
-    { label: "Databases", value: stats.databases, icon: <Database className="h-5 w-5 text-amber-400" />, border: "border-amber-500/20", bg: "bg-amber-500/5" },
-    { label: "Total Deploys", value: stats.deployments, icon: <Rocket className="h-5 w-5 text-blue-400" />, border: "border-blue-500/20", bg: "bg-blue-500/5" },
+    {
+      label: "Total Sites",
+      value: stats.sites,
+      icon: <Server className="h-5 w-5 text-indigo-400" />,
+      border: "border-indigo-500/20",
+      bg: "bg-indigo-500/5",
+    },
+    {
+      label: "Domains",
+      value: stats.domains,
+      icon: <Globe className="h-5 w-5 text-emerald-400" />,
+      border: "border-emerald-500/20",
+      bg: "bg-emerald-500/5",
+    },
+    {
+      label: "Databases",
+      value: stats.databases,
+      icon: <Database className="h-5 w-5 text-amber-400" />,
+      border: "border-amber-500/20",
+      bg: "bg-amber-500/5",
+    },
+    {
+      label: "Total Deploys",
+      value: stats.deployments,
+      icon: <Rocket className="h-5 w-5 text-blue-400" />,
+      border: "border-blue-500/20",
+      bg: "bg-blue-500/5",
+    },
   ];
 
   return (
     <div className="space-y-8 pb-20 lg:pb-0">
-      
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">
+            Dashboard
+          </h1>
           <p className="mt-1 text-sm text-white/50">
-            Overview of your infrastructure, delivery health, and recent control-plane activity.
+            Overview of your infrastructure, delivery health, and recent
+            control-plane activity.
           </p>
         </div>
 
@@ -296,7 +353,8 @@ export default function AppIndex() {
                 Platform operations
               </h2>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">
-                Manage customer users, plans, quota overrides, and site ownership.
+                Manage customer users, plans, quota overrides, and site
+                ownership.
               </p>
             </div>
             <Link
@@ -357,16 +415,24 @@ export default function AppIndex() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: idx * 0.05 }}
-            className={cx("relative overflow-hidden rounded-[24px] border p-5 backdrop-blur-xl", card.border, card.bg)}
+            className={cx(
+              "relative overflow-hidden rounded-[24px] border p-5 backdrop-blur-xl",
+              card.border,
+              card.bg,
+            )}
           >
             <div className="flex items-start justify-between">
-               <div>
-                  <div className="text-3xl font-bold text-white tracking-tight">{card.value}</div>
-                  <div className="text-xs font-medium text-white/50 mt-1 uppercase tracking-wider">{card.label}</div>
-               </div>
-               <div className="p-2.5 rounded-xl bg-white/5 ring-1 ring-white/5">
-                   {card.icon}
-               </div>
+              <div>
+                <div className="text-3xl font-bold text-white tracking-tight">
+                  {card.value}
+                </div>
+                <div className="text-xs font-medium text-white/50 mt-1 uppercase tracking-wider">
+                  {card.label}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/5 ring-1 ring-white/5">
+                {card.icon}
+              </div>
             </div>
           </motion.div>
         ))}
@@ -374,7 +440,6 @@ export default function AppIndex() {
 
       {/* Activity Section */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        
         {/* Activity Feed */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -385,11 +450,13 @@ export default function AppIndex() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-lg bg-white/5 text-white/70">
-                  <Activity className="h-4 w-4" />
+                <Activity className="h-4 w-4" />
               </div>
               <div>
-                  <h2 className="text-sm font-bold text-white">System Status</h2>
-                  <p className="text-[11px] text-white/40">Real-time health check</p>
+                <h2 className="text-sm font-bold text-white">System Status</h2>
+                <p className="text-[11px] text-white/40">
+                  Real-time health check
+                </p>
               </div>
             </div>
           </div>
@@ -414,19 +481,21 @@ export default function AppIndex() {
           className="rounded-[28px] border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl"
         >
           <div className="flex items-center gap-2.5 mb-6">
-             <div className="p-2 rounded-lg bg-white/5 text-white/70">
-                  <Cpu className="h-4 w-4" />
-             </div>
-             <div>
-                 <h2 className="text-sm font-bold text-white">Quick Actions</h2>
-                 <p className="text-[11px] text-white/40">Common tasks</p>
-             </div>
+            <div className="p-2 rounded-lg bg-white/5 text-white/70">
+              <Cpu className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white">Quick Actions</h2>
+              <p className="text-[11px] text-white/40">Common tasks</p>
+            </div>
           </div>
 
           <div className="space-y-2">
             <Step
               num="01"
-              title={github.connected ? "Deploy Private Repo" : "Connect GitHub"}
+              title={
+                github.connected ? "Deploy Private Repo" : "Connect GitHub"
+              }
               desc={
                 github.connected
                   ? `GitHub is linked${github.login ? ` as @${github.login}` : ""}. Private repo onboarding is now one-click.`
@@ -434,8 +503,18 @@ export default function AppIndex() {
               }
               to={github.connected ? "/app/sites?new=1" : "/app/settings"}
             />
-            <Step num="02" title="Create Application" desc="Deploy a public or private Node.js app or spin up WordPress." to="/app/sites?new=1" />
-            <Step num="03" title="Review Team Access" desc="Share the right sites with the right teammates." to="/app/team" />
+            <Step
+              num="02"
+              title="Create Application"
+              desc="Deploy a public or private app, or spin up WordPress."
+              to="/app/sites?new=1"
+            />
+            <Step
+              num="03"
+              title="Review Team Access"
+              desc="Share the right sites with the right teammates."
+              to="/app/team"
+            />
           </div>
         </motion.div>
       </div>
@@ -497,7 +576,12 @@ function ActivityRow({
   }[tone];
 
   return (
-    <div className={cx("flex items-start gap-4 rounded-2xl border p-4 transition-all hover:bg-white/[0.02]", styles)}>
+    <div
+      className={cx(
+        "flex items-start gap-4 rounded-2xl border p-4 transition-all hover:bg-white/[0.02]",
+        styles,
+      )}
+    >
       <div className="mt-0.5 grid h-8 w-8 place-items-center rounded-xl bg-black/20 ring-1 ring-white/5">
         {icon}
       </div>

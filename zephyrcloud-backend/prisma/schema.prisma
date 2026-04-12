@@ -22,17 +22,17 @@ model Tenant {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  users        User[]
-  sites        Site[]
-  deploy_keys  SiteDeployKey[]
+  users              User[]
+  sites              Site[]
+  deploy_keys        SiteDeployKey[]
   github_connections UserGithubConnection[]
-  domains      Domain[]
-  site_invites SiteInvite[]
+  domains            Domain[]
+  site_invites       SiteInvite[]
 
-  plan SubscriptionPlan @default(FREE)
-  max_sites Int?
-  max_cpu_per_site Float?
-  max_memory_mb_per_site Int?
+  plan                      SubscriptionPlan @default(FREE)
+  max_sites                 Int?
+  max_cpu_per_site          Float?
+  max_memory_mb_per_site    Int?
   max_team_members_per_site Int?
 }
 
@@ -128,6 +128,7 @@ enum SiteType {
   node
   php
   static
+  python
 }
 
 enum SiteStatus {
@@ -226,11 +227,11 @@ model SiteDeployKey {
   site_id BigInt? @unique
   site    Site?   @relation(fields: [site_id], references: [id], onDelete: SetNull)
 
-  coolify_key_uuid String @unique
-  name             String
-  description      String?
-  public_key       String
-  fingerprint      String?
+  coolify_key_uuid      String  @unique
+  name                  String
+  description           String?
+  public_key            String
+  fingerprint           String?
   github_repo_full_name String?
   github_deploy_key_id  Int?
 
@@ -250,7 +251,7 @@ model UserGithubConnection {
   user_id BigInt @unique
   user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  provider               String @default("github_oauth")
+  provider               String  @default("github_oauth")
   github_user_id         String
   github_login           String
   github_name            String?

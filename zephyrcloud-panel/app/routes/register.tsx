@@ -14,7 +14,12 @@ import {
 } from "lucide-react";
 
 import { apiUrl } from "../services/api.base";
-import { PANEL_DESCRIPTION, PANEL_HOST, PANEL_NAME, pageTitle } from "../lib/brand";
+import {
+  PANEL_DESCRIPTION,
+  PANEL_HOST,
+  PANEL_NAME,
+  pageTitle,
+} from "../lib/brand";
 import { createUserSession } from "../services/session.server";
 import type { Route } from "./+types/register";
 
@@ -67,7 +72,8 @@ export async function action({
   const password = String(formData.get("password") || "");
   const tenantName = String(formData.get("tenantName") || "").trim();
 
-  const fieldErrors: NonNullable<ActionData & { ok: false }>["fieldErrors"] = {};
+  const fieldErrors: NonNullable<ActionData & { ok: false }>["fieldErrors"] =
+    {};
 
   if (!name) fieldErrors.name = "Name is required.";
   if (!email) fieldErrors.email = "Email is required.";
@@ -166,7 +172,9 @@ export default function RegisterRoute() {
                   <Shield className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-lg font-semibold tracking-tight">{PANEL_NAME}</div>
+                  <div className="text-lg font-semibold tracking-tight">
+                    {PANEL_NAME}
+                  </div>
                   <div className="text-sm text-white/60">{PANEL_HOST}</div>
                 </div>
               </div>
@@ -178,7 +186,7 @@ export default function RegisterRoute() {
                 />
                 <Feature
                   title="Coolify-backed operations"
-                  desc="Provision WordPress, static apps, PHP, and Node workloads from one panel."
+                  desc="Provision WordPress, static apps, PHP, Python, and Node workloads from one panel."
                 />
                 <Feature
                   title="Secure sessions"
@@ -217,7 +225,8 @@ export default function RegisterRoute() {
                     Create your account
                   </h1>
                   <p className="mt-1 text-sm text-white/60">
-                    Register once, create a workspace, and start managing deployments.
+                    Register once, create a workspace, and start managing
+                    deployments.
                   </p>
                 </div>
 
@@ -240,7 +249,9 @@ export default function RegisterRoute() {
                     placeholder="Menuka Risith"
                     icon={<User className="h-4 w-4" />}
                     error={
-                      actionData?.ok === false ? actionData.fieldErrors?.name : undefined
+                      actionData?.ok === false
+                        ? actionData.fieldErrors?.name
+                        : undefined
                     }
                     autoComplete="name"
                     autoFocus
@@ -253,7 +264,9 @@ export default function RegisterRoute() {
                     placeholder="you@company.com"
                     icon={<Mail className="h-4 w-4" />}
                     error={
-                      actionData?.ok === false ? actionData.fieldErrors?.email : undefined
+                      actionData?.ok === false
+                        ? actionData.fieldErrors?.email
+                        : undefined
                     }
                     autoComplete="email"
                   />
@@ -289,7 +302,8 @@ export default function RegisterRoute() {
                         className={[
                           "w-full rounded-2xl border bg-black/25 px-10 py-3 text-sm text-white placeholder:text-white/30 outline-none",
                           "border-white/10 focus:border-white/20 focus:ring-4 focus:ring-white/10",
-                          actionData?.ok === false && actionData.fieldErrors?.password
+                          actionData?.ok === false &&
+                          actionData.fieldErrors?.password
                             ? "border-red-500/30 focus:border-red-500/40 focus:ring-red-500/10"
                             : "",
                         ].join(" ")}
@@ -299,7 +313,9 @@ export default function RegisterRoute() {
                         type="button"
                         onClick={() => setShowPassword((value) => !value)}
                         className="absolute inset-y-0 right-0 grid place-items-center px-3 text-white/60 hover:text-white"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -309,7 +325,8 @@ export default function RegisterRoute() {
                       </button>
                     </div>
 
-                    {actionData?.ok === false && actionData.fieldErrors?.password ? (
+                    {actionData?.ok === false &&
+                    actionData.fieldErrors?.password ? (
                       <p className="mt-2 text-xs text-red-200">
                         {actionData.fieldErrors.password}
                       </p>
@@ -341,7 +358,10 @@ export default function RegisterRoute() {
 
                   <p className="text-center text-sm text-white/55">
                     Already have an account?{" "}
-                    <Link to="/login" className="font-medium text-white hover:text-white/80">
+                    <Link
+                      to="/login"
+                      className="font-medium text-white hover:text-white/80"
+                    >
                       Sign in
                     </Link>
                   </p>
@@ -374,12 +394,23 @@ function Field(props: {
   autoComplete?: string;
   autoFocus?: boolean;
 }) {
-  const { label, name, type, placeholder, icon, error, autoComplete, autoFocus } =
-    props;
+  const {
+    label,
+    name,
+    type,
+    placeholder,
+    icon,
+    error,
+    autoComplete,
+    autoFocus,
+  } = props;
 
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-white/80" htmlFor={name}>
+      <label
+        className="mb-2 block text-sm font-medium text-white/80"
+        htmlFor={name}
+      >
         {label}
       </label>
       <div className="relative">

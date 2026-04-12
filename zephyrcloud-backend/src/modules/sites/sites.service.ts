@@ -561,7 +561,8 @@ export class SitesService {
       dto.type !== SiteTypeDto.wordpress &&
       dto.type !== SiteTypeDto.node &&
       dto.type !== SiteTypeDto.static &&
-      dto.type !== SiteTypeDto.php
+      dto.type !== SiteTypeDto.php &&
+      dto.type !== SiteTypeDto.python
     ) {
       throw new ForbiddenException('That site type is not enabled right now.');
     }
@@ -618,7 +619,9 @@ export class SitesService {
           ? 'Static site creation requires a GitHub repository.'
           : dto.type === SiteTypeDto.php
             ? 'PHP site creation requires a GitHub repository.'
-            : 'Node.js site creation requires a GitHub repository.',
+            : dto.type === SiteTypeDto.python
+              ? 'Python app creation requires a GitHub repository.'
+              : 'Node.js site creation requires a GitHub repository.',
       );
     }
 

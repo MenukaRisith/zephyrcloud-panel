@@ -114,7 +114,7 @@ type AdminTenant = {
 type AdminSite = {
   id: string;
   name: string;
-  type: "wordpress" | "node" | "php" | "static";
+  type: "wordpress" | "node" | "php" | "static" | "python";
   status: string;
   tenant_id: string;
   tenant_name: string;
@@ -543,7 +543,8 @@ function parseSites(
           type:
             site.type === "wordpress" ||
             site.type === "php" ||
-            site.type === "static"
+            site.type === "static" ||
+            site.type === "python"
               ? site.type
               : "node",
           status: typeof site.status === "string" ? site.status : "UNKNOWN",
@@ -604,7 +605,9 @@ function parseSites(
   };
 }
 
-function parseCoolifySites(coolifySitesPayload: unknown): CoolifySiteCandidate[] {
+function parseCoolifySites(
+  coolifySitesPayload: unknown,
+): CoolifySiteCandidate[] {
   if (
     !isRecord(coolifySitesPayload) ||
     !Array.isArray(coolifySitesPayload.coolify_sites)
@@ -636,14 +639,7 @@ export async function loader({
   if (user.role !== "admin") return redirect("/app");
 
   const errors: string[] = [];
-  const [
-    appsRes,
-    usersRes,
-    tenantsRes,
-    sitesRes,
-    coolifySitesRes,
-    healthRes,
-  ] =
+  const [appsRes, usersRes, tenantsRes, sitesRes, coolifySitesRes, healthRes] =
     await Promise.all([
       apiFetchAuthed(request, "/api/admin/panel-apps"),
       apiFetchAuthed(request, "/api/admin/users"),
@@ -947,20 +943,24 @@ export async function action({
   }
 
   if (intent === "import-coolify-site") {
-    const res = await apiFetchAuthed(request, "/api/admin/coolify-sites/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        coolify_resource_id: String(
-          formData.get("coolify_resource_id") || "",
-        ).trim(),
-        tenant_id: String(formData.get("tenant_id") || "").trim(),
-        assign_user_id: optionalStringField(formData, "assign_user_id"),
-        name: optionalStringField(formData, "name"),
-        type: String(formData.get("type") || "node"),
-        role: String(formData.get("role") || "editor"),
-      }),
-    });
+    const res = await apiFetchAuthed(
+      request,
+      "/api/admin/coolify-sites/import",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          coolify_resource_id: String(
+            formData.get("coolify_resource_id") || "",
+          ).trim(),
+          tenant_id: String(formData.get("tenant_id") || "").trim(),
+          assign_user_id: optionalStringField(formData, "assign_user_id"),
+          name: optionalStringField(formData, "name"),
+          type: String(formData.get("type") || "node"),
+          role: String(formData.get("role") || "editor"),
+        }),
+      },
+    );
     const payload = await safeJson(res);
     if (!res.ok) {
       return {
@@ -1088,6 +1088,9 @@ export default function AdminPage() {
       !createSiteTenantId ||
       user.role === "admin" ||
       user.tenant_id === createSiteTenantId,
+  );
+  const createSiteTenant = tenants.find(
+    (tenant) => tenant.id === createSiteTenantId,
   );
 
   return (
@@ -1363,6 +1366,7 @@ export default function AdminPage() {
                 <option value="wordpress">WordPress</option>
                 <option value="php">PHP</option>
                 <option value="static">Static</option>
+                <option value="python">Python</option>
               </select>
               <input
                 name="name"
@@ -1385,12 +1389,12 @@ export default function AdminPage() {
               </select>
               <input
                 name="repo_url"
-                placeholder="Repository URL"
+                placeholder="Repository URL (required outside WordPress)"
                 className={fieldClassName}
               />
               <input
                 name="repo_branch"
-                placeholder="Branch"
+                placeholder="Branch (default: main)"
                 className={fieldClassName}
               />
               <input
@@ -1439,9 +1443,29 @@ export default function AdminPage() {
               />
             </div>
             <p className="text-xs text-white/45">
-              Owner choices are filtered to admins plus users already inside
-              the selected tenant.
+              Owner choices are filtered to admins plus users already inside the
+              selected tenant.
             </p>
+            {createSiteTenant ? (
+              <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0B1118] p-4 text-xs text-white/55 md:grid-cols-4">
+                <PlanLimit
+                  label="Sites used"
+                  value={`${createSiteTenant.usage.sites}/${createSiteTenant.resources.effective.max_sites}`}
+                />
+                <PlanLimit
+                  label="CPU limit"
+                  value={`${createSiteTenant.resources.effective.max_cpu_per_site}`}
+                />
+                <PlanLimit
+                  label="Memory cap"
+                  value={`${createSiteTenant.resources.effective.max_memory_mb_per_site} MB`}
+                />
+                <PlanLimit
+                  label="Team cap"
+                  value={`${createSiteTenant.resources.effective.max_team_members_per_site}`}
+                />
+              </div>
+            ) : null}
             <button
               type="submit"
               disabled={currentIntent === "create-site"}
@@ -1688,6 +1712,14 @@ export default function AdminPage() {
           </label>
         </div>
 
+        {planCatalog.length > 0 ? (
+          <div className="mt-6 grid gap-3 lg:grid-cols-3">
+            {planCatalog.map((plan) => (
+              <PlanCatalogCard key={plan.key} plan={plan} />
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-6 space-y-4">
           {filteredTenants.length > 0 ? (
             filteredTenants.map((tenant) => (
@@ -1798,10 +1830,10 @@ export default function AdminPage() {
 }
 
 const fieldClassName =
-  "rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-white outline-none focus:border-white/25";
+  "min-w-0 rounded-lg border border-white/10 bg-[#0B1118] px-3 py-2.5 text-white outline-none transition placeholder:text-white/35 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/10";
 
 const primaryButtonClassName =
-  "inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60";
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60";
 
 function CoolifySiteImportCard({
   site,
@@ -1816,14 +1848,13 @@ function CoolifySiteImportCard({
 }) {
   const [tenantId, setTenantId] = React.useState("");
   const assignableUsers = users.filter(
-    (user) =>
-      !tenantId || user.role === "admin" || user.tenant_id === tenantId,
+    (user) => !tenantId || user.role === "admin" || user.tenant_id === tenantId,
   );
 
   return (
     <Form
       method="post"
-      className="flex min-h-[360px] flex-col rounded-2xl border border-white/10 bg-black/20 p-4"
+      className="flex min-h-[360px] min-w-0 flex-col rounded-2xl border border-white/10 bg-[#0B1118] p-5"
     >
       <input type="hidden" name="intent" value="import-coolify-site" />
       <input type="hidden" name="coolify_resource_id" value={site.uuid} />
@@ -1903,6 +1934,7 @@ function CoolifySiteImportCard({
             <option value="wordpress">WordPress</option>
             <option value="php">PHP</option>
             <option value="static">Static</option>
+            <option value="python">Python</option>
           </select>
         </label>
 
@@ -2231,7 +2263,7 @@ function UserRow({
             <input
               name="name"
               defaultValue={user.name}
-              className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-white outline-none focus:border-white/25"
+              className={fieldClassName}
             />
             <input
               type="email"
@@ -2314,6 +2346,51 @@ function UserRow({
           </button>
         </Form>
       </div>
+    </div>
+  );
+}
+
+function PlanCatalogCard({ plan }: { plan: PlanCatalogItem }) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0B1118] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-white">{plan.label}</div>
+          <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-white/35">
+            {plan.key}
+          </div>
+        </div>
+        <Badge>{plan.resources.max_sites} sites</Badge>
+      </div>
+      <p className="mt-3 min-h-10 text-xs leading-5 text-white/50">
+        {plan.description}
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+        <PlanLimit
+          label="CPU / site"
+          value={`${plan.resources.max_cpu_per_site}`}
+        />
+        <PlanLimit
+          label="Memory / site"
+          value={`${plan.resources.max_memory_mb_per_site} MB`}
+        />
+        <PlanLimit
+          label="Team / site"
+          value={`${plan.resources.max_team_members_per_site}`}
+        />
+        <PlanLimit label="Tenant overrides" value="Editable" />
+      </div>
+    </div>
+  );
+}
+
+function PlanLimit({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
+        {label}
+      </div>
+      <div className="mt-1 font-semibold text-white/75">{value}</div>
     </div>
   );
 }

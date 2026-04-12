@@ -662,6 +662,8 @@ export class AdminService {
       };
     }
 
+    const resources = await this.enforceTenantSiteLimit(tenantId);
+
     const created = await this.prisma.site.create({
       data: {
         tenant_id: tenantId,
@@ -674,8 +676,8 @@ export class AdminService {
         coolify_resource_id: application.uuid,
         coolify_app_id: application.uuid,
         coolify_resource_type: 'application',
-        cpu_limit: 0.5,
-        memory_mb: 512,
+        cpu_limit: Math.min(0.5, resources.maxCpuPerSite),
+        memory_mb: Math.min(512, resources.maxMemoryMbPerSite),
         auto_deploy: false,
         last_status_sync_at: new Date(),
       },
@@ -1104,6 +1106,7 @@ export class AdminService {
       type === 'wordpress' ||
       type === 'php' ||
       type === 'static' ||
+      type === 'python' ||
       type === 'node'
     ) {
       return type;
@@ -1203,6 +1206,40 @@ export class AdminService {
     if (!tenant) {
       throw new NotFoundException('Tenant not found.');
     }
+  }
+
+  private async getTenantPolicyOrThrow(tenantId: bigint) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        plan: true,
+        max_sites: true,
+        max_cpu_per_site: true,
+        max_memory_mb_per_site: true,
+        max_team_members_per_site: true,
+      },
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found.');
+    }
+    return tenant;
+  }
+
+  private async enforceTenantSiteLimit(tenantId: bigint) {
+    const tenant = await this.getTenantPolicyOrThrow(tenantId);
+    const resources = resolveTenantPlanResources(tenant);
+    const siteCount = await this.prisma.site.count({
+      where: { tenant_id: tenantId },
+    });
+
+    if (siteCount >= resources.maxSites) {
+      throw new ForbiddenException(
+        `This tenant has reached its site limit (${resources.maxSites}).`,
+      );
+    }
+
+    return resources;
   }
 
   private async generateUniqueTenantSlug(

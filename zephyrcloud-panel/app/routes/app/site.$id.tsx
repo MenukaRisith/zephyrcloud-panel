@@ -36,7 +36,7 @@ import { apiFetchAuthed } from "~/services/api.authed.server";
 type Site = {
   id: string;
   name: string;
-  type: "wordpress" | "node" | "static" | "php";
+  type: "wordpress" | "node" | "static" | "php" | "python";
   status: string;
   primaryDomain?: string | null;
   repo_url?: string;
@@ -513,8 +513,7 @@ function domainStatusMeta(domain: Domain) {
   if (status.includes("pending")) {
     return {
       label: "Pending DNS",
-      className:
-        "bg-amber-500/10 text-amber-300 border border-amber-500/20",
+      className: "bg-amber-500/10 text-amber-300 border border-amber-500/20",
     };
   }
   if (status.includes("error") || status.includes("fail")) {
@@ -958,7 +957,8 @@ export default function SiteOverview() {
               </div>
             ) : (
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-white/50">
-                Operational controls are limited to editors and workspace owners.
+                Operational controls are limited to editors and workspace
+                owners.
               </div>
             )}
           </Card>

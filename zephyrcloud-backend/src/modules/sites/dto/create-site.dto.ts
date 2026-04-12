@@ -12,6 +12,7 @@ export enum SiteTypeDto {
   node = 'node',
   php = 'php',
   static = 'static',
+  python = 'python',
 }
 
 export class CreateSiteDto {

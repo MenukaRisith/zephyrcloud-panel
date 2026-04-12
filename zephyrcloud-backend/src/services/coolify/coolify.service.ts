@@ -277,8 +277,7 @@ export class CoolifyService {
           name: this.toStringValue(app?.name) ?? uuid,
           status: this.toStringValue(app?.status) ?? undefined,
           fqdn: this.toStringValue(app?.fqdn) ?? undefined,
-          base_directory:
-            this.toStringValue(app?.base_directory) ?? undefined,
+          base_directory: this.toStringValue(app?.base_directory) ?? undefined,
         });
       }
       return results;
@@ -742,7 +741,7 @@ export class CoolifyService {
       this.deployResource('application', appUuid).catch(() => {});
     }
 
-    if (config.type === 'node') {
+    if (config.type === 'node' || config.type === 'python') {
       await this.setEnv(appUuid, 'PORT', exposedPort);
     }
 
@@ -933,7 +932,9 @@ export class CoolifyService {
   private async resolveGithubAppRecord(
     appRef: string | number,
   ): Promise<ResolvedGithubApp> {
-    const apps = await this.client.get<CoolifyGithubApp[]>('/api/v1/github-apps');
+    const apps = await this.client.get<CoolifyGithubApp[]>(
+      '/api/v1/github-apps',
+    );
     const raw = String(appRef).trim();
 
     const match = apps.find((app) => {
@@ -949,7 +950,8 @@ export class CoolifyService {
       id: match.id,
       uuid: match.uuid,
       name: String(match.name ?? `GitHub App ${match.id}`),
-      is_public: typeof match.is_public === 'boolean' ? match.is_public : undefined,
+      is_public:
+        typeof match.is_public === 'boolean' ? match.is_public : undefined,
     };
   }
 
@@ -976,6 +978,8 @@ export class CoolifyService {
         return 'php:8.2-apache';
       case 'node':
         return 'node:20-alpine';
+      case 'python':
+        return 'python:3.12-slim';
       default:
         return 'nginx:alpine';
     }
@@ -997,6 +1001,7 @@ export class CoolifyService {
 
   private getExposedPortForType(type: string): string {
     if (type === 'node') return '3000';
+    if (type === 'python') return '8000';
     return '80';
   }
 
