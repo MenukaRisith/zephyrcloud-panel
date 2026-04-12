@@ -25,6 +25,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { Textarea } from "~/components/ui/textarea";
 import { inputOnDarkClass } from "~/lib/ui";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { requireUser } from "~/services/session.server";
@@ -1109,7 +1110,7 @@ export default function AdminPage() {
             resource limits, and create or assign sites from one place.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
+        <div className="inline-flex items-center gap-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
           <ShieldCheck className="h-4 w-4" />
           Admin only
         </div>
@@ -1448,7 +1449,7 @@ export default function AdminPage() {
               selected tenant.
             </p>
             {createSiteTenant ? (
-              <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0B1118] p-4 text-xs text-white/55 md:grid-cols-4">
+              <div className="grid gap-3 rounded-md border border-white/10 bg-[#0B1118] p-4 text-xs text-white/55 md:grid-cols-4">
                 <PlanLimit
                   label="Sites used"
                   value={`${createSiteTenant.usage.sites}/${createSiteTenant.resources.effective.max_sites}`}
@@ -1522,7 +1523,7 @@ export default function AdminPage() {
             ))}
           </div>
         ) : (
-          <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
+          <div className="mt-5 rounded-md border border-dashed border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
             No untracked Coolify applications found. Panel backend and frontend
             apps are excluded from import.
           </div>
@@ -1552,14 +1553,14 @@ export default function AdminPage() {
                 </p>
               </div>
               <span
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] ${statusTone(app.status)}`}
+                className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] ${statusTone(app.status)}`}
               >
                 {app.status || "unknown"}
               </span>
             </div>
 
             {app.fqdn ? (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+              <div className="mt-4 rounded-md border border-white/10 bg-black/20 px-4 py-3">
                 <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-white/40">
                   <Globe className="h-4 w-4" />
                   Public endpoints
@@ -1580,7 +1581,7 @@ export default function AdminPage() {
                     currentIntent === "restart-panel-app" &&
                     currentTarget === app.target
                   }
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/[0.1] hover:text-white disabled:opacity-60"
                 >
                   {currentIntent === "restart-panel-app" &&
                   currentTarget === app.target ? (
@@ -1601,7 +1602,7 @@ export default function AdminPage() {
                     currentIntent === "redeploy-panel-app" &&
                     currentTarget === app.target
                   }
-                  className="inline-flex items-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-md border border-cyan-400/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
                 >
                   {currentIntent === "redeploy-panel-app" &&
                   currentTarget === app.target ? (
@@ -1645,7 +1646,7 @@ export default function AdminPage() {
                   currentTarget === app.target &&
                   !currentKey
                 }
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
               >
                 {navigation.state !== "idle" &&
                 currentIntent === "upsert-env" &&
@@ -1702,7 +1703,7 @@ export default function AdminPage() {
               without touching the database.
             </p>
           </div>
-          <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/60">
+          <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/60">
             <Search className="h-4 w-4" />
             <input
               value={query}
@@ -1831,7 +1832,7 @@ export default function AdminPage() {
 }
 
 const fieldClassName =
-  `${inputOnDarkClass} min-h-11 [&>option]:bg-white [&>option]:text-slate-900`;
+  `${inputOnDarkClass} min-h-11 [&>option]:bg-[var(--surface-dark)] [&>option]:text-white`;
 
 const primaryButtonClassName =
   "inline-flex items-center justify-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60";
@@ -1855,7 +1856,7 @@ function CoolifySiteImportCard({
   return (
     <Form
       method="post"
-      className="flex min-h-[360px] min-w-0 flex-col rounded-2xl border border-white/10 bg-[#0B1118] p-5"
+      className="flex min-h-[360px] min-w-0 flex-col rounded-md border border-white/10 bg-[#0B1118] p-5"
     >
       <input type="hidden" name="intent" value="import-coolify-site" />
       <input type="hidden" name="coolify_resource_id" value={site.uuid} />
@@ -1995,10 +1996,10 @@ function WorkflowLink({
   return (
     <a
       href={href}
-      className="group flex min-h-[108px] flex-col justify-between rounded-md border border-white/10 bg-[#111823] p-4 transition hover:border-white/20 hover:bg-white/[0.06]"
+        className="group panel-surface flex min-h-[108px] flex-col justify-between rounded-md border border-white/10 p-4 transition hover:border-white/20 hover:bg-white/[0.06]"
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-white/75 ring-1 ring-white/10">
+        <span className="grid h-9 w-9 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
           {icon}
         </span>
         <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/30 transition group-hover:text-white/60">
@@ -2030,7 +2031,7 @@ function Banner({
         : "border-red-400/25 bg-red-400/10 text-red-100";
 
   return (
-    <div className={`rounded-[28px] border px-5 py-4 text-sm ${className}`}>
+    <div className={`rounded-md border px-5 py-4 text-sm ${className}`}>
       <div className="flex items-center gap-2 font-semibold">
         {tone === "success" ? (
           <CheckCircle2 className="h-4 w-4" />
@@ -2054,9 +2055,9 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl">
+    <div className="panel-surface rounded-md border border-white/10 p-5">
       <div className="flex items-center gap-3 text-white/75">
-        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+        <div className="grid h-11 w-11 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
           {icon}
         </div>
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">
@@ -2116,7 +2117,7 @@ function Flag({
   checked: boolean;
 }) {
   return (
-    <label className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+    <label className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-3 py-1.5">
       <input type="hidden" name={`${name}_present`} value="1" />
       <input
         type="checkbox"
@@ -2158,17 +2159,17 @@ function EnvRow({
         <input type="hidden" name="target" value={target} />
         <input type="hidden" name="key" value={env.key} />
         {env.is_multiline ? (
-          <textarea
+          <Textarea
             name="value"
             defaultValue={env.value}
             rows={4}
-            className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+            className="font-mono"
           />
         ) : (
           <input
             name="value"
             defaultValue={env.value}
-            className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+            className={`w-full ${fieldClassName} font-mono`}
           />
         )}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -2221,7 +2222,7 @@ function EnvRow({
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-md border border-white/12 bg-white/6 px-2.5 py-1 text-[11px] font-medium text-white/72">
+    <span className="rounded-md border border-white/12 bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-white/72">
       {children}
     </span>
   );
@@ -2256,7 +2257,7 @@ function UserRow({
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_0.95fr]">
         <Form
           method="post"
-          className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+          className="space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4"
         >
           <input type="hidden" name="intent" value="update-user" />
           <input type="hidden" name="user_id" value={user.id} />
@@ -2317,7 +2318,7 @@ function UserRow({
 
         <Form
           method="post"
-          className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+          className="space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4"
         >
           <input type="hidden" name="intent" value="set-password" />
           <input type="hidden" name="user_id" value={user.id} />
@@ -2336,7 +2337,7 @@ function UserRow({
           <button
             type="submit"
             disabled={isChangingPassword}
-            className="inline-flex items-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md border border-cyan-400/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
           >
             {isChangingPassword ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -2353,7 +2354,7 @@ function UserRow({
 
 function PlanCatalogCard({ plan }: { plan: PlanCatalogItem }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0B1118] p-4">
+    <div className="min-w-0 rounded-md border border-white/10 bg-[#0B1118] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-white">{plan.label}</div>
@@ -2387,7 +2388,7 @@ function PlanCatalogCard({ plan }: { plan: PlanCatalogItem }) {
 
 function PlanLimit({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+    <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
       <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
         {label}
       </div>
@@ -2444,7 +2445,7 @@ function TenantRow({
       </div>
       <Form
         method="post"
-        className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+        className="mt-4 space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4"
       >
         <input type="hidden" name="intent" value="update-tenant" />
         <input type="hidden" name="tenant_id" value={tenant.id} />
@@ -2577,7 +2578,7 @@ function SiteRow({
       ) : null}
       <Form
         method="post"
-        className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+        className="mt-4 rounded-md border border-white/10 bg-white/[0.03] p-4"
       >
         <input type="hidden" name="intent" value="assign-site" />
         <input type="hidden" name="site_id" value={site.id} />
@@ -2633,7 +2634,7 @@ function ResourceCard({
   const resolved = overrideValue ?? base;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+    <div className="rounded-md border border-white/10 bg-white/[0.03] px-4 py-3">
       <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/40">
         {label}
       </div>

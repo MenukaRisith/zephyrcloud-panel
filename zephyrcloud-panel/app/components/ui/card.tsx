@@ -14,14 +14,16 @@ export function CardHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col gap-2 px-6 pt-6", className)} {...props} />;
+  return <div className={cn("flex flex-col gap-3 px-6 pt-6", className)} {...props} />;
 }
 
 export function CardTitle({
   className,
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("text-lg font-semibold", className)} {...props} />;
+  return (
+    <h3 className={cn("text-lg font-semibold tracking-tight text-white", className)} {...props} />
+  );
 }
 
 export function CardDescription({

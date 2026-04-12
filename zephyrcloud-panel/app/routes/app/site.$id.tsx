@@ -28,6 +28,8 @@ import {
   Info, // Added this icon
 } from "lucide-react";
 
+import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { Textarea } from "~/components/ui/textarea";
 import { resolveDnsTarget } from "~/lib/brand";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 
@@ -119,6 +121,14 @@ type LoaderData = {
     isConfigured: boolean;
   };
 };
+
+type SiteTab =
+  | "overview"
+  | "deployments"
+  | "logs"
+  | "domains"
+  | "database"
+  | "settings";
 
 type LogsPayload =
   | {
@@ -552,9 +562,7 @@ export default function SiteOverview() {
       currentIntent === "deploy_force" ||
       currentIntent === "start");
 
-  const [tab, setTab] = React.useState<
-    "overview" | "deployments" | "logs" | "domains" | "database" | "settings"
-  >("overview");
+  const [tab, setTab] = React.useState<SiteTab>("overview");
 
   // Logs Fetcher
   const logsFetcher = useFetcher<LogsPayload>();
@@ -761,7 +769,7 @@ export default function SiteOverview() {
               href={liveSiteUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white active:scale-95 transition-all"
+              className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white/80 transition-all hover:bg-white/[0.1] hover:text-white active:scale-[0.98]"
             >
               <ExternalLink className="h-4 w-4" />
               Open Site
@@ -772,7 +780,7 @@ export default function SiteOverview() {
               href={wpAdminUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-2.5 text-sm font-semibold text-blue-200 hover:bg-blue-500/20 active:scale-95 transition-all"
+              className="inline-flex items-center gap-2 rounded-md border border-blue-500/20 bg-blue-500/10 px-4 py-2.5 text-sm font-semibold text-blue-100 transition-all hover:bg-blue-500/20 active:scale-[0.98]"
             >
               <ExternalLink className="h-4 w-4" />
               WP Admin
@@ -785,7 +793,7 @@ export default function SiteOverview() {
                   <input type="hidden" name="intent" value="start" />
                   <button
                     disabled={isSubmitting}
-                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition-all hover:bg-emerald-500/20 active:scale-[0.98] disabled:opacity-50"
                   >
                     <Play
                       className={cx(
@@ -803,7 +811,7 @@ export default function SiteOverview() {
                   <input type="hidden" name="intent" value="stop" />
                   <button
                     disabled={isSubmitting}
-                    className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-300 hover:bg-red-500/20 active:scale-95 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-all hover:bg-red-500/20 active:scale-[0.98] disabled:opacity-50"
                   >
                     <Square
                       className={cx(
@@ -822,7 +830,7 @@ export default function SiteOverview() {
                 <input type="hidden" name="intent" value="deploy" />
                 <button
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-black hover:bg-white/90 shadow-lg shadow-white/5 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                  className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-lg shadow-white/5 transition-all hover:bg-white/90 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -837,7 +845,7 @@ export default function SiteOverview() {
                 <input type="hidden" name="intent" value="deploy_force" />
                 <button
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                  className="inline-flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-500/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
                 >
                   {isSubmitting && currentIntent === "deploy_force" ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -852,7 +860,7 @@ export default function SiteOverview() {
                 <input type="hidden" name="intent" value="restart" />
                 <button
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-white/[0.1] active:scale-[0.98] disabled:opacity-50"
                 >
                   <RefreshCw
                     className={cx("h-4 w-4", isSubmitting && "animate-spin")}
@@ -869,54 +877,42 @@ export default function SiteOverview() {
       </div>
 
       {/* --- TABS --- */}
-      <div className="flex flex-wrap gap-1 rounded-2xl border border-white/5 bg-black/20 p-1.5 backdrop-blur-xl">
-        <Tab
-          icon={<Boxes className="h-4 w-4" />}
-          active={tab === "overview"}
-          onClick={() => setTab("overview")}
-        >
-          Overview
-        </Tab>
-        <Tab
-          icon={<History className="h-4 w-4" />}
-          active={tab === "deployments"}
-          onClick={() => setTab("deployments")}
-        >
-          Deployments
-        </Tab>
-        {canManageTeam && (
-          <Tab
-            icon={<Terminal className="h-4 w-4" />}
-            active={tab === "logs"}
-            onClick={() => setTab("logs")}
-          >
-            Logs
-          </Tab>
-        )}
-        <Tab
-          icon={<Globe className="h-4 w-4" />}
-          active={tab === "domains"}
-          onClick={() => setTab("domains")}
-        >
-          Domains
-        </Tab>
-        {canManageTeam && (
-          <Tab
-            icon={<Database className="h-4 w-4" />}
-            active={tab === "database"}
-            onClick={() => setTab("database")}
-          >
-            Database
-          </Tab>
-        )}
-        <Tab
-          icon={<Settings className="h-4 w-4" />}
-          active={tab === "settings"}
-          onClick={() => setTab("settings")}
-        >
-          Settings
-        </Tab>
-      </div>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as SiteTab)}
+        className="w-full"
+      >
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="overview">
+            <Boxes className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="deployments">
+            <History className="h-4 w-4" />
+            Deployments
+          </TabsTrigger>
+          {canManageTeam ? (
+            <TabsTrigger value="logs">
+              <Terminal className="h-4 w-4" />
+              Logs
+            </TabsTrigger>
+          ) : null}
+          <TabsTrigger value="domains">
+            <Globe className="h-4 w-4" />
+            Domains
+          </TabsTrigger>
+          {canManageTeam ? (
+            <TabsTrigger value="database">
+              <Database className="h-4 w-4" />
+              Database
+            </TabsTrigger>
+          ) : null}
+          <TabsTrigger value="settings">
+            <Settings className="h-4 w-4" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* --- CONTENT: OVERVIEW --- */}
       {tab === "overview" && (
@@ -1580,15 +1576,16 @@ export default function SiteOverview() {
                       <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
                         Value
                       </label>
-                      <input
+                      <Textarea
                         name="value"
                         placeholder="secret_value_123"
-                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30 font-mono"
+                        rows={2}
+                        className="min-h-11 rounded-md bg-[var(--surface-elevated)] font-mono"
                       />
                     </div>
                     <button
                       disabled={isSubmitting}
-                      className="w-full md:w-auto px-4 py-2.5 bg-white text-black font-bold text-sm rounded-lg hover:bg-white/90 transition-colors flex items-center justify-center gap-2"
+                      className="flex w-full items-center justify-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-white/90 md:w-auto"
                     >
                       {isSubmitting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1865,33 +1862,16 @@ export default function SiteOverview() {
 
 // --- Subcomponents ---
 
-function Tab({ active, icon, onClick, children }: any) {
-  return (
-    <button
-      onClick={onClick}
-      className={cx(
-        "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200",
-        active
-          ? "bg-white text-black shadow-lg shadow-white/5"
-          : "text-white/60 hover:text-white hover:bg-white/5",
-      )}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
-
 function Card({ title, subtitle, children }: any) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="rounded-[24px] border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl"
+      className="panel-surface rounded-md border border-white/10 p-6"
     >
       <div className="mb-6">
-        <h3 className="text-lg font-bold text-white">{title}</h3>
-        {subtitle && <p className="text-sm text-white/40 mt-1">{subtitle}</p>}
+        <h3 className="text-lg font-semibold text-white">{title}</h3>
+        {subtitle ? <p className="mt-1 text-sm text-white/44">{subtitle}</p> : null}
       </div>
       {children}
     </motion.div>
@@ -1904,7 +1884,7 @@ function KV({ k, v }: any) {
       <div className="text-xs uppercase font-bold text-white/30 tracking-wider mb-1 ml-1">
         {k}
       </div>
-      <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm text-white font-medium font-mono truncate">
+      <div className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white font-mono truncate">
         {v}
       </div>
     </div>
@@ -1917,10 +1897,10 @@ function ActionRow({ label, icon, onClick }: any) {
       <button
         type="button"
         onClick={onClick}
-        className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 group transition-colors text-left"
+        className="group flex w-full items-center justify-between rounded-md p-3 text-left transition-colors hover:bg-white/[0.05]"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-white/5 text-white/70 group-hover:text-white transition-colors">
+          <div className="rounded-md border border-white/10 bg-white/[0.05] p-2 text-white/70 transition-colors group-hover:text-white">
             {icon}
           </div>
           <span className="text-sm font-medium text-white/80 group-hover:text-white">
@@ -1934,10 +1914,10 @@ function ActionRow({ label, icon, onClick }: any) {
   return (
     <button
       type="submit"
-      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 group transition-colors text-left"
+      className="group flex w-full items-center justify-between rounded-md p-3 text-left transition-colors hover:bg-white/[0.05]"
     >
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-white/5 text-white/70 group-hover:text-white transition-colors">
+        <div className="rounded-md border border-white/10 bg-white/[0.05] p-2 text-white/70 transition-colors group-hover:text-white">
           {icon}
         </div>
         <span className="text-sm font-medium text-white/80 group-hover:text-white">
@@ -1953,8 +1933,8 @@ function EnvRow({ env }: { env: EnvVar }) {
   const [show, setShow] = React.useState(false);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-black/20 p-3 group">
-      <div className="flex-1 font-mono text-sm font-medium text-emerald-400">
+    <div className="group flex items-center gap-3 rounded-md border border-white/10 bg-white/[0.04] p-3">
+      <div className="flex-1 font-mono text-sm font-medium text-emerald-300">
         {env.key}
       </div>
       <div className="flex-[2] min-w-0">
@@ -1963,27 +1943,27 @@ function EnvRow({ env }: { env: EnvVar }) {
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
           {env.is_literal !== false && (
-            <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-white/50">
+            <span className="rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-white/50">
               literal
             </span>
           )}
           {env.is_preview && (
-            <span className="rounded border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-blue-300">
+            <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-blue-300">
               preview
             </span>
           )}
           {env.is_multiline && (
-            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-amber-300">
+            <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-amber-300">
               multiline
             </span>
           )}
           {env.is_shown_once && (
-            <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300">
+            <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300">
               shown-once
             </span>
           )}
           {(env.is_buildtime || env.is_build_time) && (
-            <span className="rounded border border-purple-500/30 bg-purple-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-purple-300">
+            <span className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-cyan-200">
               build-time
             </span>
           )}
@@ -1993,7 +1973,7 @@ function EnvRow({ env }: { env: EnvVar }) {
         <button
           type="button"
           onClick={() => setShow(!show)}
-          className="rounded-lg p-2 text-white/40 transition hover:bg-white/10 hover:text-white"
+          className="rounded-md p-2 text-white/40 transition hover:bg-white/10 hover:text-white"
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>

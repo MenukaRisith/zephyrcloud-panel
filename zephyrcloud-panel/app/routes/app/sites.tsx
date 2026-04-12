@@ -516,17 +516,20 @@ export default function SitesPage() {
     <div className="space-y-6 pb-20 lg:pb-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-white">
+          <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
+            Site inventory
+          </div>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
             Sites
           </h1>
-          <p className="mt-1 text-sm text-white/50">
-            Deploy and manage your web applications.
+          <p className="mt-2 text-sm leading-6 text-white/55">
+            Deploy and manage your web applications with one consistent workspace layout for build flows, domains, and runtime access.
           </p>
         </div>
 
         <button
           onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-black shadow-xl transition-all hover:bg-white/90"
+          className="inline-flex items-center gap-2 rounded-md bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[var(--accent-hover)]"
         >
           <Plus className="h-4 w-4" />
           New Site
@@ -534,14 +537,14 @@ export default function SitesPage() {
       </div>
 
       {githubStatus === "connected" ? (
-        <div className="rounded-[28px] border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
+        <div className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
           <div className="font-semibold">GitHub connected</div>
           <p className="mt-1 opacity-85">
             Private repository automation is ready inside the site creator.
           </p>
         </div>
       ) : githubStatus === "error" || githubStatus === "invalid-state" ? (
-        <div className="rounded-[28px] border border-red-400/20 bg-red-400/10 px-5 py-4 text-sm text-red-100">
+        <div className="rounded-md border border-red-400/20 bg-red-400/10 px-5 py-4 text-sm text-red-100">
           <div className="font-semibold">GitHub connection failed</div>
           <p className="mt-1 opacity-85">
             {githubMessage ||
@@ -551,12 +554,12 @@ export default function SitesPage() {
       ) : null}
 
       <div className="flex items-center gap-3">
-        <div className="w-full rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 backdrop-blur-xl">
+        <div className="w-full rounded-md border border-white/10 bg-white/[0.04] px-4 py-3">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search sites by name or domain..."
-            className="w-full bg-transparent text-sm text-white/80 outline-none placeholder:text-white/30"
+            className="w-full bg-transparent text-sm text-white/82 outline-none placeholder:text-white/32"
           />
         </div>
       </div>
@@ -576,23 +579,25 @@ export default function SitesPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="group rounded-[32px] border border-white/5 bg-white/[0.03] p-6 backdrop-blur-xl transition-colors hover:bg-white/[0.05]"
+              className="group panel-surface rounded-md border border-white/10 p-6 transition-colors hover:bg-white/[0.06]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="grid size-12 place-items-center rounded-2xl bg-white/5 text-white/70 ring-1 ring-white/10">
+                  <div className="grid size-12 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
                     {meta.icon}
                   </div>
                   <div>
-                    <div className="text-base font-bold text-white">
+                    <div className="text-base font-semibold text-white">
                       {site.name}
                     </div>
-                    <div className="text-xs text-white/40">{meta.label}</div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                      {meta.label}
+                    </div>
                   </div>
                 </div>
                 <Link
                   to={`/sites/${site.id}`}
-                  className="grid size-10 place-items-center rounded-xl bg-white/5 text-white/60 transition-all hover:bg-white/10 hover:text-white"
+                  className="grid size-10 place-items-center rounded-md border border-white/10 bg-white/[0.05] text-white/60 transition-all hover:bg-white/[0.1] hover:text-white"
                 >
                   <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -600,7 +605,7 @@ export default function SitesPage() {
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <StatusPill status={site.status} />
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/5 bg-white/5 px-3 py-1 text-[11px] font-medium text-white/50">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-medium text-white/62">
                   <Globe className="h-3 w-3" />
                   {site.primaryDomain || "No custom domain"}
                 </span>
@@ -1029,7 +1034,7 @@ function CreateSiteModal({
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="relative my-10 w-full max-w-2xl rounded-[40px] border border-white/10 bg-[#080B12] p-8 shadow-2xl"
+            className="panel-surface relative my-10 w-full max-w-2xl rounded-md border border-white/10 bg-[var(--surface-dark)] p-8 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -1045,7 +1050,7 @@ function CreateSiteModal({
             </div>
 
             {actionData?.ok === false && (
-              <div className="mt-4 flex items-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+              <div className="mt-4 flex items-center gap-3 rounded-md border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <span>{actionData.error}</span>
               </div>
@@ -1074,19 +1079,19 @@ function CreateSiteModal({
                         type="button"
                         onClick={() => setCreateType(option.type)}
                         className={cx(
-                          "rounded-3xl border p-5 text-left transition-all",
+                          "rounded-md border p-5 text-left transition-all",
                           active
-                            ? "border-white/30 bg-white/[0.06] shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
-                            : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]",
+                            ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_0_0_1px_rgba(47,107,255,0.2)]"
+                            : "border-white/10 bg-white/[0.03] hover:border-white/18 hover:bg-white/[0.05]",
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <div
                             className={cx(
-                              "grid size-10 place-items-center rounded-2xl",
+                              "grid size-10 place-items-center rounded-md border",
                               active
-                                ? "bg-white text-black"
-                                : "bg-white/10 text-white/70",
+                                ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                                : "border-white/10 bg-white/[0.05] text-white/70",
                             )}
                           >
                             {option.icon}
@@ -1116,7 +1121,7 @@ function CreateSiteModal({
                   value={siteName}
                   onChange={(event) => setSiteName(event.target.value)}
                   placeholder={selectedTypeMeta.placeholder}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all placeholder:text-white/20 focus:ring-2 ring-white/10"
+                  className="w-full rounded-md border border-white/10 bg-[var(--surface-elevated)] px-5 py-4 text-white outline-none transition-all placeholder:text-white/24 focus:ring-2 ring-white/10"
                 />
               </div>
 

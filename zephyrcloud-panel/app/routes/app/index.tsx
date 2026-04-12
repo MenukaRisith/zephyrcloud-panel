@@ -28,6 +28,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import { Separator } from "~/components/ui/separator";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { requireUser } from "~/services/session.server";
 
@@ -353,22 +354,25 @@ function StatCard({
   icon,
   label,
   value,
+  note,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
+  note: string;
 }) {
   return (
-    <Card className="bg-white/[0.98]">
-      <CardContent className="flex items-center gap-4 px-5 py-5">
-        <div className="grid size-11 place-items-center rounded-md border border-[var(--line)] bg-[var(--surface-muted)] text-[var(--accent)]">
+    <Card>
+      <CardContent className="flex items-start gap-4 px-5 py-5">
+        <div className="grid size-11 place-items-center rounded-md border border-white/10 bg-[var(--accent-soft)] text-white">
           {icon}
         </div>
-        <div>
-          <div className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+        <div className="min-w-0">
+          <div className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-white/42">
             {label}
           </div>
-          <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">{value}</div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-white">{value}</div>
+          <div className="mt-2 text-sm leading-6 text-white/50">{note}</div>
         </div>
       </CardContent>
     </Card>
@@ -378,13 +382,15 @@ function StatCard({
 function ActivityToneBadge({ tone }: { tone: ActivityItem["tone"] }) {
   const className =
     tone === "ok"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
       : tone === "warn"
-        ? "border-amber-200 bg-amber-50 text-amber-700"
-        : "border-[var(--line)] bg-[var(--surface-muted)] text-[var(--foreground)]";
+        ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
+        : "border-white/10 bg-white/[0.05] text-white/76";
 
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-medium ${className}`}>
+    <span
+      className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${className}`}
+    >
       {tone === "ok" ? "Healthy" : tone === "warn" ? "Check" : "Info"}
     </span>
   );
@@ -410,20 +416,20 @@ function CopyField({
   }
 
   return (
-    <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-3">
+    <div className="rounded-md border border-white/10 bg-white/[0.04] p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
             {label}
           </div>
-          <div className="mt-2 break-all font-mono text-sm text-[var(--foreground)]">
+          <div className="mt-2 break-all font-mono text-sm text-white">
             {value}
           </div>
         </div>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-[var(--line)] bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--line-strong)]"
+          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-white/82 transition hover:border-white/20 hover:bg-white/[0.09]"
         >
           <Copy className="h-3.5 w-3.5" />
           {copied ? "Copied" : "Copy"}
@@ -443,22 +449,48 @@ export default function AppIndex() {
   const { stats, recent, github, workspaceDatabase, user } = useLoaderData() as LoaderData;
   const actionData = useActionData() as ActionData | null;
   const isAdmin = user.role === "admin";
+  const summaryStats = [
+    {
+      icon: <Server className="h-5 w-5" />,
+      label: "Sites",
+      value: String(stats.sites),
+      note: "Live applications tracked inside this workspace.",
+    },
+    {
+      icon: <Globe className="h-5 w-5" />,
+      label: "Domains",
+      value: String(stats.domains),
+      note: "Attached public domains across all routed sites.",
+    },
+    {
+      icon: <Database className="h-5 w-5" />,
+      label: "Databases",
+      value: String(stats.databases),
+      note: "Workspace database plus per-site database resources.",
+    },
+    {
+      icon: <Activity className="h-5 w-5" />,
+      label: "Deployments",
+      value: String(stats.deployments),
+      note: "Deploy history entries currently available from the API.",
+    },
+  ];
 
   return (
     <div className="space-y-6 pb-10">
       <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
-        <Card className="bg-white/[0.98]">
+        <Card className="panel-grid overflow-hidden">
           <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                  Workspace
+                  Workspace pulse
                 </div>
                 <CardTitle className="mt-2 text-3xl">
                   {user.name || user.email}
                 </CardTitle>
                 <CardDescription className="mt-1 max-w-2xl">
-                  Run sites, manage one public database for this user, and keep GitHub-linked deployments inside one control plane.
+                  Run sites, manage one public database for this workspace, and keep Git-backed delivery inside a single operating surface.
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -477,31 +509,67 @@ export default function AppIndex() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              icon={<Server className="h-5 w-5" />}
-              label="Sites"
-              value={String(stats.sites)}
-            />
-            <StatCard
-              icon={<Globe className="h-5 w-5" />}
-              label="Domains"
-              value={String(stats.domains)}
-            />
-            <StatCard
-              icon={<Database className="h-5 w-5" />}
-              label="Databases"
-              value={String(stats.databases)}
-            />
-            <StatCard
-              icon={<Activity className="h-5 w-5" />}
-              label="Deployments"
-              value={String(stats.deployments)}
-            />
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {summaryStats.map((item) => (
+                <StatCard
+                  key={item.label}
+                  icon={item.icon}
+                  label={item.label}
+                  value={item.value}
+                  note={item.note}
+                />
+              ))}
+            </div>
+            <Separator />
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
+                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/40">
+                  Access
+                </div>
+                <div className="mt-2 text-lg font-semibold text-white">
+                  {github.connected ? "GitHub linked" : "GitHub pending"}
+                </div>
+                <div className="mt-2 text-sm leading-6 text-white/52">
+                  {github.connected
+                    ? `Connected as ${github.login || "GitHub user"} for private repository onboarding.`
+                    : github.configured
+                      ? "OAuth is configured. Connect an account to enable private repository automation."
+                      : "OAuth is not configured on the panel yet."}
+                </div>
+              </div>
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
+                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/40">
+                  Database posture
+                </div>
+                <div className="mt-2 text-lg font-semibold text-white">
+                  {workspaceDatabase ? formatEngineLabel(workspaceDatabase.engine) : "Not provisioned"}
+                </div>
+                <div className="mt-2 text-sm leading-6 text-white/52">
+                  {workspaceDatabase
+                    ? "Connection details are ready below for direct client or framework use."
+                    : "Provision one managed workspace database when you need a public endpoint."}
+                </div>
+              </div>
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
+                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/40">
+                  Access tier
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="text-lg font-semibold text-white">
+                    {isAdmin ? "Administrator" : "Workspace member"}
+                  </div>
+                  {isAdmin ? <Badge>Admin</Badge> : null}
+                </div>
+                <div className="mt-2 text-sm leading-6 text-white/52">
+                  Use the admin console for panel runtime, tenant allocation, and platform-level controls.
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/[0.98]">
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -517,12 +585,12 @@ export default function AppIndex() {
             {recent.map((item) => (
               <div
                 key={`${item.title}:${item.desc}`}
-                className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4"
+                className="rounded-md border border-white/10 bg-white/[0.04] p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-medium text-[var(--foreground)]">{item.title}</div>
-                    <div className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                    <div className="font-medium text-white">{item.title}</div>
+                    <div className="mt-1 text-sm leading-6 text-white/54">
                       {item.desc}
                     </div>
                   </div>
@@ -538,15 +606,15 @@ export default function AppIndex() {
         <div
           className={`rounded-md border px-4 py-3 text-sm ${
             actionData.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700"
+              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+              : "border-red-400/20 bg-red-400/10 text-red-100"
           }`}
         >
           {actionData.ok ? actionData.message : actionData.error}
         </div>
       ) : null}
 
-      <Card className="bg-white/[0.98]">
+      <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -582,8 +650,8 @@ export default function AppIndex() {
                   value={workspaceDatabase.ssl_mode || "default"}
                 />
               </div>
-              <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--text-muted)]">
-                <div className="font-medium text-[var(--foreground)]">
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4 text-sm text-white/52">
+                <div className="font-medium text-white">
                   Public database is provisioned
                 </div>
                 <div className="mt-1 leading-6">
@@ -595,34 +663,34 @@ export default function AppIndex() {
             <Form method="post" className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
               <input type="hidden" name="intent" value="create-workspace-database" />
 
-              <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-5">
-                <div className="text-sm font-medium text-[var(--foreground)]">
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-5">
+                <div className="text-sm font-medium text-white">
                   Engine selection
                 </div>
-                <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                <p className="mt-2 text-sm leading-6 text-white/54">
                   The panel provisions the database in Coolify, exposes a public endpoint, and stores the returned credentials on this dashboard.
                 </p>
 
                 <div className="mt-4 space-y-3">
-                  <label className="flex items-center gap-3 rounded-md border border-[var(--line)] bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
                     <input type="radio" name="engine" value="mariadb" defaultChecked />
                     <div>
-                      <div className="font-medium text-[var(--foreground)]">MariaDB</div>
-                      <div className="text-sm text-[var(--text-muted)]">MySQL-compatible runtime with the existing WordPress stack pattern.</div>
+                      <div className="font-medium text-white">MariaDB</div>
+                      <div className="text-sm text-white/52">MySQL-compatible runtime with the existing WordPress stack pattern.</div>
                     </div>
                   </label>
-                  <label className="flex items-center gap-3 rounded-md border border-[var(--line)] bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
                     <input type="radio" name="engine" value="mysql" />
                     <div>
-                      <div className="font-medium text-[var(--foreground)]">MySQL</div>
-                      <div className="text-sm text-[var(--text-muted)]">Native MySQL 8 database with a public connection string.</div>
+                      <div className="font-medium text-white">MySQL</div>
+                      <div className="text-sm text-white/52">Native MySQL 8 database with a public connection string.</div>
                     </div>
                   </label>
-                  <label className="flex items-center gap-3 rounded-md border border-[var(--line)] bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
                     <input type="radio" name="engine" value="postgresql" />
                     <div>
-                      <div className="font-medium text-[var(--foreground)]">PostgreSQL</div>
-                      <div className="text-sm text-[var(--text-muted)]">Public PostgreSQL endpoint with Coolify-managed credentials.</div>
+                      <div className="font-medium text-white">PostgreSQL</div>
+                      <div className="text-sm text-white/52">Public PostgreSQL endpoint with Coolify-managed credentials.</div>
                     </div>
                   </label>
                 </div>
@@ -635,18 +703,18 @@ export default function AppIndex() {
                 </div>
               </div>
 
-              <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-5">
-                <div className="text-sm font-medium text-[var(--foreground)]">
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-5">
+                <div className="text-sm font-medium text-white">
                   What this creates
                 </div>
-                <div className="mt-3 space-y-3 text-sm text-[var(--text-muted)]">
-                  <div className="rounded-md border border-[var(--line)] bg-white p-4">
+                <div className="mt-3 space-y-3 text-sm text-white/54">
+                  <div className="rounded-md border border-white/10 bg-[var(--surface-elevated)] p-4">
                     1. A dedicated Coolify database resource under your workspace user.
                   </div>
-                  <div className="rounded-md border border-[var(--line)] bg-white p-4">
+                  <div className="rounded-md border border-white/10 bg-[var(--surface-elevated)] p-4">
                     2. A public connection endpoint with the returned host and port.
                   </div>
-                  <div className="rounded-md border border-[var(--line)] bg-white p-4">
+                  <div className="rounded-md border border-white/10 bg-[var(--surface-elevated)] p-4">
                     3. Stored credentials visible on this dashboard for later use.
                   </div>
                 </div>
@@ -657,7 +725,7 @@ export default function AppIndex() {
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-3">
-        <Card className="bg-white/[0.98] xl:col-span-2">
+        <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle>Next actions</CardTitle>
             <CardDescription>Quick links into the areas used most often after provisioning.</CardDescription>
@@ -665,57 +733,57 @@ export default function AppIndex() {
           <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Link
               to="/sites?new=1"
-              className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4 transition hover:border-[var(--line-strong)]"
+              className="rounded-md border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/18 hover:bg-white/[0.06]"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="font-medium text-[var(--foreground)]">Create site</div>
-                <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+                <div className="font-medium text-white">Create site</div>
+                <ArrowRight className="h-4 w-4 text-white/40" />
               </div>
-              <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+              <div className="mt-2 text-sm leading-6 text-white/54">
                 Start a Node, static, PHP, Python, or WordPress site.
               </div>
             </Link>
             <Link
               to="/sites"
-              className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4 transition hover:border-[var(--line-strong)]"
+              className="rounded-md border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/18 hover:bg-white/[0.06]"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="font-medium text-[var(--foreground)]">Review sites</div>
-                <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+                <div className="font-medium text-white">Review sites</div>
+                <ArrowRight className="h-4 w-4 text-white/40" />
               </div>
-              <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+              <div className="mt-2 text-sm leading-6 text-white/54">
                 Inspect runtime status, logs, domains, and site-specific settings.
               </div>
             </Link>
             <Link
               to="/settings"
-              className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4 transition hover:border-[var(--line-strong)]"
+              className="rounded-md border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/18 hover:bg-white/[0.06]"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="font-medium text-[var(--foreground)]">GitHub access</div>
-                <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+                <div className="font-medium text-white">GitHub access</div>
+                <ArrowRight className="h-4 w-4 text-white/40" />
               </div>
-              <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+              <div className="mt-2 text-sm leading-6 text-white/54">
                 Connect a GitHub account for private repository onboarding.
               </div>
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/[0.98]">
+        <Card>
           <CardHeader>
             <CardTitle>GitHub</CardTitle>
             <CardDescription>Repository automation status for this user.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4">
+            <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="font-medium text-[var(--foreground)]">
+                <div className="font-medium text-white">
                   {github.connected ? "Connected" : "Not connected"}
                 </div>
                 <Badge>{github.connected ? "Ready" : "Pending"}</Badge>
               </div>
-              <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+              <div className="mt-2 text-sm leading-6 text-white/54">
                 {github.connected
                   ? `Connected as ${github.login || "GitHub user"}.`
                   : github.configured

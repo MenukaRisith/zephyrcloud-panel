@@ -1,5 +1,22 @@
 import { Link, useLoaderData } from "react-router";
+import { ArrowRight, Users } from "lucide-react";
 
+import { Button } from "~/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "~/components/ui/table";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 
 type TeamSite = {
@@ -28,49 +45,110 @@ export async function loader({
   };
 }
 
+function statusLabel(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("run")) return "Running";
+  if (normalized.includes("build") || normalized.includes("queue")) return "Processing";
+  if (normalized.includes("error") || normalized.includes("fail")) return "Needs attention";
+  if (normalized.includes("stop")) return "Stopped";
+  return status || "Unknown";
+}
+
+function statusClass(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("run")) {
+    return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
+  }
+  if (normalized.includes("build") || normalized.includes("queue")) {
+    return "border-amber-400/20 bg-amber-400/10 text-amber-100";
+  }
+  if (normalized.includes("error") || normalized.includes("fail")) {
+    return "border-red-400/20 bg-red-400/10 text-red-100";
+  }
+  return "border-white/10 bg-white/[0.05] text-white/74";
+}
+
 export default function TeamPage() {
   const { sites } = useLoaderData() as LoaderData;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[24px] border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
-        <h2 className="text-xl font-bold text-white">Team Access</h2>
-        <p className="mt-1 text-sm text-white/50">
-          Team sharing is managed per site. Open a site, then go to{" "}
-          <span className="text-white/80">Settings - Team Access</span>.
-        </p>
-      </section>
+    <div className="space-y-6 pb-10">
+      <Card className="panel-grid overflow-hidden">
+        <CardHeader>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
+                Collaboration
+              </div>
+              <CardTitle className="mt-2 text-3xl">Team access by site</CardTitle>
+              <CardDescription className="mt-2 max-w-3xl">
+                Team sharing stays scoped to each site. Open a site workspace to invite collaborators, change roles, or revoke access.
+              </CardDescription>
+            </div>
+            <div className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/60">
+              {sites.length} site{sites.length === 1 ? "" : "s"} available for access control
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
 
-      <section className="rounded-[24px] border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">
-          Your Sites
-        </h3>
-        {sites.length > 0 ? (
-          <div className="mt-4 grid gap-3">
-            {sites.map((site) => (
-              <Link
-                key={site.id}
-                to={`/sites/${site.id}`}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3 transition hover:bg-white/5"
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-white/90">
-                    {site.name}
-                  </div>
-                  <div className="text-xs text-white/50">{site.status}</div>
-                </div>
-                <span className="text-xs font-semibold text-white/70">
-                  Manage Team
-                </span>
-              </Link>
-            ))}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="grid size-11 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle>Your sites</CardTitle>
+              <CardDescription>Open a site workspace to manage members and invitations.</CardDescription>
+            </div>
           </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/50">
-            No sites available yet.
-          </div>
-        )}
-      </section>
+        </CardHeader>
+        <CardContent>
+          {sites.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Site</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sites.map((site) => (
+                  <TableRow key={site.id}>
+                    <TableCell className="min-w-0">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-white">{site.name}</div>
+                        <div className="mt-1 text-xs text-white/46">Site workspace</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`inline-flex rounded-md border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] ${statusClass(site.status)}`}
+                      >
+                        {statusLabel(site.status)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link to={`/sites/${site.id}`}>
+                        <Button variant="secondary" className="justify-center">
+                          Manage team
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="rounded-md border border-dashed border-white/10 bg-white/[0.03] px-4 py-8 text-sm text-white/52">
+              No sites are available yet. Create the first site before inviting collaborators.
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

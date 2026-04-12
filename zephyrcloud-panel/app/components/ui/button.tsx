@@ -40,7 +40,12 @@ export function Button({
   return (
     <button
       type={type}
-      className={cn(variantClasses[variant], sizeClasses[size], className)}
+      className={cn(
+        "shrink-0 whitespace-nowrap",
+        variantClasses[variant],
+        sizeClasses[size],
+        className,
+      )}
       {...props}
     />
   );

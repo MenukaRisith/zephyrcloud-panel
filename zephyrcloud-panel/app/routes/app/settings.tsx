@@ -17,6 +17,16 @@ import {
   Unplug,
 } from "lucide-react";
 
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
+import { Separator } from "~/components/ui/separator";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { PANEL_NAME } from "~/lib/brand";
 
@@ -170,32 +180,31 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 pb-20 lg:pb-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/45">
-            Integrations
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-            Personal automation
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-            Connect GitHub once and let {PANEL_NAME} add private-repository
-            deploy keys for you during Git-backed app creation.
-          </p>
-        </div>
-
-        <Link
-          to="/sites?new=1"
-          className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
-        >
-          Open Site Creator
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
+      <Card className="panel-grid overflow-hidden">
+        <CardHeader>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
+                Integrations
+              </div>
+              <CardTitle className="mt-2 text-3xl">GitHub automation</CardTitle>
+              <CardDescription className="mt-2 max-w-3xl">
+                Connect GitHub once and let {PANEL_NAME} handle repository discovery, deploy-key registration, and private-repo onboarding during app creation.
+              </CardDescription>
+            </div>
+            <Link to="/sites?new=1">
+              <Button variant="dark">
+                Open site creator
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+      </Card>
 
       {githubStatus ? (
         <div
-          className={`rounded-[28px] border px-5 py-4 text-sm ${toneClass(githubStatus.tone)}`}
+          className={`rounded-md border px-5 py-4 text-sm ${toneClass(githubStatus.tone)}`}
         >
           <div className="font-semibold">{githubStatus.title}</div>
           <p className="mt-1 text-sm/6 opacity-85">{githubStatus.body}</p>
@@ -203,208 +212,181 @@ export default function SettingsPage() {
       ) : null}
 
       {actionData?.ok === false ? (
-        <div className="rounded-[28px] border border-red-400/25 bg-red-400/10 px-5 py-4 text-sm text-red-100">
+        <div className="rounded-md border border-red-400/25 bg-red-400/10 px-5 py-4 text-sm text-red-100">
           <div className="font-semibold">Action failed</div>
           <p className="mt-1 opacity-85">{actionData.error}</p>
         </div>
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-        <motion.section
+        <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+          className="min-w-0"
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="grid size-14 place-items-center rounded-3xl bg-white/10 text-white ring-1 ring-white/10">
-                <Github className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-white">
-                  GitHub account
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-white/55">
-                  Used for private repository discovery and automatic deploy-key
-                  registration.
-                </p>
-              </div>
-            </div>
-
-            {github.connected ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Connected
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
-                <ShieldAlert className="h-3.5 w-3.5" />
-                Not connected
-              </div>
-            )}
-          </div>
-
-          {!github.configured ? (
-            <div className="mt-6 rounded-[24px] border border-red-400/20 bg-red-400/10 p-5 text-sm text-red-100">
-              <div className="font-semibold">
-                Panel-side setup still required
-              </div>
-              <p className="mt-2 leading-6 opacity-85">
-                Add `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET` to
-                the panel before one-click private repo onboarding can work.
-              </p>
-            </div>
-          ) : github.connected ? (
-            <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_auto]">
-              <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
+          <Card className="h-full">
+            <CardHeader>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex items-center gap-4">
-                  {github.avatar_url ? (
-                    <img
-                      src={github.avatar_url}
-                      alt={github.login || "GitHub avatar"}
-                      className="h-14 w-14 rounded-2xl border border-white/10 object-cover"
-                    />
-                  ) : (
-                    <div className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/5 text-white/70">
-                      <Github className="h-5 w-5" />
-                    </div>
-                  )}
+                  <div className="grid size-14 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
+                    <Github className="h-6 w-6" />
+                  </div>
                   <div>
-                    <div className="text-lg font-semibold text-white">
-                      {github.name || github.login || "GitHub account"}
-                    </div>
-                    {github.login ? (
-                      <div className="text-sm text-white/55">
-                        @{github.login}
-                      </div>
-                    ) : null}
+                    <CardTitle>GitHub account</CardTitle>
+                    <CardDescription>
+                      Used for private repository discovery and automatic deploy-key registration.
+                    </CardDescription>
                   </div>
                 </div>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {github.scopes.length > 0 ? (
-                    github.scopes.map((scope) => (
-                      <span
-                        key={scope}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/65"
-                      >
-                        {scope}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/50">
-                      OAuth scopes unavailable
-                    </span>
-                  )}
+                {github.connected ? (
+                  <Badge className="border-emerald-400/20 bg-emerald-400/10 text-emerald-100">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Connected
+                  </Badge>
+                ) : (
+                  <Badge className="bg-white/[0.05] text-white/74">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Not connected
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {!github.configured ? (
+                <div className="rounded-md border border-red-400/20 bg-red-400/10 p-5 text-sm text-red-100">
+                  <div className="font-semibold">Panel-side setup still required</div>
+                  <p className="mt-2 leading-6 opacity-85">
+                    Add `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET` to the panel before one-click private repo onboarding can work.
+                  </p>
                 </div>
-              </div>
+              ) : github.connected ? (
+                <>
+                  <div className="rounded-md border border-white/10 bg-white/[0.04] p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                      {github.avatar_url ? (
+                        <img
+                          src={github.avatar_url}
+                          alt={github.login || "GitHub avatar"}
+                          className="h-14 w-14 rounded-md border border-white/10 object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-14 w-14 place-items-center rounded-md border border-white/10 bg-white/[0.05] text-white/70">
+                          <Github className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-lg font-semibold text-white">
+                          {github.name || github.login || "GitHub account"}
+                        </div>
+                        {github.login ? (
+                          <div className="text-sm text-white/55">@{github.login}</div>
+                        ) : null}
+                      </div>
+                    </div>
+                    <Separator className="my-5" />
+                    <div className="flex flex-wrap gap-2">
+                      {github.scopes.length > 0 ? (
+                        github.scopes.map((scope) => <Badge key={scope}>{scope}</Badge>)
+                      ) : (
+                        <Badge>OAuth scopes unavailable</Badge>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="flex flex-col gap-3">
-                <a
-                  href="/api/github/oauth/start?returnTo=/settings"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
-                >
-                  Reconnect GitHub
-                  <ArrowRight className="h-4 w-4" />
-                </a>
-                <Form method="post">
-                  <input
-                    type="hidden"
-                    name="intent"
-                    value="disconnect-github"
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <Unplug className="h-4 w-4" />
-                    Disconnect
-                  </button>
-                </Form>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-white/10 bg-black/20 p-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="text-base font-semibold text-white">
-                  Connect GitHub to automate private repos
+                  <div className="flex flex-wrap gap-3">
+                    <a href="/api/github/oauth/start?returnTo=/settings">
+                      <Button variant="dark">
+                        Reconnect GitHub
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </a>
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="disconnect-github" />
+                      <Button type="submit" variant="secondary">
+                        <Unplug className="h-4 w-4" />
+                        Disconnect
+                      </Button>
+                    </Form>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col gap-4 rounded-md border border-white/10 bg-white/[0.04] p-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="text-base font-semibold text-white">
+                      Connect GitHub to automate private repos
+                    </div>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
+                      After you connect, the panel can list your repos, generate the SSH deploy key, add it to GitHub, and provision the site in one flow.
+                    </p>
+                  </div>
+                  <a href="/api/github/oauth/start?returnTo=/settings">
+                    <Button variant="dark">
+                      <Github className="h-4 w-4" />
+                      Connect GitHub
+                    </Button>
+                  </a>
                 </div>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-                  After you connect, the panel can list your repos, generate the
-                  SSH deploy key, add it to GitHub, and provision the site in
-                  one flow.
-                </p>
-              </div>
-              <a
-                href="/api/github/oauth/start?returnTo=/settings"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
-              >
-                <Github className="h-4 w-4" />
-                Connect GitHub
-              </a>
-            </div>
-          )}
-        </motion.section>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <motion.section
+        <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
           className="space-y-6"
         >
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="grid size-11 place-items-center rounded-2xl bg-white/10 text-white ring-1 ring-white/10">
-                <ShieldCheck className="h-5 w-5" />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="grid size-11 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle>Automatic flow</CardTitle>
+                  <CardDescription>Private repo onboarding after GitHub is connected.</CardDescription>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">
-                  What happens automatically
-                </h3>
-                <p className="mt-1 text-sm text-white/55">
-                  Private repo onboarding after GitHub is connected.
-                </p>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-white/70">
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
+                1. Choose a private repository you administer.
               </div>
-            </div>
-
-            <div className="mt-5 space-y-3 text-sm text-white/70">
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                1. You choose a private repository you administer.
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
                 2. The panel generates a read-only Coolify deploy key.
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
                 3. The panel adds that key to GitHub and provisions the app.
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="grid size-11 place-items-center rounded-2xl bg-white/10 text-white ring-1 ring-white/10">
-                <KeyRound className="h-5 w-5" />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="grid size-11 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle>Fallback remains available</CardTitle>
+                  <CardDescription>
+                    Manual deploy-key mode still works if you do not want to connect GitHub.
+                  </CardDescription>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">
-                  Fallback remains available
-                </h3>
-                <p className="mt-1 text-sm text-white/55">
-                  Manual deploy-key mode still works if you do not want to
-                  connect GitHub.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              to="/sites?new=1"
-              className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
-            >
-              Open site creation
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </motion.section>
+            </CardHeader>
+            <CardContent>
+              <Link to="/sites?new=1">
+                <Button variant="secondary">
+                  Open site creation
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </div>
   );
