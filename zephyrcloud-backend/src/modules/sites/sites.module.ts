@@ -8,5 +8,6 @@ import { SitesService } from './sites.service';
   imports: [CoolifyModule, GithubModule],
   controllers: [SitesController],
   providers: [SitesService],
+  exports: [SitesService],
 })
 export class SitesModule {}

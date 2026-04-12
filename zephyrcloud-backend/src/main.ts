@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
+import { PrismaAvailabilityExceptionFilter } from './common/filters/prisma-availability-exception.filter';
 import { JsonSerializerInterceptor } from './common/interceptors/json-serializer.interceptor';
 
 async function bootstrap(): Promise<void> {
@@ -16,7 +17,6 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
 
   // Cookies (typed once @types/cookie-parser is installed)
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   app.use(cookieParser());
 
   // Prefix
@@ -30,6 +30,8 @@ async function bootstrap(): Promise<void> {
       transform: true,
     }),
   );
+
+  app.useGlobalFilters(new PrismaAvailabilityExceptionFilter());
 
   // Global Interceptor for BigInt serialization
   app.useGlobalInterceptors(new JsonSerializerInterceptor());

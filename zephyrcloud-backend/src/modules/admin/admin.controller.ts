@@ -13,7 +13,11 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../../common/types/auth.types';
 import { AdminService } from './admin.service';
 import { UpsertPanelEnvDto } from './dto/upsert-panel-env.dto';
+import { CreateAdminUserDto } from './dto/create-admin-user.dto';
 import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
+import { UpdateAdminTenantDto } from './dto/update-admin-tenant.dto';
+import { CreateAdminSiteDto } from './dto/create-admin-site.dto';
+import { AssignAdminSiteDto } from './dto/assign-admin-site.dto';
 import { SetAdminUserPasswordDto } from './dto/set-admin-user-password.dto';
 
 @UseGuards(JwtAuthGuard)
@@ -75,6 +79,14 @@ export class AdminController {
     return this.admin.listUsers(user);
   }
 
+  @Post('users')
+  public createUser(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateAdminUserDto,
+  ) {
+    return this.admin.createUser(user, dto);
+  }
+
   @Patch('users/:id')
   public updateUser(
     @CurrentUser() user: JwtPayload,
@@ -91,5 +103,41 @@ export class AdminController {
     @Body() dto: SetAdminUserPasswordDto,
   ) {
     return this.admin.setUserPassword(user, id, dto);
+  }
+
+  @Get('tenants')
+  public tenants(@CurrentUser() user: JwtPayload) {
+    return this.admin.listTenants(user);
+  }
+
+  @Patch('tenants/:id')
+  public updateTenant(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateAdminTenantDto,
+  ) {
+    return this.admin.updateTenant(user, id, dto);
+  }
+
+  @Get('sites')
+  public sites(@CurrentUser() user: JwtPayload) {
+    return this.admin.listSites(user);
+  }
+
+  @Post('sites')
+  public createSite(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateAdminSiteDto,
+  ) {
+    return this.admin.createSite(user, dto);
+  }
+
+  @Post('sites/:id/assign')
+  public assignSite(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: AssignAdminSiteDto,
+  ) {
+    return this.admin.assignSite(user, id, dto);
   }
 }

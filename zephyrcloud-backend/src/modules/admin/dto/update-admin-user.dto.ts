@@ -1,6 +1,13 @@
 import { Transform } from 'class-transformer';
 import { Role } from '@prisma/client';
-import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 function toOptionalBoolean(value: unknown): boolean | undefined {
   if (value === undefined || value === null || value === '') return undefined;
@@ -10,11 +17,7 @@ function toOptionalBoolean(value: unknown): boolean | undefined {
     if (normalized === 'true' || normalized === '1' || normalized === 'on') {
       return true;
     }
-    if (
-      normalized === 'false' ||
-      normalized === '0' ||
-      normalized === 'off'
-    ) {
+    if (normalized === 'false' || normalized === '0' || normalized === 'off') {
       return false;
     }
   }
@@ -29,7 +32,11 @@ export class UpdateAdminUserDto {
   public name?: string;
 
   @IsOptional()
-  @Transform(({ value }) => String(value ?? '').trim().toLowerCase())
+  @Transform(({ value }) =>
+    String(value ?? '')
+      .trim()
+      .toLowerCase(),
+  )
   @IsEmail()
   public email?: string;
 
@@ -41,4 +48,12 @@ export class UpdateAdminUserDto {
   @Transform(({ value }) => toOptionalBoolean(value))
   @IsBoolean()
   public is_active?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    const normalized = String(value ?? '').trim();
+    return normalized.length > 0 ? normalized : undefined;
+  })
+  @IsString()
+  public tenant_id?: string;
 }

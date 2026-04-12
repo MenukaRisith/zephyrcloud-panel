@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   PrismaClient,
+  SubscriptionPlan,
   type Site,
   type Domain,
   type SiteDatabase,
@@ -17,6 +18,7 @@ import {
   SiteMemberRole,
 } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { resolveTenantPlanResources } from '../../common/plans/tenant-plan';
 import type { JwtPayload } from '../../common/types/auth.types';
 import { GithubService } from '../github/github.service';
 import {
@@ -116,6 +118,15 @@ type SiteTeamPayload = {
   invites: SiteTeamInvitePayload[];
 };
 
+type TenantPolicyPayload = {
+  id: bigint;
+  plan: SubscriptionPlan;
+  max_sites: number | null;
+  max_cpu_per_site: number | null;
+  max_memory_mb_per_site: number | null;
+  max_team_members_per_site: number | null;
+};
+
 @Injectable()
 export class SitesService {
   private readonly logger = new Logger(SitesService.name);
@@ -125,6 +136,79 @@ export class SitesService {
     private readonly coolify: CoolifyService,
     private readonly github: GithubService,
   ) {}
+
+  private async getTenantPolicyOrThrow(
+    tenantId: bigint,
+  ): Promise<TenantPolicyPayload> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        plan: true,
+        max_sites: true,
+        max_cpu_per_site: true,
+        max_memory_mb_per_site: true,
+        max_team_members_per_site: true,
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    return tenant;
+  }
+
+  private async enforceTenantSiteLimit(
+    tenantId: bigint,
+    tenantPolicy: TenantPolicyPayload,
+  ): Promise<void> {
+    const resources = resolveTenantPlanResources(tenantPolicy);
+    const siteCount = await this.prisma.site.count({
+      where: { tenant_id: tenantId },
+    });
+
+    if (siteCount >= resources.maxSites) {
+      throw new ForbiddenException(
+        `This tenant has reached its site limit (${resources.maxSites}).`,
+      );
+    }
+  }
+
+  private resolveRequestedSiteResources(
+    tenantPolicy: TenantPolicyPayload,
+    dto: CreateSiteDto,
+  ): { cpuLimit: number; memoryMb: number } {
+    const resources = resolveTenantPlanResources(tenantPolicy);
+    const requestedCpu =
+      typeof dto.cpu_limit === 'number' && Number.isFinite(dto.cpu_limit)
+        ? dto.cpu_limit
+        : Math.min(1, resources.maxCpuPerSite);
+    const requestedMemory =
+      typeof dto.memory_mb === 'number' && Number.isFinite(dto.memory_mb)
+        ? dto.memory_mb
+        : Math.min(512, resources.maxMemoryMbPerSite);
+
+    if (requestedCpu <= 0 || requestedCpu > resources.maxCpuPerSite) {
+      throw new BadRequestException(
+        `CPU must be between 0.1 and ${resources.maxCpuPerSite} for this tenant.`,
+      );
+    }
+
+    if (
+      requestedMemory < 128 ||
+      requestedMemory > resources.maxMemoryMbPerSite
+    ) {
+      throw new BadRequestException(
+        `Memory must be between 128MB and ${resources.maxMemoryMbPerSite}MB for this tenant.`,
+      );
+    }
+
+    return {
+      cpuLimit: requestedCpu,
+      memoryMb: Math.trunc(requestedMemory),
+    };
+  }
 
   // -------------------------
   // Ownership / Tenant Helpers
@@ -252,7 +336,9 @@ export class SitesService {
     return this.extractGithubRepositoryRef(input);
   }
 
-  private normalizePrivateGitRepositoryForCoolify(input: string): string | null {
+  private normalizePrivateGitRepositoryForCoolify(
+    input: string,
+  ): string | null {
     const repoRef = this.extractGithubRepositoryRef(input);
     if (!repoRef) return null;
     return `git@github.com:${repoRef}.git`;
@@ -322,7 +408,9 @@ export class SitesService {
     return 'provisioning';
   }
 
-  private async refreshLiveSiteRecord<T extends SitePayload>(site: T): Promise<T> {
+  private async refreshLiveSiteRecord<T extends SitePayload>(
+    site: T,
+  ): Promise<T> {
     if (!site.coolify_resource_id || !site.coolify_server_uuid) {
       return site;
     }
@@ -459,30 +547,31 @@ export class SitesService {
   ): Promise<SitePayload> {
     const tenantId = this.requireTenantId(user);
     const userId = this.requireUserId(user);
+    const tenantPolicy = await this.getTenantPolicyOrThrow(tenantId);
+    await this.enforceTenantSiteLimit(tenantId, tenantPolicy);
+    const { cpuLimit, memoryMb } = this.resolveRequestedSiteResources(
+      tenantPolicy,
+      dto,
+    );
     this.logger.debug(
       `[createSite] Starting creation for ${dto.name} (tenant: ${tenantId})`,
     );
 
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-    if (!tenant) throw new NotFoundException('Tenant not found');
     if (
       dto.type !== SiteTypeDto.wordpress &&
       dto.type !== SiteTypeDto.node &&
       dto.type !== SiteTypeDto.static &&
       dto.type !== SiteTypeDto.php
     ) {
-      throw new ForbiddenException(
-        'That site type is not enabled right now.',
-      );
+      throw new ForbiddenException('That site type is not enabled right now.');
     }
 
     const requestedPrivateKeyUuid =
       String(dto.private_key_uuid ?? '').trim() || undefined;
     const usesGithubConnection = Boolean(dto.use_github_connection);
     let privateKeyUuid = requestedPrivateKeyUuid;
-    const usesPrivateDeployKey = Boolean(privateKeyUuid) || usesGithubConnection;
+    const usesPrivateDeployKey =
+      Boolean(privateKeyUuid) || usesGithubConnection;
     const repoForCoolify = dto.repo_url
       ? usesPrivateDeployKey
         ? this.normalizePrivateGitRepositoryForCoolify(dto.repo_url)
@@ -533,10 +622,7 @@ export class SitesService {
       );
     }
 
-    if (
-      repoFullName &&
-      !isGithubOwnerRepo(repoFullName)
-    ) {
+    if (repoFullName && !isGithubOwnerRepo(repoFullName)) {
       throw new BadRequestException(
         'Repository must be a valid GitHub owner/repo pair.',
       );
@@ -599,11 +685,12 @@ export class SitesService {
           name: siteName,
           type: dto.type,
           status: 'provisioning',
-          cpu_limit: 1,
-          memory_mb: 512,
+          cpu_limit: cpuLimit,
+          memory_mb: memoryMb,
           repo_url: repoForCoolify,
           repo_branch: repoForCoolify ? dto.repo_branch || 'main' : null,
-          auto_deploy: dto.auto_deploy ?? (requiresRepository && !usesPrivateDeployKey),
+          auto_deploy:
+            dto.auto_deploy ?? (requiresRepository && !usesPrivateDeployKey),
           coolify_project_id: null,
           coolify_resource_id: null,
           coolify_server_uuid: null,
@@ -616,8 +703,8 @@ export class SitesService {
       const coolifyPayload: CoolifyCreateProjectInput = {
         name: siteName,
         type: dto.type,
-        cpu_limit: 1,
-        memory_mb: 512,
+        cpu_limit: cpuLimit,
+        memory_mb: memoryMb,
         auto_deploy:
           dto.auto_deploy ?? (requiresRepository && !usesPrivateDeployKey),
       };
@@ -1190,12 +1277,35 @@ export class SitesService {
 
     const role = toTeamRole(dto.role);
     const actorUserId = this.requireUserId(user);
+    const tenantPolicy = await this.getTenantPolicyOrThrow(site.tenant_id);
+    const resources = resolveTenantPlanResources(tenantPolicy);
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
       select: { id: true },
     });
 
     if (existingUser) {
+      const currentMember = await this.prisma.siteMember.findUnique({
+        where: {
+          site_id_user_id: {
+            site_id: site.id,
+            user_id: existingUser.id,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!currentMember) {
+        const memberCount = await this.prisma.siteMember.count({
+          where: { site_id: site.id },
+        });
+        if (memberCount >= resources.maxTeamMembersPerSite) {
+          throw new ForbiddenException(
+            `This site has reached its team member limit (${resources.maxTeamMembersPerSite}).`,
+          );
+        }
+      }
+
       await this.prisma.siteMember.upsert({
         where: {
           site_id_user_id: {
