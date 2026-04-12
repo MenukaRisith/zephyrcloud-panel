@@ -435,9 +435,14 @@ export class SitesService {
       where: { id: tenantId },
     });
     if (!tenant) throw new NotFoundException('Tenant not found');
-    if (dto.type !== SiteTypeDto.wordpress && dto.type !== SiteTypeDto.node) {
+    if (
+      dto.type !== SiteTypeDto.wordpress &&
+      dto.type !== SiteTypeDto.node &&
+      dto.type !== SiteTypeDto.static &&
+      dto.type !== SiteTypeDto.php
+    ) {
       throw new ForbiddenException(
-        'Only WordPress and Node.js site creation are enabled right now.',
+        'That site type is not enabled right now.',
       );
     }
 
@@ -455,7 +460,7 @@ export class SitesService {
       ? this.extractGithubRepositoryRef(dto.repo_url)
       : null;
     const githubAppId = normalizeGithubAppSelection(dto.github_app_id);
-    const isNodeSite = dto.type === SiteTypeDto.node;
+    const requiresRepository = dto.type !== SiteTypeDto.wordpress;
     const siteName = dto.name.trim();
 
     if (!siteName) {
@@ -486,9 +491,13 @@ export class SitesService {
       );
     }
 
-    if (isNodeSite && !repoForCoolify) {
+    if (requiresRepository && !repoForCoolify) {
       throw new BadRequestException(
-        'Node.js site creation requires a GitHub repository.',
+        dto.type === SiteTypeDto.static
+          ? 'Static site creation requires a GitHub repository.'
+          : dto.type === SiteTypeDto.php
+            ? 'PHP site creation requires a GitHub repository.'
+            : 'Node.js site creation requires a GitHub repository.',
       );
     }
 
@@ -562,8 +571,7 @@ export class SitesService {
           memory_mb: 512,
           repo_url: repoForCoolify,
           repo_branch: repoForCoolify ? dto.repo_branch || 'main' : null,
-          auto_deploy:
-            dto.auto_deploy ?? (isNodeSite && !usesPrivateDeployKey),
+          auto_deploy: dto.auto_deploy ?? (requiresRepository && !usesPrivateDeployKey),
           coolify_project_id: null,
           coolify_resource_id: null,
           coolify_server_uuid: null,
@@ -578,7 +586,8 @@ export class SitesService {
         type: dto.type,
         cpu_limit: 1,
         memory_mb: 512,
-        auto_deploy: dto.auto_deploy ?? (isNodeSite && !usesPrivateDeployKey),
+        auto_deploy:
+          dto.auto_deploy ?? (requiresRepository && !usesPrivateDeployKey),
       };
 
       if (repoForCoolify) {

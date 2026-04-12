@@ -15,6 +15,8 @@ import {
   Loader2,
   LockKeyhole,
   Plus,
+  RefreshCw,
+  Rocket,
   Save,
   Search,
   Server,
@@ -70,6 +72,11 @@ type LoaderData = {
     active_users: number;
     admin_users: number;
   };
+  coolifyHealth: {
+    ok: boolean;
+    tried: string[];
+    error?: string;
+  } | null;
   errors: string[];
 };
 
@@ -230,13 +237,15 @@ export async function loader({
   if (user.role !== "admin") return redirect("/app");
 
   const errors: string[] = [];
-  const [appsRes, usersRes] = await Promise.all([
+  const [appsRes, usersRes, healthRes] = await Promise.all([
     apiFetchAuthed(request, "/api/admin/panel-apps"),
     apiFetchAuthed(request, "/api/admin/users"),
+    apiFetchAuthed(request, "/api/admin/coolify/health"),
   ]);
 
   const appsPayload = await safeJson(appsRes);
   const usersPayload = await safeJson(usersRes);
+  const healthPayload = await safeJson(healthRes);
 
   if (!appsRes.ok) {
     errors.push(messageFrom(appsPayload, "Could not load panel app data."));
@@ -244,9 +253,27 @@ export async function loader({
   if (!usersRes.ok) {
     errors.push(messageFrom(usersPayload, "Could not load users."));
   }
+  if (!healthRes.ok) {
+    errors.push(messageFrom(healthPayload, "Could not load Coolify health."));
+  }
 
   return {
     ...parseLoader(appsPayload, usersPayload),
+    coolifyHealth:
+      isRecord(healthPayload) &&
+      typeof healthPayload.ok === "boolean" &&
+      Array.isArray(healthPayload.tried)
+        ? {
+            ok: healthPayload.ok,
+            tried: healthPayload.tried.filter(
+              (value): value is string => typeof value === "string",
+            ),
+            error:
+              typeof healthPayload.error === "string"
+                ? healthPayload.error
+                : undefined,
+          }
+        : null,
     errors,
   };
 }
@@ -310,6 +337,29 @@ export async function action({
     return { ok: true, message: `${key} deleted from ${target}.` };
   }
 
+  if (intent === "restart-panel-app" || intent === "redeploy-panel-app") {
+    const target = String(formData.get("target") || "");
+    const endpoint =
+      intent === "redeploy-panel-app"
+        ? `/api/admin/panel-apps/${encodeURIComponent(target)}/redeploy`
+        : `/api/admin/panel-apps/${encodeURIComponent(target)}/restart`;
+    const res = await apiFetchAuthed(request, endpoint, { method: "POST" });
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not trigger that panel app action."),
+      };
+    }
+    return {
+      ok: true,
+      message:
+        intent === "redeploy-panel-app"
+          ? `${target} redeploy queued.`
+          : `${target} restart queued.`,
+    };
+  }
+
   if (intent === "update-user") {
     const userId = String(formData.get("user_id") || "");
     const res = await apiFetchAuthed(
@@ -355,7 +405,7 @@ export async function action({
 }
 
 export default function AdminPage() {
-  const { panelApps, users, adminEmails, stats, errors } =
+  const { panelApps, users, adminEmails, stats, coolifyHealth, errors } =
     useLoaderData() as LoaderData;
   const actionData = useActionData() as ActionData | undefined;
   const navigation = useNavigation();
@@ -431,6 +481,17 @@ export default function AdminPage() {
         <StatCard icon={<KeyRound className="h-5 w-5" />} label="Admins" value={String(stats.admin_users)} />
       </div>
 
+      {coolifyHealth ? (
+        <Banner
+          tone={coolifyHealth.ok ? "success" : "warn"}
+          title={coolifyHealth.ok ? "Coolify API reachable" : "Coolify API needs attention"}
+        >
+          {coolifyHealth.ok
+            ? `Checked ${coolifyHealth.tried.join(", ")} successfully.`
+            : `${coolifyHealth.error || "The Coolify API check failed."} Tried: ${coolifyHealth.tried.join(", ")}`}
+        </Banner>
+      ) : null}
+
       <div className="grid gap-6 xl:grid-cols-2">
         {panelApps.map((app, index) => (
           <motion.section
@@ -465,6 +526,42 @@ export default function AdminPage() {
                 <div className="break-all text-xs font-mono text-white/70">{app.fqdn}</div>
               </div>
             ) : null}
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Form method="post">
+                <input type="hidden" name="intent" value="restart-panel-app" />
+                <input type="hidden" name="target" value={app.target} />
+                <button
+                  type="submit"
+                  disabled={currentIntent === "restart-panel-app" && currentTarget === app.target}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
+                >
+                  {currentIntent === "restart-panel-app" && currentTarget === app.target ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Restart app
+                </button>
+              </Form>
+
+              <Form method="post">
+                <input type="hidden" name="intent" value="redeploy-panel-app" />
+                <input type="hidden" name="target" value={app.target} />
+                <button
+                  type="submit"
+                  disabled={currentIntent === "redeploy-panel-app" && currentTarget === app.target}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
+                >
+                  {currentIntent === "redeploy-panel-app" && currentTarget === app.target ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Rocket className="h-4 w-4" />
+                  )}
+                  Force redeploy
+                </button>
+              </Form>
+            </div>
 
             <Form method="post" className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
               <input type="hidden" name="intent" value="upsert-env" />

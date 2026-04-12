@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { apiFetchAuthed } from "../../services/api.authed.server";
+import { PANEL_NAME } from "../../lib/brand";
 
 // --- Types ---
 
@@ -151,8 +152,8 @@ export async function loader({ request }: { request: Request }): Promise<LoaderD
 
     if (sites.length === 0) {
       recent.push({
-        title: "Welcome to Zephyr",
-        desc: "Your infrastructure is empty. Create your first site to get started.",
+        title: `Welcome to ${PANEL_NAME}`,
+        desc: "Your infrastructure is empty. Create the first workload to start routing traffic through GetAeon.",
         tone: "neutral",
       });
     } else {
@@ -229,7 +230,7 @@ export default function AppIndex() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
           <p className="mt-1 text-sm text-white/50">
-            Overview of your infrastructure and recent activity.
+            Overview of your infrastructure, delivery health, and recent control-plane activity.
           </p>
         </div>
 

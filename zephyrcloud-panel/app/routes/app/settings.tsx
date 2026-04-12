@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, CheckCircle2, Github, KeyRound, ShieldAlert, ShieldCheck, Unplug } from "lucide-react";
 
 import { apiFetchAuthed } from "~/services/api.authed.server";
+import { PANEL_NAME } from "~/lib/brand";
 
 type GithubConnectionData = {
   configured: boolean;
@@ -156,8 +157,8 @@ export default function SettingsPage() {
             Personal automation
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-            Connect GitHub once and let the panel add private-repository deploy
-            keys for you during Node.js site creation.
+            Connect GitHub once and let {PANEL_NAME} add private-repository deploy
+            keys for you during Git-backed app creation.
           </p>
         </div>
 

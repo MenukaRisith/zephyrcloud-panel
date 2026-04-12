@@ -25,6 +25,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { PANEL_HOST, PANEL_NAME } from "~/lib/brand";
 import { requireUser } from "../../services/session.server";
 
 type LoaderData = {
@@ -198,10 +199,10 @@ export default function AppLayout() {
                     </div>
                     <div>
                       <div className="text-sm font-semibold tracking-tight">
-                        ZephyrCloud
+                        {PANEL_NAME}
                       </div>
                       <div className="text-xs text-white/55">
-                        Control Plane
+                        {PANEL_HOST}
                       </div>
                     </div>
                   </Link>
@@ -363,7 +364,7 @@ export default function AppLayout() {
 
           <footer className="border-t border-white/10 bg-white/5">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 text-xs text-white/45 lg:px-6">
-              <span>(c) {new Date().getFullYear()} ZephyrCloud</span>
+              <span>(c) {new Date().getFullYear()} {PANEL_NAME}</span>
               <div className="flex items-center gap-4">
                 <Link to="/app" className="hover:text-white">
                   Overview

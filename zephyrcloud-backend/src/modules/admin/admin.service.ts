@@ -63,6 +63,31 @@ export class AdminService {
     );
   }
 
+  public async restartPanelApp(
+    user: JwtPayload,
+    target: AdminPanelTarget | string,
+  ) {
+    this.requireAdmin(user);
+    const normalizedTarget = this.normalizePanelTarget(target);
+    const app = await this.resolvePanelApplication(normalizedTarget);
+    await this.coolify.restartResource('application', app.uuid);
+    return { ok: true, target: normalizedTarget, action: 'restart' };
+  }
+
+  public async redeployPanelApp(
+    user: JwtPayload,
+    target: AdminPanelTarget | string,
+  ) {
+    this.requireAdmin(user);
+    const normalizedTarget = this.normalizePanelTarget(target);
+    const app = await this.resolvePanelApplication(normalizedTarget);
+    await this.coolify.deployResource('application', app.uuid, {
+      force: true,
+      instantDeploy: true,
+    });
+    return { ok: true, target: normalizedTarget, action: 'redeploy' };
+  }
+
   public async upsertPanelEnv(
     user: JwtPayload,
     target: AdminPanelTarget | string,
@@ -326,7 +351,7 @@ export class AdminService {
 
     return {
       target,
-      label: target === 'backend' ? 'Backend API' : 'Frontend Panel',
+      label: target === 'backend' ? 'GetAeon API' : 'GetAeon Panel',
       uuid: app.uuid,
       name: app.name,
       status: app.status,
@@ -399,8 +424,10 @@ export class AdminService {
 
     return applications.find(
       (app) =>
-        app.name === config.defaultName ||
-        app.base_directory === config.defaultBaseDirectory,
+        config.defaultNames.includes(app.name) ||
+        (app.base_directory
+          ? config.defaultBaseDirectories.includes(app.base_directory)
+          : false),
     );
   }
 
@@ -414,16 +441,20 @@ export class AdminService {
   private getPanelTargetConfig(target: AdminPanelTarget) {
     if (target === 'backend') {
       return {
-        defaultName: 'zephyrcloud-backend',
-        defaultBaseDirectory: '/zephyrcloud-backend',
+        defaultNames: ['getaeon-backend', 'zephyrcloud-backend'],
+        defaultBaseDirectories: ['/getaeon-backend', '/zephyrcloud-backend'],
         overrideName: (process.env.ADMIN_PANEL_BACKEND_APP_NAME ?? '').trim(),
         overrideUuid: (process.env.ADMIN_PANEL_BACKEND_APP_UUID ?? '').trim(),
       };
     }
 
     return {
-      defaultName: 'zephyrcloud-frontend',
-      defaultBaseDirectory: '/zephyrcloud-panel',
+      defaultNames: [
+        'getaeon-panel',
+        'getaeon-frontend',
+        'zephyrcloud-frontend',
+      ],
+      defaultBaseDirectories: ['/getaeon-panel', '/zephyrcloud-panel'],
       overrideName: (process.env.ADMIN_PANEL_FRONTEND_APP_NAME ?? '').trim(),
       overrideUuid: (process.env.ADMIN_PANEL_FRONTEND_APP_UUID ?? '').trim(),
     };

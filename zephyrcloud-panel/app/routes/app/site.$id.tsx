@@ -28,13 +28,10 @@ import {
   Info, // Added this icon
 } from "lucide-react";
 
+import { resolveDnsTarget } from "~/lib/brand";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 
-// --- CONFIGURATION ---
-// TODO: Replace this with your actual Server Public IP
-const SERVER_IP = "15.235.162.182";
-
-// --- Types ---15.235.162.182
+// --- Types ---
 
 type Site = {
   id: string;
@@ -115,6 +112,11 @@ type LoaderData = {
   db: DBInfo | null;
   envs: EnvVar[];
   team: TeamInfo;
+  dnsTarget: {
+    value: string;
+    recordType: string;
+    isConfigured: boolean;
+  };
 };
 
 type LogsPayload =
@@ -212,6 +214,7 @@ export async function loader({
       db,
       envs: Array.isArray(envs) ? envs : [],
       team,
+      dnsTarget: resolveDnsTarget(request),
     };
   } catch (error) {
     console.error("Loader Error:", error);
@@ -482,10 +485,32 @@ function DeploymentStatusIcon({ status }: { status: string }) {
   return <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />;
 }
 
+function extractGithubRepoRef(input: string) {
+  const value = input.trim();
+  if (!value) return null;
+
+  const simple = value.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
+  if (simple) return `${simple[1]}/${simple[2]}`;
+
+  const https = value.match(
+    /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/?#]+)(?:[/?#].*)?$/i,
+  );
+  if (https) {
+    return `${https[1]}/${https[2].replace(/\.git$/i, "")}`;
+  }
+
+  const ssh = value.match(/^git@github\.com:([^/]+)\/([^/]+)$/i);
+  if (ssh) {
+    return `${ssh[1]}/${ssh[2].replace(/\.git$/i, "")}`;
+  }
+
+  return null;
+}
+
 // --- Main Component ---
 
 export default function SiteOverview() {
-  const { site, deployments, domains, db, envs, team } =
+  const { site, deployments, domains, db, envs, team, dnsTarget } =
     useLoaderData() as LoaderData;
   const nav = useNavigation();
   const isSubmitting = nav.state === "submitting";
@@ -639,6 +664,8 @@ export default function SiteOverview() {
   const connString = db
     ? `${db.engine}://${db.username}:${db.password || ""}@${db.host}/${db.db_name}`
     : "";
+  const repoRef = site.repo_url ? extractGithubRepoRef(site.repo_url) : null;
+  const repoHref = repoRef ? `https://github.com/${repoRef}` : null;
   const primaryDomain = (site.primaryDomain || domains[0]?.domain || "").trim();
   const liveSiteUrl = primaryDomain
     ? primaryDomain.startsWith("http://") ||
@@ -685,13 +712,13 @@ export default function SiteOverview() {
 
             {site.repo_url && (
               <a
-                href={`https://github.com/${site.repo_url}`}
+                href={repoHref || undefined}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 hover:text-white transition-colors"
               >
                 <Terminal className="h-3.5 w-3.5" />
-                <span>{site.repo_url}</span>
+                <span>{repoRef || site.repo_url}</span>
                 <span className="opacity-50">
                   ({site.repo_branch || "main"})
                 </span>
@@ -1006,7 +1033,7 @@ export default function SiteOverview() {
                       </div>
                       <div className="text-xs text-white/40 mt-0.5 flex gap-2">
                         <span>{d.commit_hash?.substring(0, 7) || "---"}</span>
-                        <span>â€¢</span>
+                        <span>&middot;</span>
                         <span>
                           {new Date(d.created_at || "").toLocaleString()}
                         </span>
@@ -1146,38 +1173,44 @@ export default function SiteOverview() {
                       Beta Feature
                     </h4>
                     <p className="text-xs text-amber-200/80 leading-relaxed">
-                      Automated domain configuration is currently in beta. If
-                      your domain does not resolve after 24 hours, please
-                      contact our support team for manual assistance.
+                      Automated domain configuration is still stabilizing. If
+                      DNS is correct and traffic still does not reach the site
+                      after propagation, verify the ingress target in the admin
+                      panel before escalating.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* A Record Instructions */}
+              {/* DNS Instructions */}
               <div className="rounded-xl bg-white/5 border border-white/5 p-4 mb-6">
                 <div className="text-xs uppercase font-bold text-white/40 tracking-wider mb-2 flex items-center gap-1.5">
                   <Info className="h-3 w-3" />
-                  Required DNS Record
+                  Recommended DNS Record
                 </div>
                 <div className="flex items-center justify-between bg-black/40 rounded-lg p-3 border border-white/10 shadow-inner">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      A
+                      {dnsTarget.recordType}
                     </span>
                     <code className="font-mono text-sm text-white tracking-wide">
-                      {SERVER_IP}
+                      {dnsTarget.value}
                     </code>
                   </div>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(SERVER_IP)}
+                    onClick={() => copyToClipboard(dnsTarget.value)}
                     className="p-1.5 hover:bg-white/10 rounded-md text-white/40 hover:text-white transition-colors"
-                    title="Copy IP"
+                    title="Copy DNS target"
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                 </div>
+                <p className="mt-3 text-xs leading-5 text-white/45">
+                  {dnsTarget.isConfigured
+                    ? "This DNS target comes from PUBLIC_DNS_TARGET."
+                    : "No PUBLIC_DNS_TARGET override is configured, so the panel host is being used as the default ingress target."}
+                </p>
               </div>
 
               <Form method="post" className="space-y-3">

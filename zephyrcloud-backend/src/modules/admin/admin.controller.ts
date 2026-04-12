@@ -36,6 +36,22 @@ export class AdminController {
     return this.admin.listPanelApps(user);
   }
 
+  @Post('panel-apps/:target/restart')
+  public restartPanelApp(
+    @CurrentUser() user: JwtPayload,
+    @Param('target') target: 'backend' | 'frontend',
+  ) {
+    return this.admin.restartPanelApp(user, target);
+  }
+
+  @Post('panel-apps/:target/redeploy')
+  public redeployPanelApp(
+    @CurrentUser() user: JwtPayload,
+    @Param('target') target: 'backend' | 'frontend',
+  ) {
+    return this.admin.redeployPanelApp(user, target);
+  }
+
   @Post('panel-apps/:target/envs')
   public upsertPanelEnv(
     @CurrentUser() user: JwtPayload,

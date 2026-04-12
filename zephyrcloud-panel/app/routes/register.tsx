@@ -14,15 +14,16 @@ import {
 } from "lucide-react";
 
 import { apiUrl } from "../services/api.base";
+import { PANEL_DESCRIPTION, PANEL_HOST, PANEL_NAME, pageTitle } from "../lib/brand";
 import { createUserSession } from "../services/session.server";
 import type { Route } from "./+types/register";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Register | Zephyrdrift.cloud" },
+    { title: pageTitle("Create Workspace") },
     {
       name: "description",
-      content: "Create your ZephyrCloud workspace and start managing deployments.",
+      content: PANEL_DESCRIPTION,
     },
   ];
 }
@@ -70,9 +71,11 @@ export async function action({
 
   if (!name) fieldErrors.name = "Name is required.";
   if (!email) fieldErrors.email = "Email is required.";
-  else if (!isValidEmail(email)) fieldErrors.email = "Enter a valid email address.";
+  else if (!isValidEmail(email))
+    fieldErrors.email = "Enter a valid email address.";
   if (!password) fieldErrors.password = "Password is required.";
-  else if (password.length < 8) fieldErrors.password = "Password must be at least 8 characters.";
+  else if (password.length < 8)
+    fieldErrors.password = "Password must be at least 8 characters.";
   if (!tenantName) fieldErrors.tenantName = "Workspace name is required.";
 
   if (
@@ -122,7 +125,9 @@ export async function action({
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Registration failed. Please try again.";
+      error instanceof Error
+        ? error.message
+        : "Registration failed. Please try again.";
     return { ok: false, formError: message };
   }
 }
@@ -161,23 +166,23 @@ export default function RegisterRoute() {
                   <Shield className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-lg font-semibold tracking-tight">Zephyrdrift cloud Panel</div>
-                  <div className="text-sm text-white/60">Launch your first workspace</div>
+                  <div className="text-lg font-semibold tracking-tight">{PANEL_NAME}</div>
+                  <div className="text-sm text-white/60">{PANEL_HOST}</div>
                 </div>
               </div>
 
               <div className="mt-10 space-y-5 text-white/80">
                 <Feature
-                  title="Tenant workspace"
-                  desc="Create a tenant during signup so you can start deploying immediately."
+                  title="Workspace-first onboarding"
+                  desc="Create a tenant during signup so your deployment space is ready immediately."
                 />
                 <Feature
-                  title="Coolify-connected"
-                  desc="Use the same panel to provision WordPress apps, domains, and databases."
+                  title="Coolify-backed operations"
+                  desc="Provision WordPress, static apps, PHP, and Node workloads from one panel."
                 />
                 <Feature
                   title="Secure sessions"
-                  desc="Your access token is stored server-side in an httpOnly session cookie."
+                  desc="Authentication is stored server-side in an httpOnly session cookie."
                 />
               </div>
             </div>
@@ -196,17 +201,23 @@ export default function RegisterRoute() {
                     <Shield className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-base font-semibold tracking-tight">Create workspace</div>
-                    <div className="text-sm text-white/60">Set up your ZephyrCloud account</div>
+                    <div className="text-base font-semibold tracking-tight">
+                      Create workspace
+                    </div>
+                    <div className="text-sm text-white/60">
+                      Set up your GetAeon workspace
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_12px_50px_-20px_rgba(0,0,0,0.85)] backdrop-blur">
                 <div className="mb-5">
-                  <h1 className="text-xl font-semibold tracking-tight">Create your account</h1>
+                  <h1 className="text-xl font-semibold tracking-tight">
+                    Create your account
+                  </h1>
                   <p className="mt-1 text-sm text-white/60">
-                    Register once, create a tenant, and start managing deployments.
+                    Register once, create a workspace, and start managing deployments.
                   </p>
                 </div>
 
@@ -228,7 +239,9 @@ export default function RegisterRoute() {
                     type="text"
                     placeholder="Menuka Risith"
                     icon={<User className="h-4 w-4" />}
-                    error={actionData?.ok === false ? actionData.fieldErrors?.name : undefined}
+                    error={
+                      actionData?.ok === false ? actionData.fieldErrors?.name : undefined
+                    }
                     autoComplete="name"
                     autoFocus
                   />
@@ -239,7 +252,9 @@ export default function RegisterRoute() {
                     type="email"
                     placeholder="you@company.com"
                     icon={<Mail className="h-4 w-4" />}
-                    error={actionData?.ok === false ? actionData.fieldErrors?.email : undefined}
+                    error={
+                      actionData?.ok === false ? actionData.fieldErrors?.email : undefined
+                    }
                     autoComplete="email"
                   />
 
@@ -247,14 +262,20 @@ export default function RegisterRoute() {
                     label="Workspace Name"
                     name="tenantName"
                     type="text"
-                    placeholder="Zephyr Drift"
+                    placeholder="GetAeon Core"
                     icon={<Building2 className="h-4 w-4" />}
-                    error={actionData?.ok === false ? actionData.fieldErrors?.tenantName : undefined}
+                    error={
+                      actionData?.ok === false
+                        ? actionData.fieldErrors?.tenantName
+                        : undefined
+                    }
                     autoComplete="organization"
                   />
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-white/80">Password</label>
+                    <label className="mb-2 block text-sm font-medium text-white/80">
+                      Password
+                    </label>
                     <div className="relative">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-white/60">
                         <Lock className="h-4 w-4" />
@@ -280,12 +301,18 @@ export default function RegisterRoute() {
                         className="absolute inset-y-0 right-0 grid place-items-center px-3 text-white/60 hover:text-white"
                         aria-label={showPassword ? "Hide password" : "Show password"}
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
 
                     {actionData?.ok === false && actionData.fieldErrors?.password ? (
-                      <p className="mt-2 text-xs text-red-200">{actionData.fieldErrors.password}</p>
+                      <p className="mt-2 text-xs text-red-200">
+                        {actionData.fieldErrors.password}
+                      </p>
                     ) : null}
                   </div>
 
@@ -347,7 +374,8 @@ function Field(props: {
   autoComplete?: string;
   autoFocus?: boolean;
 }) {
-  const { label, name, type, placeholder, icon, error, autoComplete, autoFocus } = props;
+  const { label, name, type, placeholder, icon, error, autoComplete, autoFocus } =
+    props;
 
   return (
     <div>
@@ -368,7 +396,9 @@ function Field(props: {
           className={[
             "w-full rounded-2xl border bg-black/25 px-10 py-3 text-sm text-white placeholder:text-white/30 outline-none",
             "border-white/10 focus:border-white/20 focus:ring-4 focus:ring-white/10",
-            error ? "border-red-500/30 focus:border-red-500/40 focus:ring-red-500/10" : "",
+            error
+              ? "border-red-500/30 focus:border-red-500/40 focus:ring-red-500/10"
+              : "",
           ].join(" ")}
         />
       </div>

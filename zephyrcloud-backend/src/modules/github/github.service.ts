@@ -164,7 +164,7 @@ export class GithubService {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'User-Agent': 'ZephyrCloud-Panel',
+          'User-Agent': 'GetAeon-Panel',
         },
         timeout: 20_000,
       },
@@ -487,7 +487,7 @@ export class GithubService {
     return {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'ZephyrCloud-Panel',
+      'User-Agent': 'GetAeon-Panel',
       'X-GitHub-Api-Version': '2022-11-28',
     };
   }

@@ -27,7 +27,7 @@ import {
 
 type SiteStatus = "RUNNING" | "STOPPED" | "BUILDING" | "ERROR" | "PROVISIONING";
 type SiteType = "wordpress" | "node" | "static" | "php";
-type SupportedCreateType = "wordpress" | "node";
+type SupportedCreateType = SiteType;
 type LoadState = "idle" | "loading" | "ready" | "error";
 type RepoAccessMode =
   | "public"
@@ -106,7 +106,12 @@ function parseApiError(payload: unknown, fallback: string): string {
 }
 
 function isSupportedCreateType(value: string): value is SupportedCreateType {
-  return value === "wordpress" || value === "node";
+  return (
+    value === "wordpress" ||
+    value === "node" ||
+    value === "static" ||
+    value === "php"
+  );
 }
 
 function parseGithubApps(payload: unknown): GithubAppOption[] {
@@ -320,7 +325,7 @@ export async function action({
     type: rawType,
   };
 
-  if (rawType === "node") {
+  if (rawType !== "wordpress") {
     const repoUrl = String(fd.get("repo_url") || "").trim();
     const repoBranch = String(fd.get("repo_branch") || "").trim() || "main";
     const repoAccess = String(fd.get("repo_access") || "public").trim();
@@ -330,7 +335,12 @@ export async function action({
     if (!repoUrl) {
       return {
         ok: false,
-        error: "Node.js hosting requires a GitHub repository.",
+        error:
+          rawType === "static"
+            ? "Static app hosting requires a GitHub repository."
+            : rawType === "php"
+              ? "PHP app hosting requires a GitHub repository."
+              : "Node.js hosting requires a GitHub repository.",
       };
     }
 
@@ -414,6 +424,43 @@ function typeMeta(type: SiteType) {
       return { label: "Static", icon: <Globe className="h-4 w-4" /> };
     default:
       return { label: type, icon: <Boxes className="h-4 w-4" /> };
+  }
+}
+
+function createTypeMeta(type: SupportedCreateType) {
+  switch (type) {
+    case "wordpress":
+      return {
+        title: "WordPress",
+        placeholder: "my-wordpress-site",
+        repoHelp:
+          "GetAeon provisions WordPress together with a managed MariaDB database in Coolify.",
+        submitLabel: "Create WordPress Site",
+      };
+    case "static":
+      return {
+        title: "Static",
+        placeholder: "marketing-site",
+        repoHelp:
+          "Coolify will build this repository as a static site and expose it on port 80.",
+        submitLabel: "Create Static Application",
+      };
+    case "php":
+      return {
+        title: "PHP",
+        placeholder: "customer-portal",
+        repoHelp:
+          "Coolify will deploy this repository with Nixpacks and expose it on port 80.",
+        submitLabel: "Create PHP Application",
+      };
+    default:
+      return {
+        title: "Node.js",
+        placeholder: "my-node-app",
+        repoHelp:
+          "Coolify will deploy this repository with Nixpacks and expose it on port 3000.",
+        submitLabel: "Create Node.js Application",
+      };
   }
 }
 
@@ -611,6 +658,7 @@ function CreateSiteModal({
   const canUseConnectedGithub = githubConnection.configured;
   const isConnectedGithubReady =
     githubConnection.configured && githubConnection.connected;
+  const selectedTypeMeta = createTypeMeta(createType);
 
   React.useEffect(() => {
     if (!canUsePrivateGithubApps) {
@@ -888,6 +936,18 @@ function CreateSiteModal({
       description: "Deploy a GitHub repository to Coolify with Nixpacks.",
       icon: <Server className="h-5 w-5" />,
     },
+    {
+      type: "static",
+      title: "Static",
+      description: "Ship static sites and SPAs from a Git repository.",
+      icon: <Globe className="h-5 w-5" />,
+    },
+    {
+      type: "php",
+      title: "PHP",
+      description: "Deploy PHP applications from Git with Coolify.",
+      icon: <Code2 className="h-5 w-5" />,
+    },
   ];
 
   const accessOptions: Array<{
@@ -962,7 +1022,7 @@ function CreateSiteModal({
 
             <Form method="post" className="mt-8 space-y-6">
               <input type="hidden" name="type" value={createType} />
-              {createType === "node" && (
+              {createType !== "wordpress" && (
                 <input type="hidden" name="repo_access" value={repoAccessMode} />
               )}
 
@@ -1020,9 +1080,7 @@ function CreateSiteModal({
                   required
                   value={siteName}
                   onChange={(event) => setSiteName(event.target.value)}
-                  placeholder={
-                    createType === "node" ? "my-node-app" : "my-wordpress-site"
-                  }
+                  placeholder={selectedTypeMeta.placeholder}
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all placeholder:text-white/20 focus:ring-2 ring-white/10"
                 />
               </div>
@@ -1052,7 +1110,7 @@ function CreateSiteModal({
                     </div>
                     <div>
                       <div className="text-sm font-bold text-white">
-                        Node.js Deployment
+                        {selectedTypeMeta.title} Deployment
                       </div>
                       <p className="text-xs text-white/45">
                         Deploy public repositories directly, use a connected
@@ -1298,8 +1356,7 @@ function CreateSiteModal({
                       </p>
                     )}
                     <p className="text-xs text-white/45">
-                      Coolify will create a Git-based Node.js application and
-                      expose it on port 3000.
+                      {selectedTypeMeta.repoHelp}
                     </p>
                   </div>
 
@@ -1412,9 +1469,7 @@ function CreateSiteModal({
                 ) : (
                   <Rocket className="h-5 w-5" />
                 )}
-                {createType === "node"
-                  ? "Create Node.js Application"
-                  : "Create WordPress Site"}
+                {selectedTypeMeta.submitLabel}
               </button>
             </Form>
           </motion.div>
