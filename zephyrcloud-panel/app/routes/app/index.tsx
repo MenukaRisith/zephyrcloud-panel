@@ -349,25 +349,22 @@ function StatCard({
   icon,
   label,
   value,
-  note,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
-  note: string;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-start gap-4 px-5 py-5">
-        <div className="grid size-11 place-items-center rounded-md border border-white/10 bg-[var(--accent-soft)] text-white">
-          {icon}
-        </div>
+    <Card className="min-w-0">
+      <CardContent className="flex items-center justify-between gap-4 px-5 py-5">
         <div className="min-w-0">
           <div className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-white/42">
             {label}
           </div>
           <div className="mt-2 text-2xl font-semibold tracking-tight text-white">{value}</div>
-          <div className="mt-2 text-sm leading-6 text-white/50">{note}</div>
+        </div>
+        <div className="grid size-11 shrink-0 place-items-center rounded-md border border-white/10 bg-[var(--accent-soft)] text-white">
+          {icon}
         </div>
       </CardContent>
     </Card>
@@ -483,7 +480,7 @@ export default function AppIndex() {
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
         <Card className="panel-grid overflow-hidden">
           <CardHeader>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -511,28 +508,27 @@ export default function AppIndex() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
               {summaryStats.map((item) => (
                 <StatCard
                   key={item.label}
                   icon={item.icon}
                   label={item.label}
                   value={item.value}
-                  note=""
                 />
               ))}
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               {statusCards.map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-3"
+                  className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] px-4 py-3"
                 >
                   <div className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-white/38">
                     {item.label}
                   </div>
-                  <div className="mt-2 text-base font-semibold text-white">{item.value}</div>
+                  <div className="mt-2 truncate text-base font-semibold text-white">{item.value}</div>
                 </div>
               ))}
             </div>
