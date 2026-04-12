@@ -57,6 +57,7 @@ type Domain = {
   id: string;
   domain: string;
   status?: string;
+  ssl_enabled?: boolean;
   created_at?: string;
 };
 
@@ -505,6 +506,34 @@ function extractGithubRepoRef(input: string) {
   }
 
   return null;
+}
+
+function domainStatusMeta(domain: Domain) {
+  const status = String(domain.status || "").toLowerCase();
+  if (status.includes("pending")) {
+    return {
+      label: "Pending DNS",
+      className:
+        "bg-amber-500/10 text-amber-300 border border-amber-500/20",
+    };
+  }
+  if (status.includes("error") || status.includes("fail")) {
+    return {
+      label: "Needs attention",
+      className: "bg-red-500/10 text-red-200 border border-red-500/20",
+    };
+  }
+  if (domain.ssl_enabled) {
+    return {
+      label: "Active + SSL",
+      className:
+        "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    };
+  }
+  return {
+    label: status ? status.replace(/_/g, " ") : "Configured",
+    className: "bg-white/10 text-white/70 border border-white/10",
+  };
 }
 
 // --- Main Component ---
@@ -1135,24 +1164,36 @@ export default function SiteOverview() {
             <Card title="Connected Domains">
               {domains.length > 0 ? (
                 <div className="space-y-3">
-                  {domains.map((d) => (
-                    <div
-                      key={d.id}
-                      className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Globe className="h-4 w-4 text-white/40" />
-                        <div className="text-sm font-medium text-white">
-                          {d.domain}
+                  {domains.map((d) => {
+                    const meta = domainStatusMeta(d);
+                    return (
+                      <div
+                        key={d.id}
+                        className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Globe className="h-4 w-4 text-white/40" />
+                          <div>
+                            <div className="text-sm font-medium text-white">
+                              {d.domain}
+                            </div>
+                            {d.status ? (
+                              <div className="mt-1 text-[11px] uppercase tracking-wider text-white/35">
+                                {d.status.replace(/_/g, " ")}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-md font-medium ${meta.className}`}
+                          >
+                            {meta.label}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                          Active
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-12 text-white/30 border-dashed border border-white/10 rounded-2xl">

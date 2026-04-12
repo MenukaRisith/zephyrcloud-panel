@@ -127,10 +127,15 @@ function formatDate(value: string | null) {
 
 function statusTone(status?: string) {
   if (!status) return "border-white/10 bg-white/5 text-white/60";
-  if (status.includes("healthy")) {
+  const normalized = status.toLowerCase();
+  if (
+    normalized.includes("healthy") ||
+    normalized.includes("running") ||
+    normalized === "up"
+  ) {
     return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
   }
-  if (status.includes("error") || status.includes("failed")) {
+  if (normalized.includes("error") || normalized.includes("failed")) {
     return "border-red-400/20 bg-red-400/10 text-red-100";
   }
   return "border-amber-400/20 bg-amber-400/10 text-amber-100";

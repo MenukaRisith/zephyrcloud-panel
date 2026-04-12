@@ -216,7 +216,7 @@ export default function AppIndex() {
   const { stats, recent, github } = useLoaderData() as LoaderData;
 
   const cards = [
-    { label: "Active Sites", value: stats.sites, icon: <Server className="h-5 w-5 text-indigo-400" />, border: "border-indigo-500/20", bg: "bg-indigo-500/5" },
+    { label: "Total Sites", value: stats.sites, icon: <Server className="h-5 w-5 text-indigo-400" />, border: "border-indigo-500/20", bg: "bg-indigo-500/5" },
     { label: "Domains", value: stats.domains, icon: <Globe className="h-5 w-5 text-emerald-400" />, border: "border-emerald-500/20", bg: "bg-emerald-500/5" },
     { label: "Databases", value: stats.databases, icon: <Database className="h-5 w-5 text-amber-400" />, border: "border-amber-500/20", bg: "bg-amber-500/5" },
     { label: "Total Deploys", value: stats.deployments, icon: <Rocket className="h-5 w-5 text-blue-400" />, border: "border-blue-500/20", bg: "bg-blue-500/5" },

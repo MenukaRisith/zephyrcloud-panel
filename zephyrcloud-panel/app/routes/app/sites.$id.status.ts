@@ -67,8 +67,14 @@ export async function loader({
     return jsonResponse<StatusPayload>({
       ok: true,
       status,
-      source: "coolify",
-      updatedAt: new Date().toISOString(),
+      source:
+        typeof data?.source === "string" && data.source.trim()
+          ? data.source
+          : "coolify",
+      updatedAt:
+        typeof data?.updatedAt === "string" && data.updatedAt.trim()
+          ? data.updatedAt
+          : new Date().toISOString(),
     });
   } catch (e: any) {
     return jsonResponse<StatusPayload>(

@@ -178,12 +178,13 @@ export class SitesService {
     return site;
   }
 
-  public listSites(user: JwtPayload): Promise<SitePayload[]> {
+  public async listSites(user: JwtPayload): Promise<SitePayload[]> {
     if (user.role === 'admin') {
-      return this.prisma.site.findMany({
+      const sites = await this.prisma.site.findMany({
         include: { domains: true },
         orderBy: { created_at: 'desc' },
       });
+      return Promise.all(sites.map((site) => this.refreshLiveSiteRecord(site)));
     }
 
     const userId = this.requireUserId(user);
@@ -208,11 +209,12 @@ export class SitesService {
           },
         };
 
-    return this.prisma.site.findMany({
+    const sites = await this.prisma.site.findMany({
       where,
       include: { domains: true },
       orderBy: { created_at: 'desc' },
     });
+    return Promise.all(sites.map((site) => this.refreshLiveSiteRecord(site)));
   }
 
   // -------------------------
@@ -318,6 +320,36 @@ export class SitesService {
     }
 
     return 'provisioning';
+  }
+
+  private async refreshLiveSiteRecord<T extends SitePayload>(site: T): Promise<T> {
+    if (!site.coolify_resource_id || !site.coolify_server_uuid) {
+      return site;
+    }
+
+    const live = await this.coolify.getResourceStatus({
+      resourceId: site.coolify_resource_id,
+      resourceType: this.getResourceType(site),
+    });
+
+    if (!live.found) {
+      return site;
+    }
+
+    const normalized = this.normalizeCoolifyStatus(live.status);
+    if (normalized === site.status) {
+      return site;
+    }
+
+    await this.prisma.site.update({
+      where: { id: site.id },
+      data: { status: normalized },
+    });
+
+    return {
+      ...site,
+      status: normalized,
+    };
   }
 
   // -------------------------
@@ -718,9 +750,10 @@ export class SitesService {
   }
 
   // --- Read Site ---
-  public getSite(user: JwtPayload, id: string): Promise<SitePayload> {
+  public async getSite(user: JwtPayload, id: string): Promise<SitePayload> {
     const siteId = toBigIntStrict(id, 'siteId');
-    return this.getOwnedSiteOrThrow(siteId, user);
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    return this.refreshLiveSiteRecord(site);
   }
 
   // --- Live Status Sync ---
@@ -734,7 +767,9 @@ export class SitesService {
     updatedAt: string;
   }> {
     const siteId = toBigIntStrict(id, 'siteId');
-    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    const site = await this.refreshLiveSiteRecord(
+      await this.getOwnedSiteOrThrow(siteId, user),
+    );
 
     if (!site.coolify_resource_id || !site.coolify_server_uuid) {
       return {
@@ -744,7 +779,6 @@ export class SitesService {
       };
     }
 
-    // Use the specific resource fetcher, NOT the server resource list
     const type = this.getResourceType(site);
     const live = await this.coolify.getResourceStatus({
       resourceId: site.coolify_resource_id,
@@ -752,7 +786,6 @@ export class SitesService {
     });
 
     if (!live.found) {
-      // Fallback to DB if resource gone from Coolify?
       return {
         status: String(site.status).toUpperCase(),
         source: 'db',
