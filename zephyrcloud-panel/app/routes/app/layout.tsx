@@ -84,41 +84,41 @@ function pageMetaFromPath(pathname: string): PageMeta {
 
   if (pathname === "/sites") {
     return {
-      eyebrow: "Sites",
-      title: "Application inventory",
+      eyebrow: "Websites",
+      title: "Sites",
     };
   }
 
   if (pathname.startsWith("/sites/")) {
     return {
-      eyebrow: "Sites",
-      title: "Site workspace",
+      eyebrow: "Websites",
+      title: "Site details",
     };
   }
 
   if (pathname.startsWith("/team")) {
     return {
       eyebrow: "Workspace",
-      title: "Team access",
+      title: "Team",
     };
   }
 
   if (pathname.startsWith("/settings")) {
     return {
-      eyebrow: "Integrations",
-      title: "GitHub automation",
+      eyebrow: "Connections",
+      title: "GitHub",
     };
   }
 
   if (pathname.startsWith("/admin")) {
     return {
-      eyebrow: "Admin",
-      title: "Platform control",
+      eyebrow: "Administration",
+      title: "Workspace admin",
     };
   }
 
   return {
-    eyebrow: "Control plane",
+    eyebrow: "Workspace",
     title: "Dashboard",
   };
 }
@@ -172,8 +172,8 @@ function Sidebar({
     <div className={cn(shellPanelClass, "panel-grid flex h-full flex-col overflow-hidden")}>
       <div className="px-5 pb-5 pt-5">
         <Link to="/" onClick={onSelect} className="flex items-start gap-3">
-          <div className="grid size-11 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
-            <ShieldCheck className="h-5 w-5" />
+          <div className="grid size-11 place-items-center rounded-md border border-white/10 bg-white/[0.06] p-2.5">
+            <img src="/logo-w.png" alt={PANEL_NAME} className="max-h-full w-full object-contain" />
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold tracking-[0.08em] text-white">
@@ -301,7 +301,7 @@ export default function AppLayout() {
                     <div className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/34">
                       <span>{meta.eyebrow}</span>
                       <ChevronRight className="h-3.5 w-3.5" />
-                      <span className="truncate">Control plane</span>
+                      <span className="truncate">{user.tenant_name || "Workspace"}</span>
                     </div>
                     <div className="mt-2 flex min-w-0 items-center gap-2">
                       <h1 className="truncate text-2xl font-semibold tracking-tight text-white">
@@ -322,11 +322,11 @@ export default function AppLayout() {
 
               <div className="flex flex-wrap items-center gap-3 lg:justify-end">
                 <Link to="/sites?new=1">
-                  <Button variant="dark">Create site</Button>
+                  <Button variant="dark">New site</Button>
                 </Link>
                 {user.role === "admin" ? (
                   <Link to="/admin">
-                    <Button variant="dark-secondary">Admin console</Button>
+                    <Button variant="dark-secondary">Administration</Button>
                   </Link>
                 ) : null}
               </div>

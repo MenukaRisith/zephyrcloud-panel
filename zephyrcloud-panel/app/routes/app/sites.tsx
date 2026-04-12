@@ -441,41 +441,36 @@ function createTypeMeta(type: SupportedCreateType) {
       return {
         title: "WordPress",
         placeholder: "my-wordpress-site",
-        repoHelp:
-          "GetAeon provisions WordPress together with a managed MariaDB database in Coolify.",
-        submitLabel: "Create WordPress Site",
+        repoHelp: "We will set up WordPress together with its database for you.",
+        submitLabel: "Create WordPress site",
       };
     case "static":
       return {
         title: "Static",
         placeholder: "marketing-site",
-        repoHelp:
-          "Coolify will build this repository as a static site and expose it on port 80.",
-        submitLabel: "Create Static Application",
+        repoHelp: "We will publish this repository as a static website.",
+        submitLabel: "Create static site",
       };
     case "php":
       return {
         title: "PHP",
         placeholder: "customer-portal",
-        repoHelp:
-          "Coolify will deploy this repository with Nixpacks and expose it on port 80.",
-        submitLabel: "Create PHP Application",
+        repoHelp: "We will publish this repository as a PHP application.",
+        submitLabel: "Create PHP site",
       };
     case "python":
       return {
         title: "Python",
         placeholder: "fastapi-service",
-        repoHelp:
-          "Coolify will deploy this Python repository with Nixpacks and expose it on port 8000.",
-        submitLabel: "Create Python Application",
+        repoHelp: "We will publish this repository as a Python application.",
+        submitLabel: "Create Python site",
       };
     default:
       return {
         title: "Node.js",
         placeholder: "my-node-app",
-        repoHelp:
-          "Coolify will deploy this repository with Nixpacks and expose it on port 3000.",
-        submitLabel: "Create Node.js Application",
+        repoHelp: "We will publish this repository as a Node.js application.",
+        submitLabel: "Create Node.js site",
       };
   }
 }
@@ -517,13 +512,13 @@ export default function SitesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
-            Site inventory
+            Websites
           </div>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
             Sites
           </h1>
           <p className="mt-2 text-sm leading-6 text-white/55">
-            Deploy and manage your web applications with one consistent workspace layout for build flows, domains, and runtime access.
+            Manage your websites, domains, and publishing status from one place.
           </p>
         </div>
 
@@ -540,15 +535,14 @@ export default function SitesPage() {
         <div className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
           <div className="font-semibold">GitHub connected</div>
           <p className="mt-1 opacity-85">
-            Private repository automation is ready inside the site creator.
+            Eligible private repositories are now available during site setup.
           </p>
         </div>
       ) : githubStatus === "error" || githubStatus === "invalid-state" ? (
         <div className="rounded-md border border-red-400/20 bg-red-400/10 px-5 py-4 text-sm text-red-100">
           <div className="font-semibold">GitHub connection failed</div>
           <p className="mt-1 opacity-85">
-            {githubMessage ||
-              "The GitHub callback did not complete successfully."}
+            {githubMessage || "GitHub could not be connected right now."}
           </p>
         </div>
       ) : null}
@@ -558,7 +552,7 @@ export default function SitesPage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search sites by name or domain..."
+            placeholder="Search by site or domain"
             className="w-full bg-transparent text-sm text-white/82 outline-none placeholder:text-white/32"
           />
         </div>
@@ -567,7 +561,7 @@ export default function SitesPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {filtered.length === 0 && (
           <div className="col-span-full py-12 text-center text-sm text-white/30">
-            No sites found. Create your first one.
+            No websites yet. Create your first site to get started.
           </div>
         )}
 
@@ -956,31 +950,31 @@ function CreateSiteModal({
     {
       type: "wordpress",
       title: "WordPress",
-      description: "Provision WordPress with a managed MariaDB database.",
+      description: "Launch a managed WordPress website with its own database.",
       icon: <Code2 className="h-5 w-5" />,
     },
     {
       type: "node",
       title: "Node.js",
-      description: "Deploy a GitHub repository to Coolify with Nixpacks.",
+      description: "Publish a Node.js application from a GitHub repository.",
       icon: <Server className="h-5 w-5" />,
     },
     {
       type: "static",
       title: "Static",
-      description: "Ship static sites and SPAs from a Git repository.",
+      description: "Publish a static website or SPA from a GitHub repository.",
       icon: <Globe className="h-5 w-5" />,
     },
     {
       type: "php",
       title: "PHP",
-      description: "Deploy PHP applications from Git with Coolify.",
+      description: "Publish a PHP application from a GitHub repository.",
       icon: <Code2 className="h-5 w-5" />,
     },
     {
       type: "python",
       title: "Python",
-      description: "Host FastAPI, Django, Flask, or Python web services.",
+      description: "Publish a Python application from a GitHub repository.",
       icon: <Code2 className="h-5 w-5" />,
     },
   ];
@@ -993,15 +987,15 @@ function CreateSiteModal({
   }> = [
     {
       value: "public",
-      title: "Public Repo",
-      description: "Use a public GitHub repository with no extra credentials.",
+      title: "Public repository",
+      description: "Use a public GitHub repository with no extra connection.",
     },
     {
       value: "connected_account",
       title: "Connected GitHub",
       description: canUseConnectedGithub
-        ? "Let the panel add the deploy key to your private repo automatically."
-        : "Enable GitHub OAuth on the panel to unlock automatic private-repo setup.",
+        ? "Choose from eligible private repositories with your connected account."
+        : "GitHub sign-in must be enabled before private repositories can be used here.",
       disabled: !canUseConnectedGithub,
     },
     ...(canUsePrivateGithubApps
@@ -1009,15 +1003,14 @@ function CreateSiteModal({
           {
             value: "github_app" as const,
             title: "GitHub App",
-            description: "Use a shared admin-managed GitHub App connection.",
+            description: "Use a shared GitHub connection managed by an administrator.",
           },
         ]
       : []),
     {
       value: "deploy_key",
-      title: "Manual Deploy Key",
-      description:
-        "Generate a deploy key yourself if you do not want to connect GitHub.",
+      title: "Manual key",
+      description: "Use a repository deploy key if you prefer not to connect GitHub.",
     },
   ];
 
@@ -1126,8 +1119,8 @@ function CreateSiteModal({
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/50">
-                Workspace plan caps apply before provisioning: site count, CPU,
-                memory, and team access.
+                Workspace limits apply before launch, including site count,
+                CPU, memory, and people access.
               </div>
 
               {createType === "wordpress" ? (
@@ -1136,17 +1129,16 @@ function CreateSiteModal({
                     <div className="grid size-10 place-items-center rounded-2xl bg-white text-black">
                       <Code2 className="h-5 w-5" />
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-white">
-                        WordPress Deployment
-                      </div>
-                      <p className="text-xs text-white/45">
-                        This provisions WordPress together with its database in
-                        Coolify.
-                      </p>
+                  <div>
+                    <div className="text-sm font-bold text-white">
+                      WordPress site
                     </div>
+                    <p className="text-xs text-white/45">
+                      Your website and database will be prepared automatically.
+                    </p>
                   </div>
                 </div>
+              </div>
               ) : (
                 <div className="space-y-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                   <div className="flex items-center gap-3">
@@ -1155,19 +1147,18 @@ function CreateSiteModal({
                     </div>
                     <div>
                       <div className="text-sm font-bold text-white">
-                        {selectedTypeMeta.title} Deployment
+                        Repository source
                       </div>
                       <p className="text-xs text-white/45">
-                        Deploy public repositories directly, use a connected
-                        GitHub App, or generate a private deploy key for
-                        customer-owned private repositories.
+                        Use a public repository, connect GitHub for private access,
+                        or add a manual repository key.
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-3">
                     <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
-                      Repository Access
+                      Repository access
                     </label>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {accessOptions.map((option) => {
@@ -1208,7 +1199,7 @@ function CreateSiteModal({
 
                   <div className="space-y-2">
                     <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
-                      GitHub Connection
+                      Connection method
                     </label>
                     {repoAccessMode === "github_app" &&
                     canUsePrivateGithubApps ? (
@@ -1222,7 +1213,7 @@ function CreateSiteModal({
                           className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all focus:ring-2 ring-white/10"
                         >
                           <option value="" className="bg-[#080B12] text-white">
-                            No GitHub app (public repo/manual)
+                            No shared GitHub connection selected
                           </option>
                           {githubApps.map((app) => (
                             <option
@@ -1236,7 +1227,7 @@ function CreateSiteModal({
                         </select>
                         {githubAppsState === "loading" && (
                           <p className="text-xs text-white/45">
-                            Loading GitHub connections...
+                            Loading available GitHub connections...
                           </p>
                         )}
                         {githubAppsError && (
@@ -1247,21 +1238,17 @@ function CreateSiteModal({
                       </>
                     ) : repoAccessMode === "github_app" ? (
                       <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                        GitHub App connections are restricted to administrators.
+                        Shared GitHub connections are available to administrators only.
                       </div>
                     ) : repoAccessMode === "connected_account" ? (
                       !githubConnection.configured ? (
                         <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
-                          GitHub OAuth is not configured on this panel yet. Add
-                          the OAuth app credentials first, then come back to use
-                          one-click private repo onboarding.
+                          GitHub sign-in is not available for this workspace yet.
                         </div>
                       ) : !githubConnection.connected ? (
                         <div className="flex flex-col gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm text-amber-100 md:flex-row md:items-center md:justify-between">
                           <div>
-                            Connect your GitHub account once, then the panel can
-                            add the deploy key to private repositories you
-                            administer.
+                            Connect GitHub once to choose from eligible private repositories.
                           </div>
                           <a
                             href="/api/github/oauth/start?returnTo=/sites?new=1"
@@ -1280,20 +1267,16 @@ function CreateSiteModal({
                               githubConnection.name ||
                               "github-user"}
                           </span>
-                          . The panel will add the deploy key to the selected
-                          private repository automatically.
+                          . Private repositories are ready to use.
                         </div>
                       )
                     ) : repoAccessMode === "deploy_key" ? (
                       <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                        This mode generates a tenant-owned deploy key so normal
-                        users can connect a private repository without access to
-                        any shared panel GitHub app.
+                        Use a repository deploy key if you prefer not to connect GitHub.
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
-                        Public repositories do not need any extra GitHub
-                        credentials.
+                        Public repositories do not need any additional connection.
                       </div>
                     )}
                   </div>
@@ -1340,8 +1323,8 @@ function CreateSiteModal({
                     {repoOptionsState === "loading" && (
                       <p className="text-xs text-white/45">
                         {repoAccessMode === "connected_account"
-                          ? "Loading repositories from your connected GitHub account..."
-                          : "Loading repositories from the selected GitHub app..."}
+                          ? "Loading repositories from GitHub..."
+                          : "Loading repositories from the selected connection..."}
                       </p>
                     )}
                     {repoOptionsError && (
@@ -1352,8 +1335,8 @@ function CreateSiteModal({
                     {!repoOptionsError && repoOptions.length > 0 && (
                       <p className="text-xs text-white/45">
                         {repoAccessMode === "connected_account"
-                          ? "Start typing to pick a repository where this GitHub account can manage deploy keys."
-                          : "Start typing to pick one of the connected repositories."}
+                          ? "Start typing to choose a repository from your connected account."
+                          : "Start typing to choose one of the available repositories."}
                       </p>
                     )}
                     {repoAccessMode === "connected_account" &&
@@ -1361,14 +1344,12 @@ function CreateSiteModal({
                       repoOptions.length === 0 &&
                       repoOptionsState === "ready" && (
                         <p className="text-xs text-amber-200">
-                          No repositories with deploy-key admin access were
-                          found for this GitHub account.
+                          No eligible repositories were found for this GitHub account.
                         </p>
                       )}
                     {repoAccessMode === "deploy_key" && (
                       <p className="text-xs text-white/45">
-                        Private-repo mode will normalize GitHub URLs into the
-                        SSH URL Coolify needs for deploy-key cloning.
+                        GitHub URLs are normalized automatically when the key is generated.
                       </p>
                     )}
                   </div>
@@ -1420,11 +1401,10 @@ function CreateSiteModal({
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
                           <div className="text-sm font-bold text-white">
-                            Private Repository Deploy Key
+                            Repository deploy key
                           </div>
                           <p className="text-xs text-white/45">
-                            Generate a new read-only key, add it to GitHub, then
-                            create the site.
+                            Generate a read-only key, add it to GitHub, then create the site.
                           </p>
                         </div>
                         <button
@@ -1438,7 +1418,7 @@ function CreateSiteModal({
                           ) : (
                             <KeyRound className="h-4 w-4" />
                           )}
-                          {deployKey ? "Regenerate Key" : "Generate Key"}
+                          {deployKey ? "Generate new key" : "Generate key"}
                         </button>
                       </div>
 
@@ -1451,17 +1431,16 @@ function CreateSiteModal({
                       {deployKey && (
                         <div className="space-y-3">
                           <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
-                            1. Add this public key to the repository as a
-                            read-only GitHub deploy key.
+                            1. Add this public key to the repository as a read-only deploy key.
                             <br />
-                            2. Leave the branch set correctly.
+                            2. Confirm the correct branch is selected.
                             <br />
-                            3. Submit the form to provision the application.
+                            3. Create the site.
                           </div>
 
                           <div className="space-y-2">
                             <label className="ml-1 text-xs font-bold uppercase tracking-wider text-white/40">
-                              Public Deploy Key
+                              Public key
                             </label>
                             <textarea
                               readOnly
@@ -1478,7 +1457,7 @@ function CreateSiteModal({
                               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
                             >
                               <Copy className="h-4 w-4" />
-                              {deployKeyCopied ? "Copied" : "Copy Key"}
+                              {deployKeyCopied ? "Copied" : "Copy key"}
                             </button>
                             {repoSettingsUrl && (
                               <a
@@ -1488,7 +1467,7 @@ function CreateSiteModal({
                                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
                               >
                                 <ExternalLink className="h-4 w-4" />
-                                Open GitHub Deploy Keys
+                                Open GitHub settings
                               </a>
                             )}
                           </div>

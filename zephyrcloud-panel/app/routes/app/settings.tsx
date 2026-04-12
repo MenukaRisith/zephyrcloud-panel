@@ -124,25 +124,25 @@ function statusCopy(status: string | null, message: string | null) {
       return {
         tone: "emerald",
         title: "GitHub connected",
-        body: "Private repository automation is ready. You can now deploy private app repos without pasting deploy keys manually.",
+        body: "You can now choose eligible private repositories during site setup.",
       };
     case "disconnected":
       return {
         tone: "amber",
         title: "GitHub disconnected",
-        body: "The platform no longer has GitHub access for future private-repo automation from this account.",
+        body: "Private repositories will need to be connected manually until GitHub is linked again.",
       };
     case "not-configured":
       return {
         tone: "red",
-        title: "GitHub automation is not configured",
-        body: "Set the GitHub OAuth client credentials on the panel before using one-click private repository onboarding.",
+        title: "GitHub is not available yet",
+        body: "GitHub sign-in has not been enabled for this workspace yet.",
       };
     case "invalid-state":
       return {
         tone: "red",
         title: "GitHub sign-in expired",
-        body: "The GitHub callback state did not match. Start the connection flow again.",
+        body: "Please start the GitHub connection flow again.",
       };
     case "error":
       return {
@@ -150,7 +150,7 @@ function statusCopy(status: string | null, message: string | null) {
         title: "GitHub connection failed",
         body:
           message ||
-          "GitHub could not be connected. Check the app configuration and repository permissions, then try again.",
+          "GitHub could not be connected right now. Please try again.",
       };
     default:
       return null;
@@ -185,16 +185,16 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                Integrations
+                Connections
               </div>
-              <CardTitle className="mt-2 text-3xl">GitHub automation</CardTitle>
+              <CardTitle className="mt-2 text-3xl">GitHub</CardTitle>
               <CardDescription className="mt-2 max-w-3xl">
-                Connect GitHub once and let {PANEL_NAME} handle repository discovery, deploy-key registration, and private-repo onboarding during app creation.
+                Connect GitHub to choose repositories faster when creating a new site.
               </CardDescription>
             </div>
             <Link to="/sites?new=1">
               <Button variant="dark">
-                Open site creator
+                New site
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -234,7 +234,7 @@ export default function SettingsPage() {
                   <div>
                     <CardTitle>GitHub account</CardTitle>
                     <CardDescription>
-                      Used for private repository discovery and automatic deploy-key registration.
+                      Used to browse repositories and connect private projects during site setup.
                     </CardDescription>
                   </div>
                 </div>
@@ -255,9 +255,9 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               {!github.configured ? (
                 <div className="rounded-md border border-red-400/20 bg-red-400/10 p-5 text-sm text-red-100">
-                  <div className="font-semibold">Panel-side setup still required</div>
+                  <div className="font-semibold">GitHub sign-in is not enabled</div>
                   <p className="mt-2 leading-6 opacity-85">
-                    Add `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET` to the panel before one-click private repo onboarding can work.
+                    Ask an administrator to enable GitHub sign-in for this workspace.
                   </p>
                 </div>
               ) : github.connected ? (
@@ -297,7 +297,7 @@ export default function SettingsPage() {
                   <div className="flex flex-wrap gap-3">
                     <a href="/api/github/oauth/start?returnTo=/settings">
                       <Button variant="dark">
-                        Reconnect GitHub
+                        Reconnect
                         <ArrowRight className="h-4 w-4" />
                       </Button>
                     </a>
@@ -314,10 +314,10 @@ export default function SettingsPage() {
                 <div className="flex flex-col gap-4 rounded-md border border-white/10 bg-white/[0.04] p-5 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <div className="text-base font-semibold text-white">
-                      Connect GitHub to automate private repos
+                      Connect GitHub for private repositories
                     </div>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-                      After you connect, the panel can list your repos, generate the SSH deploy key, add it to GitHub, and provision the site in one flow.
+                      Once connected, you can choose from eligible repositories while creating a site.
                     </p>
                   </div>
                   <a href="/api/github/oauth/start?returnTo=/settings">
@@ -345,20 +345,20 @@ export default function SettingsPage() {
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <CardTitle>Automatic flow</CardTitle>
-                  <CardDescription>Private repo onboarding after GitHub is connected.</CardDescription>
+                  <CardTitle>What this enables</CardTitle>
+                  <CardDescription>Private repository setup after GitHub is connected.</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-white/70">
               <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                1. Choose a private repository you administer.
+                1. Choose a connected private repository.
               </div>
               <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                2. The panel generates a read-only Coolify deploy key.
+                2. A secure repository key is prepared automatically.
               </div>
               <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                3. The panel adds that key to GitHub and provisions the app.
+                3. Your site is created with the selected repository.
               </div>
             </CardContent>
           </Card>
@@ -370,9 +370,9 @@ export default function SettingsPage() {
                   <KeyRound className="h-5 w-5" />
                 </div>
                 <div>
-                  <CardTitle>Fallback remains available</CardTitle>
+                  <CardTitle>Prefer manual setup?</CardTitle>
                   <CardDescription>
-                    Manual deploy-key mode still works if you do not want to connect GitHub.
+                    You can still use a public repository or a manual deploy key.
                   </CardDescription>
                 </div>
               </div>
@@ -380,7 +380,7 @@ export default function SettingsPage() {
             <CardContent>
               <Link to="/sites?new=1">
                 <Button variant="secondary">
-                  Open site creation
+                  Open site setup
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>

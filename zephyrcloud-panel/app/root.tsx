@@ -22,6 +22,9 @@ export const links: Route.LinksFunction = () => [
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Sora:wght@400;500;600;700;800&display=swap",
   },
+  { rel: "icon", href: "/favicon.ico", sizes: "any" },
+  { rel: "shortcut icon", href: "/favicon.ico" },
+  { rel: "apple-touch-icon", href: "/logo-b.png" },
 ];
 
 export const meta: Route.MetaFunction = () => [

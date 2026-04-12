@@ -3,7 +3,7 @@ export const PANEL_NAME = `${BRAND_NAME} Panel`;
 export const PANEL_HOST = "app.getaeon.co";
 export const PANEL_URL = `https://${PANEL_HOST}`;
 export const PANEL_DESCRIPTION =
-  "Deploy, operate, and observe customer workloads from the GetAeon control plane powered by Coolify.";
+  "Manage your websites, domains, and workspace access from one place.";
 
 function isIpv4Address(value: string) {
   return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value.trim());

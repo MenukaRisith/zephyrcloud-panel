@@ -1,7 +1,7 @@
 import * as React from "react";
-import { Form, Link, useActionData, useNavigation } from "react-router";
+import { Form, useActionData, useNavigation } from "react-router";
 import { motion } from "framer-motion";
-import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, Shield } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 
 import type { ApiError, LoginRequest, LoginResponse } from "../services/api.client";
 import { apiUrl } from "../services/api.base";
@@ -138,8 +138,8 @@ export default function LoginRoute() {
           >
             <div className="h-full rounded-3xl border border-white/10 bg-white/5 p-10 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.8)] backdrop-blur">
               <div className="flex items-center gap-3">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/10">
-                  <Shield className="h-6 w-6" />
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 p-2 ring-1 ring-white/10">
+                  <img src="/logo-w.png" alt={PANEL_NAME} className="max-h-full w-full object-contain" />
                 </div>
                 <div>
                   <div className="text-lg font-semibold tracking-tight">{PANEL_NAME}</div>
@@ -149,23 +149,23 @@ export default function LoginRoute() {
 
               <div className="mt-10 space-y-5 text-white/80">
                 <Feature
-                  title="One-click operations"
-                  desc="Trigger deploys, restarts, and recovery workflows without leaving the control plane."
+                  title="Central visibility"
+                  desc="See website status, domains, and recent activity in one place."
                 />
                 <Feature
-                  title="Domains and routing"
-                  desc="Connect custom domains, keep ingress aligned, and inspect rollout state quickly."
+                  title="Team access"
+                  desc="Keep client workspaces organized and share access with the right people."
                 />
                 <Feature
-                  title="Logs and configuration"
-                  desc="Inspect runtime logs, manage environment variables, and debug customer apps faster."
+                  title="Connected delivery"
+                  desc="Move updates from GitHub to live websites with a consistent workflow."
                 />
               </div>
 
               <div className="mt-10 rounded-2xl border border-white/10 bg-black/20 p-5">
-                <div className="text-sm font-medium text-white/80">Security note</div>
+                <div className="text-sm font-medium text-white/80">Private workspace</div>
                 <div className="mt-1 text-sm text-white/60">
-                  Use strong passwords and keep editor access limited to operators who actually deploy.
+                  Access is limited to invited team members for each workspace.
                 </div>
               </div>
             </div>
@@ -180,12 +180,12 @@ export default function LoginRoute() {
             <div className="w-full max-w-md">
               <div className="mb-6 lg:hidden">
                 <div className="flex items-center gap-3">
-                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/10">
-                    <Shield className="h-5 w-5" />
+                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 p-2 ring-1 ring-white/10">
+                    <img src="/logo-w.png" alt={PANEL_NAME} className="max-h-full w-full object-contain" />
                   </div>
                   <div>
                     <div className="text-base font-semibold tracking-tight">{PANEL_NAME}</div>
-                    <div className="text-sm text-white/60">Sign in to continue</div>
+                    <div className="text-sm text-white/60">Secure client access</div>
                   </div>
                 </div>
               </div>
@@ -194,7 +194,7 @@ export default function LoginRoute() {
                 <div className="mb-5">
                   <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
                   <p className="mt-1 text-sm text-white/60">
-                    Log in to manage applications, domains, and deployments across GetAeon.
+                    Sign in to view your websites, domains, and workspace updates.
                   </p>
                 </div>
 
@@ -269,24 +269,6 @@ export default function LoginRoute() {
                     ) : null}
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <label className="flex items-center gap-2 text-sm text-white/70">
-                      <input
-                        type="checkbox"
-                        name="remember"
-                        className="h-4 w-4 rounded border-white/20 bg-black/30 text-white"
-                      />
-                      Remember me
-                    </label>
-
-                    <Link
-                      to="/forgot-password"
-                      className="text-sm text-white/70 hover:text-white"
-                    >
-                      Forgot password?
-                    </Link>
-                  </div>
-
                   <motion.button
                     whileTap={{ scale: 0.985 }}
                     whileHover={{ y: -1 }}
@@ -311,13 +293,7 @@ export default function LoginRoute() {
                   </motion.button>
 
                   <p className="text-center text-sm text-white/55">
-                    Need a workspace?{" "}
-                    <Link
-                      to="/register"
-                      className="font-medium text-white hover:text-white/80"
-                    >
-                      Create an account
-                    </Link>
+                    Need access? Contact your workspace administrator.
                   </p>
                 </Form>
               </div>

@@ -837,7 +837,7 @@ export default function SiteOverview() {
                   ) : (
                     <Rocket className="h-4 w-4" />
                   )}
-                  Deploy
+                  Publish
                 </button>
               </Form>
 
@@ -852,7 +852,7 @@ export default function SiteOverview() {
                   ) : (
                     <Rocket className="h-4 w-4" />
                   )}
-                  Force Deploy
+                  Rebuild
                 </button>
               </Form>
 
@@ -870,7 +870,7 @@ export default function SiteOverview() {
             </>
           ) : (
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/55">
-              Read-only access
+              View only
             </div>
           )}
         </div>
@@ -927,40 +927,39 @@ export default function SiteOverview() {
                 <Form method="post">
                   <input type="hidden" name="intent" value="deploy" />
                   <ActionRow
-                    label="Trigger Deployment"
+                    label="Publish changes"
                     icon={<Rocket className="h-4 w-4 text-emerald-400" />}
                   />
                 </Form>
                 <Form method="post">
                   <input type="hidden" name="intent" value="deploy_force" />
                   <ActionRow
-                    label="Force Rebuild Deployment"
+                    label="Rebuild and publish"
                     icon={<Rocket className="h-4 w-4 text-amber-300" />}
                   />
                 </Form>
                 <Form method="post">
                   <input type="hidden" name="intent" value="restart" />
                   <ActionRow
-                    label="Restart Application"
+                    label="Restart site"
                     icon={<RefreshCw className="h-4 w-4 text-amber-400" />}
                   />
                 </Form>
                 <ActionRow
-                  label="View Live Logs"
+                  label="Open activity log"
                   icon={<Terminal className="h-4 w-4 text-blue-400" />}
                   onClick={() => setTab("logs")}
                 />
               </div>
             ) : (
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-white/50">
-                Operational controls are limited to editors and workspace
-                owners.
+                Editing actions are available to editors and workspace owners.
               </div>
             )}
           </Card>
 
           <Card
-            title="Latest Deployment"
+            title="Latest update"
             subtitle={
               deployments[0]
                 ? new Date(deployments[0].created_at!).toLocaleString()
@@ -976,7 +975,7 @@ export default function SiteOverview() {
                   </span>
                 </div>
                 <div className="text-sm text-white/60 line-clamp-2 font-mono">
-                  {deployments[0].commit_message || "Manual Deployment"}
+                  {deployments[0].commit_message || "Published from the dashboard"}
                 </div>
                 <div className="mt-3 text-xs text-white/40 flex justify-between">
                   <span>
@@ -987,7 +986,7 @@ export default function SiteOverview() {
               </div>
             ) : (
               <div className="text-sm text-white/40 italic py-4 text-center">
-                No deployments found
+                No updates yet.
               </div>
             )}
             <button
@@ -998,7 +997,7 @@ export default function SiteOverview() {
             </button>
           </Card>
 
-          <Card title="Connection Info">
+          <Card title="Details">
             <div className="space-y-3">
               <div className="p-3 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between">
                 <div>
@@ -1017,7 +1016,7 @@ export default function SiteOverview() {
                         <ExternalLink className="h-3 w-3 opacity-50" />
                       </a>
                     ) : (
-                      "Not Configured"
+                      "Not connected"
                     )}
                   </div>
                 </div>
@@ -1040,7 +1039,7 @@ export default function SiteOverview() {
 
       {/* --- CONTENT: DEPLOYMENTS --- */}
       {tab === "deployments" && (
-        <Card title="Deployment History">
+        <Card title="Update history">
           <div className="space-y-2">
             {deployments.length ? (
               deployments.map((d) => (
@@ -1054,7 +1053,7 @@ export default function SiteOverview() {
                     </div>
                     <div>
                       <div className="text-sm font-medium text-white group-hover:text-emerald-300 transition-colors">
-                        {d.commit_message || "Manual Deployment"}
+                        {d.commit_message || "Published from the dashboard"}
                       </div>
                       <div className="text-xs text-white/40 mt-0.5 flex gap-2">
                         <span>{d.commit_hash?.substring(0, 7) || "---"}</span>
@@ -1074,7 +1073,7 @@ export default function SiteOverview() {
               ))
             ) : (
               <div className="text-center py-12 text-white/30">
-                No deployment history found.
+                No updates yet.
               </div>
             )}
           </div>
@@ -1083,7 +1082,7 @@ export default function SiteOverview() {
 
       {/* --- CONTENT: LOGS --- */}
       {tab === "logs" && (
-        <Card title="Live Logs" subtitle="Real-time output from container">
+        <Card title="Activity log" subtitle="Recent service output">
           <div className="flex items-center justify-between gap-4 mb-4 bg-black/20 p-2 rounded-xl border border-white/5">
             <div className="flex items-center gap-2 px-2">
               <span className="relative flex h-2 w-2">
@@ -1157,7 +1156,7 @@ export default function SiteOverview() {
       {tab === "domains" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <Card title="Connected Domains">
+            <Card title="Domains">
               {domains.length > 0 ? (
                 <div className="space-y-3">
                   {domains.map((d) => {
@@ -1200,20 +1199,19 @@ export default function SiteOverview() {
           </div>
 
           <div>
-            <Card title="Add Domain">
+            <Card title="Connect domain">
               {/* Beta Disclaimer */}
               <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 mb-4">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <h4 className="text-sm font-bold text-amber-400">
-                      Beta Feature
+                      DNS note
                     </h4>
                     <p className="text-xs text-amber-200/80 leading-relaxed">
-                      Automated domain configuration is still stabilizing. If
-                      DNS is correct and traffic still does not reach the site
-                      after propagation, verify the ingress target in the admin
-                      panel before escalating.
+                      Domain setup is still being refined. If traffic does not
+                      resolve after DNS has propagated, contact your workspace
+                      administrator for help.
                     </p>
                   </div>
                 </div>
@@ -1223,7 +1221,7 @@ export default function SiteOverview() {
               <div className="rounded-xl bg-white/5 border border-white/5 p-4 mb-6">
                 <div className="text-xs uppercase font-bold text-white/40 tracking-wider mb-2 flex items-center gap-1.5">
                   <Info className="h-3 w-3" />
-                  Recommended DNS Record
+                  DNS target
                 </div>
                 <div className="flex items-center justify-between bg-black/40 rounded-lg p-3 border border-white/10 shadow-inner">
                   <div className="flex items-center gap-3">
@@ -1245,8 +1243,8 @@ export default function SiteOverview() {
                 </div>
                 <p className="mt-3 text-xs leading-5 text-white/45">
                   {dnsTarget.isConfigured
-                    ? "This DNS target comes from PUBLIC_DNS_TARGET."
-                    : "No PUBLIC_DNS_TARGET override is configured, so the panel host is being used as the default ingress target."}
+                    ? "Use this target when pointing your domain to this site."
+                    : "Use the panel host as the DNS target for this site."}
                 </p>
               </div>
 
@@ -1271,7 +1269,7 @@ export default function SiteOverview() {
                   ) : (
                     <Plus className="h-4 w-4" />
                   )}
-                  Connect Domain
+                  Add domain
                 </button>
               </Form>
             </Card>
@@ -1283,8 +1281,8 @@ export default function SiteOverview() {
       {tab === "database" && (
         <div className="space-y-6">
           <Card
-            title="Database Access"
-            subtitle="Credentials for your application"
+            title="Database details"
+            subtitle="Credentials for this site"
           >
             {db ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1329,12 +1327,12 @@ export default function SiteOverview() {
               <div className="py-12 text-center">
                 <Database className="h-10 w-10 text-white/20 mx-auto mb-3" />
                 <h3 className="text-white font-medium">
-                  No Database Provisioned
+                  Database not ready
                 </h3>
                 <p className="text-white/40 text-sm max-w-xs mx-auto mt-1">
                   {site.type === "wordpress"
-                    ? "Wait a moment, the database is being created."
-                    : "This site type does not have a database by default."}
+                    ? "The database is still being prepared."
+                    : "This site type does not include a managed database by default."}
                 </p>
               </div>
             )}
@@ -1342,8 +1340,8 @@ export default function SiteOverview() {
 
           {db && (
             <Card
-              title="Database Explorer"
-              subtitle="Connect and browse tables and rows"
+              title="Database browser"
+              subtitle="Browse tables and rows"
             >
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
@@ -1361,7 +1359,7 @@ export default function SiteOverview() {
                       (tablesLoading || rowsLoading) && "animate-spin",
                     )}
                   />
-                  Connect / Refresh
+                  Refresh
                 </button>
               </div>
 
@@ -1377,7 +1375,7 @@ export default function SiteOverview() {
                     <input
                       value={tableQuery}
                       onChange={(e) => setTableQuery(e.target.value)}
-                      placeholder="Filter tables..."
+                      placeholder="Search tables"
                       className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none placeholder:text-white/30"
                     />
                   </div>
@@ -1533,7 +1531,7 @@ export default function SiteOverview() {
                           )
                         ) : (
                           <div className="py-12 text-center text-sm text-white/40">
-                            Connect to load table rows.
+                            Select a table to view data.
                           </div>
                         )}
                       </div>
@@ -1551,8 +1549,8 @@ export default function SiteOverview() {
         <div className="space-y-6">
           {/* Create Environment Variable */}
           <Card
-            title="Environment Variables"
-            subtitle="Manage secrets and config for your application"
+            title="Configuration"
+            subtitle="Manage secure keys and settings for this site"
           >
             {canManageTeam ? (
               <>
@@ -1648,21 +1646,20 @@ export default function SiteOverview() {
                   </div>
                 ) : (
                   <div className="text-center py-8 text-white/30 italic">
-                    No environment variables set.
+                    No configuration added yet.
                   </div>
                 )}
               </>
             ) : (
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-white/50">
-                Environment variables are only visible to editors and workspace
-                owners.
+                Configuration is only visible to editors and workspace owners.
               </div>
             )}
           </Card>
 
           <Card
-            title="Team Access"
-            subtitle="Invite users by email to view or edit this site"
+            title="Team"
+            subtitle="Control who can view or edit this site"
           >
             {canManageTeam ? (
               <Form
@@ -1705,13 +1702,13 @@ export default function SiteOverview() {
                     ) : (
                       <Plus className="h-4 w-4" />
                     )}
-                    Add Member
+                    Add member
                   </button>
                 </div>
               </Form>
             ) : (
               <div className="mb-6 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-                You currently have read-only access for team management.
+                You currently have view-only access to team settings.
               </div>
             )}
 
@@ -1779,7 +1776,7 @@ export default function SiteOverview() {
 
               <div>
                 <div className="mb-2 text-xs uppercase font-bold tracking-wider text-white/40">
-                  Pending Invites
+                  Pending access
                 </div>
                 {teamInvites.length > 0 ? (
                   <div className="space-y-2">
@@ -1831,17 +1828,17 @@ export default function SiteOverview() {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/50">
-                    No pending invites.
+                    No pending invitations.
                   </div>
                 )}
               </div>
             </div>
           </Card>
 
-          <Card title="Danger Zone">
+          <Card title="Deletion">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-white font-medium">Delete Project</h4>
+                <h4 className="text-white font-medium">Delete site</h4>
                 <p className="text-sm text-white/40">
                   Permanently remove this site and all its data.
                 </p>
@@ -1850,7 +1847,7 @@ export default function SiteOverview() {
                 disabled
                 className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-sm font-bold opacity-50 cursor-not-allowed"
               >
-                Delete Site
+                Coming soon
               </button>
             </div>
           </Card>

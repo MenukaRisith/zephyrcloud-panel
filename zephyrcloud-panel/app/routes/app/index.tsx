@@ -218,8 +218,8 @@ export async function loader({
     const recent: ActivityItem[] = [];
     if (!workspaceDatabase) {
       recent.push({
-        title: "Database available",
-        desc: "Not provisioned",
+        title: "Database",
+        desc: "Not set up",
         tone: "neutral",
       });
     }
@@ -227,7 +227,7 @@ export async function loader({
     if (sites.length === 0) {
       recent.push({
         title: "No sites yet",
-        desc: "Create the first site",
+        desc: "Create your first website",
         tone: "neutral",
       });
     } else {
@@ -241,24 +241,24 @@ export async function loader({
 
       if (building > 0) {
         recent.push({
-          title: "Deployments active",
-          desc: `${building} in progress`,
+          title: "Updates in progress",
+          desc: `${building} currently running`,
           tone: "neutral",
         });
       }
 
       if (failed > 0) {
         recent.push({
-          title: "Attention",
-          desc: `${failed} need review`,
+          title: "Needs attention",
+          desc: `${failed} site${failed === 1 ? "" : "s"} require review`,
           tone: "warn",
         });
       }
 
       if (running > 0 && failed === 0) {
         recent.push({
-          title: "Runtime healthy",
-          desc: `${running} running`,
+          title: "All clear",
+          desc: `${running} site${running === 1 ? "" : "s"} live`,
           tone: "ok",
         });
       }
@@ -267,7 +267,7 @@ export async function loader({
     if (github.configured && !github.connected) {
       recent.unshift({
         title: "Connect GitHub",
-        desc: "Private repos unavailable",
+        desc: "Private repositories need a connection",
         tone: "warn",
       });
     }
@@ -289,8 +289,8 @@ export async function loader({
       stats: { sites: 0, domains: 0, databases: 0, deployments: 0 },
       recent: [
         {
-          title: "Connection error",
-          desc: "Dashboard metrics could not be loaded from the API.",
+          title: "Information unavailable",
+          desc: "Some workspace details could not be loaded.",
           tone: "warn",
         },
       ],
@@ -332,7 +332,7 @@ export async function action({
   if (!response.ok) {
     return {
       ok: false,
-      error: parseMessage(payload, "Managed database provisioning failed."),
+      error: parseMessage(payload, "Database setup could not be started."),
     };
   }
 
@@ -341,7 +341,7 @@ export async function action({
 
   return {
     ok: true,
-    message: `${label} database provisioning started. The dashboard will show the public URL and credentials once Coolify returns them.`,
+    message: `${label} database setup has started. Connection details will appear here when the service is ready.`,
   };
 }
 
@@ -466,15 +466,15 @@ export default function AppIndex() {
   const statusCards = [
     {
       label: "GitHub",
-      value: github.connected ? "Connected" : github.configured ? "Pending" : "Disabled",
+      value: github.connected ? "Connected" : github.configured ? "Ready to connect" : "Unavailable",
     },
     {
       label: "Database",
-      value: workspaceDatabase ? formatEngineLabel(workspaceDatabase.engine) : "Not provisioned",
+      value: workspaceDatabase ? formatEngineLabel(workspaceDatabase.engine) : "Not set up",
     },
     {
-      label: "Access",
-      value: isAdmin ? "Admin" : "Member",
+      label: "Role",
+      value: isAdmin ? "Administrator" : "Member",
     },
   ];
 
@@ -488,21 +488,19 @@ export default function AppIndex() {
                 <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
                   Workspace
                 </div>
-                <CardTitle className="mt-2 text-3xl">
-                  {user.name || user.email}
-                </CardTitle>
+                <CardTitle className="mt-2 text-3xl">At a glance</CardTitle>
               </div>
               <div className="flex flex-wrap gap-3">
                 <Link to="/sites?new=1">
                   <Button>
                     <Rocket className="h-4 w-4" />
-                    Create site
+                    New site
                   </Button>
                 </Link>
                 <Link to={github.connected ? "/sites?new=1" : "/settings"}>
                   <Button variant="secondary">
                     <Github className="h-4 w-4" />
-                    {github.connected ? "Deploy from GitHub" : "Connect GitHub"}
+                    {github.connected ? "Use GitHub" : "Connect GitHub"}
                   </Button>
                 </Link>
               </div>
@@ -540,9 +538,9 @@ export default function AppIndex() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                  Runtime notes
+                  Workspace
                 </div>
-                <CardTitle className="mt-2">Activity</CardTitle>
+                <CardTitle className="mt-2">Recent activity</CardTitle>
               </div>
               {isAdmin ? <Badge>Admin</Badge> : null}
             </div>
@@ -583,10 +581,10 @@ export default function AppIndex() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                Managed database
+                Database
               </div>
               <CardTitle className="mt-2">
-                {workspaceDatabase ? "Connection details" : "Create one public database"}
+                {workspaceDatabase ? "Connection details" : "Set up a database"}
               </CardTitle>
             </div>
             {workspaceDatabase ? (
@@ -618,7 +616,7 @@ export default function AppIndex() {
 
               <div className="rounded-md border border-white/10 bg-white/[0.04] p-5">
                 <div className="text-sm font-medium text-white">
-                  Engine selection
+                  Database type
                 </div>
                 <div className="mt-4 space-y-3">
                   <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
@@ -644,7 +642,7 @@ export default function AppIndex() {
                 <div className="mt-5">
                   <Button type="submit">
                     <Database className="h-4 w-4" />
-                    Provision database
+                    Create database
                   </Button>
                 </div>
               </div>

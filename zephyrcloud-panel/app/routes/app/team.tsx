@@ -78,15 +78,15 @@ export default function TeamPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
-                Collaboration
+                Team
               </div>
-              <CardTitle className="mt-2 text-3xl">Team access by site</CardTitle>
+              <CardTitle className="mt-2 text-3xl">Site access</CardTitle>
               <CardDescription className="mt-2 max-w-3xl">
-                Team sharing stays scoped to each site. Open a site workspace to invite collaborators, change roles, or revoke access.
+                Access is managed separately for each site. Open any site to add members, adjust roles, or remove access.
               </CardDescription>
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/60">
-              {sites.length} site{sites.length === 1 ? "" : "s"} available for access control
+              {sites.length} site{sites.length === 1 ? "" : "s"} ready to manage
             </div>
           </div>
         </CardHeader>
@@ -100,7 +100,7 @@ export default function TeamPage() {
             </div>
             <div>
               <CardTitle>Your sites</CardTitle>
-              <CardDescription>Open a site workspace to manage members and invitations.</CardDescription>
+              <CardDescription>Open a site to manage members and invitations.</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -120,7 +120,7 @@ export default function TeamPage() {
                     <TableCell className="min-w-0">
                       <div className="min-w-0">
                         <div className="truncate font-medium text-white">{site.name}</div>
-                        <div className="mt-1 text-xs text-white/46">Site workspace</div>
+                        <div className="mt-1 text-xs text-white/46">Site details</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -144,7 +144,7 @@ export default function TeamPage() {
             </Table>
           ) : (
             <div className="rounded-md border border-dashed border-white/10 bg-white/[0.03] px-4 py-8 text-sm text-white/52">
-              No sites are available yet. Create the first site before inviting collaborators.
+              No sites are available yet. Create a site before inviting collaborators.
             </div>
           )}
         </CardContent>

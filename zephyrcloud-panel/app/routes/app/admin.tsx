@@ -1100,10 +1100,10 @@ export default function AdminPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/45">
-            Admin Console
+            Administration
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-            Platform control
+            Workspace administration
           </h1>
         </div>
         <div className="inline-flex items-center gap-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
@@ -1166,8 +1166,8 @@ export default function AdminPage() {
           tone={coolifyHealth.ok ? "success" : "warn"}
           title={
             coolifyHealth.ok
-              ? "Coolify API reachable"
-              : "Coolify API needs attention"
+              ? "Hosting platform connected"
+              : "Hosting platform needs attention"
           }
         >
           {coolifyHealth.ok
@@ -1180,38 +1180,38 @@ export default function AdminPage() {
         <WorkflowLink
           href="#create-users"
           icon={<Plus className="h-4 w-4" />}
-          title="Create users"
-          desc="Add admins or customer accounts."
+          title="Create people"
+          desc="Add administrators or workspace members."
         />
         <WorkflowLink
           href="#manage-users"
           icon={<Users className="h-4 w-4" />}
-          title="Manage users"
-          desc="Edit access, tenants, and passwords."
+          title="Manage people"
+          desc="Update access, workspaces, and passwords."
         />
         <WorkflowLink
           href="#plans-resources"
           icon={<ShieldCheck className="h-4 w-4" />}
-          title="Plans and resources"
-          desc="Set plans and quota overrides."
+          title="Plans and limits"
+          desc="Set plans and custom limits."
         />
         <WorkflowLink
           href="#create-sites"
           icon={<Rocket className="h-4 w-4" />}
           title="Create sites"
-          desc="Provision sites for any tenant."
+          desc="Create sites for any workspace."
         />
         <WorkflowLink
           href="#coolify-sites"
           icon={<Server className="h-4 w-4" />}
-          title="Import Coolify"
-          desc="Find apps outside the dashboard."
+          title="Import apps"
+          desc="Bring in apps created outside the panel."
         />
         <WorkflowLink
           href="#assign-sites"
           icon={<Globe className="h-4 w-4" />}
           title="Assign sites"
-          desc="Connect sites to users."
+          desc="Connect sites to people."
         />
       </div>
 
@@ -1225,10 +1225,10 @@ export default function AdminPage() {
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-              User bootstrap
+              People
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">
-              Create users
+              Create people
             </h2>
           </div>
           <Form
@@ -1305,7 +1305,7 @@ export default function AdminPage() {
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              Create user
+              Create person
             </button>
           </Form>
         </motion.section>
@@ -1319,7 +1319,7 @@ export default function AdminPage() {
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-              Site provisioning
+              Websites
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">
               Create sites
@@ -1339,7 +1339,7 @@ export default function AdminPage() {
                 onChange={(event) => setCreateSiteTenantId(event.target.value)}
               >
                 <option value="" disabled>
-                  Select tenant
+                  Select workspace
                 </option>
                 {tenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
@@ -1433,8 +1433,8 @@ export default function AdminPage() {
               />
             </div>
             <p className="text-xs text-white/45">
-              Owner choices are filtered to admins plus users already inside the
-              selected tenant.
+              Owner options are limited to administrators and people in the
+              selected workspace.
             </p>
             {createSiteTenant ? (
               <div className="grid gap-3 rounded-md border border-white/10 bg-[#0B1118] p-4 text-xs text-white/55 md:grid-cols-4">
@@ -1482,10 +1482,10 @@ export default function AdminPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-                Coolify inventory
+                Imported apps
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-white">
-                Import existing Coolify sites
+                Import existing apps
               </h2>
             </div>
             <Badge>{coolifySites.length} available</Badge>
@@ -1508,8 +1508,7 @@ export default function AdminPage() {
           </div>
         ) : (
           <div className="mt-5 rounded-md border border-dashed border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
-            No untracked Coolify applications found. Panel backend and frontend
-            apps are excluded from import.
+            No additional apps are available to import right now.
           </div>
         )}
       </motion.section>
@@ -1533,7 +1532,7 @@ export default function AdminPage() {
                 </h2>
                 <p className="mt-2 text-sm text-white/55">
                   {app.name}
-                  {app.base_directory ? ` Â· ${app.base_directory}` : ""}
+                  {app.base_directory ? ` - ${app.base_directory}` : ""}
                 </p>
               </div>
               <span
@@ -1573,7 +1572,7 @@ export default function AdminPage() {
                   ) : (
                     <RefreshCw className="h-4 w-4" />
                   )}
-                  Restart app
+                  Restart
                 </button>
               </Form>
 
@@ -1594,7 +1593,7 @@ export default function AdminPage() {
                   ) : (
                     <Rocket className="h-4 w-4" />
                   )}
-                  Force redeploy
+                  Republish
                 </button>
               </Form>
             </div>
@@ -1605,9 +1604,7 @@ export default function AdminPage() {
             >
               <input type="hidden" name="intent" value="upsert-env" />
               <input type="hidden" name="target" value={app.target} />
-              <div className="text-sm font-semibold text-white">
-                Add env var
-              </div>
+              <div className="text-sm font-semibold text-white">Add variable</div>
               <input
                 name="key"
                 placeholder="GITHUB_OAUTH_CLIENT_ID"
@@ -1659,7 +1656,7 @@ export default function AdminPage() {
                 ))
               ) : (
                 <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
-                  No environment variables found.
+                  No variables added yet.
                 </div>
               )}
             </div>
@@ -1677,10 +1674,10 @@ export default function AdminPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-                Tenants and plans
+                Workspaces and plans
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-white">
-                Manage plans and resource caps
+                Manage plans and limits
               </h2>
             </div>
           <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/60">
@@ -1688,7 +1685,7 @@ export default function AdminPage() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search users, tenants, sites"
+              placeholder="Search people, workspaces, sites"
               className="w-64 bg-transparent text-white outline-none placeholder:text-white/35"
             />
           </label>
@@ -1717,7 +1714,7 @@ export default function AdminPage() {
             ))
           ) : (
             <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
-              No tenants matched that search.
+              No workspaces matched that search.
             </div>
           )}
         </div>
@@ -1732,7 +1729,7 @@ export default function AdminPage() {
       >
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
-            Site inventory
+            Site access
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-white">
             Assign existing sites
