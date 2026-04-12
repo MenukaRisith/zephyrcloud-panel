@@ -1015,7 +1015,6 @@ export default function AdminPage() {
   const navigation = useNavigation();
   const [query, setQuery] = React.useState("");
   const [createSiteTenantId, setCreateSiteTenantId] = React.useState("");
-  const [importSiteTenantId, setImportSiteTenantId] = React.useState("");
 
   const currentIntent =
     navigation.state !== "idle"
@@ -1040,6 +1039,10 @@ export default function AdminPage() {
   const currentSiteId =
     navigation.state !== "idle"
       ? String(navigation.formData?.get("site_id") || "")
+      : "";
+  const currentCoolifyResourceId =
+    navigation.state !== "idle"
+      ? String(navigation.formData?.get("coolify_resource_id") || "")
       : "";
 
   const search = query.trim().toLowerCase();
@@ -1085,12 +1088,6 @@ export default function AdminPage() {
       !createSiteTenantId ||
       user.role === "admin" ||
       user.tenant_id === createSiteTenantId,
-  );
-  const importSiteAssignableUsers = users.filter(
-    (user) =>
-      !importSiteTenantId ||
-      user.role === "admin" ||
-      user.tenant_id === importSiteTenantId,
   );
 
   return (
@@ -1485,106 +1482,20 @@ export default function AdminPage() {
         </div>
 
         {coolifySites.length > 0 ? (
-          <Form
-            method="post"
-            className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4"
-          >
-            <input
-              type="hidden"
-              name="intent"
-              value="import-coolify-site"
-            />
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <select
-                name="coolify_resource_id"
-                className={fieldClassName}
-                required
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Select Coolify app
-                </option>
-                {coolifySites.map((site) => (
-                  <option key={site.uuid} value={site.uuid}>
-                    {site.name || site.uuid} {site.status ? `(${site.status})` : ""}
-                  </option>
-                ))}
-              </select>
-              <select
-                name="tenant_id"
-                className={fieldClassName}
-                required
-                value={importSiteTenantId}
-                onChange={(event) => setImportSiteTenantId(event.target.value)}
-              >
-                <option value="" disabled>
-                  Select tenant
-                </option>
-                {tenants.map((tenant) => (
-                  <option key={tenant.id} value={tenant.id}>
-                    {tenant.name} ({tenant.plan})
-                  </option>
-                ))}
-              </select>
-              <select
-                name="assign_user_id"
-                defaultValue=""
-                className={fieldClassName}
-              >
-                <option value="">Import unassigned</option>
-                {importSiteAssignableUsers.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.email}{" "}
-                    {user.tenant_name ? `(${user.tenant_name})` : "(admin)"}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="name"
-                placeholder="Dashboard name override"
-                className={fieldClassName}
+          <div className="mt-6 grid gap-4 xl:grid-cols-2">
+            {coolifySites.map((site) => (
+              <CoolifySiteImportCard
+                key={site.uuid}
+                site={site}
+                tenants={tenants}
+                users={users}
+                isImporting={
+                  currentIntent === "import-coolify-site" &&
+                  currentCoolifyResourceId === site.uuid
+                }
               />
-              <select name="type" defaultValue="node" className={fieldClassName}>
-                <option value="node">Node</option>
-                <option value="wordpress">WordPress</option>
-                <option value="php">PHP</option>
-                <option value="static">Static</option>
-              </select>
-              <select
-                name="role"
-                defaultValue="editor"
-                className={fieldClassName}
-              >
-                <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
-              </select>
-            </div>
-            <div className="space-y-2 text-xs text-white/45">
-              {coolifySites.slice(0, 5).map((site) => (
-                <div
-                  key={`coolify-preview:${site.uuid}`}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
-                >
-                  <span className="font-mono text-white/65">{site.uuid}</span>
-                  {site.fqdn ? (
-                    <span className="ml-2 break-all">{site.fqdn}</span>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-            <button
-              type="submit"
-              disabled={currentIntent === "import-coolify-site"}
-              className={primaryButtonClassName}
-            >
-              {currentIntent === "import-coolify-site" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Server className="h-4 w-4" />
-              )}
-              Import and assign
-            </button>
-          </Form>
+            ))}
+          </div>
         ) : (
           <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
             No untracked Coolify applications found. Panel backend and frontend
@@ -1891,6 +1802,151 @@ const fieldClassName =
 
 const primaryButtonClassName =
   "inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60";
+
+function CoolifySiteImportCard({
+  site,
+  tenants,
+  users,
+  isImporting,
+}: {
+  site: CoolifySiteCandidate;
+  tenants: AdminTenant[];
+  users: AdminUser[];
+  isImporting: boolean;
+}) {
+  const [tenantId, setTenantId] = React.useState("");
+  const assignableUsers = users.filter(
+    (user) =>
+      !tenantId || user.role === "admin" || user.tenant_id === tenantId,
+  );
+
+  return (
+    <Form
+      method="post"
+      className="flex min-h-[360px] flex-col rounded-2xl border border-white/10 bg-black/20 p-4"
+    >
+      <input type="hidden" name="intent" value="import-coolify-site" />
+      <input type="hidden" name="coolify_resource_id" value={site.uuid} />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="break-words text-base font-semibold text-white">
+              {site.name || "Coolify application"}
+            </h3>
+            {site.status ? <Badge>{site.status}</Badge> : null}
+          </div>
+          <div className="mt-2 break-all font-mono text-xs text-white/45">
+            {site.uuid}
+          </div>
+        </div>
+        {site.base_directory ? <Badge>{site.base_directory}</Badge> : null}
+      </div>
+
+      {site.fqdn ? (
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">
+            Public URL
+          </div>
+          <div className="mt-1 break-all text-xs leading-5 text-white/60">
+            {site.fqdn}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="space-y-1.5">
+          <span className="text-xs font-semibold text-white/55">Tenant</span>
+          <select
+            name="tenant_id"
+            className={`w-full ${fieldClassName}`}
+            required
+            value={tenantId}
+            onChange={(event) => setTenantId(event.target.value)}
+          >
+            <option value="" disabled>
+              Select tenant
+            </option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name} ({tenant.plan})
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="space-y-1.5">
+          <span className="text-xs font-semibold text-white/55">Owner</span>
+          <select
+            name="assign_user_id"
+            defaultValue=""
+            className={`w-full ${fieldClassName}`}
+          >
+            <option value="">Import unassigned</option>
+            {assignableUsers.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.email}{" "}
+                {user.tenant_name ? `(${user.tenant_name})` : "(admin)"}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="space-y-1.5">
+          <span className="text-xs font-semibold text-white/55">Site type</span>
+          <select
+            name="type"
+            defaultValue="node"
+            className={`w-full ${fieldClassName}`}
+          >
+            <option value="node">Node</option>
+            <option value="wordpress">WordPress</option>
+            <option value="php">PHP</option>
+            <option value="static">Static</option>
+          </select>
+        </label>
+
+        <label className="space-y-1.5">
+          <span className="text-xs font-semibold text-white/55">User role</span>
+          <select
+            name="role"
+            defaultValue="editor"
+            className={`w-full ${fieldClassName}`}
+          >
+            <option value="editor">Editor</option>
+            <option value="viewer">Viewer</option>
+          </select>
+        </label>
+      </div>
+
+      <label className="mt-3 space-y-1.5">
+        <span className="text-xs font-semibold text-white/55">
+          Dashboard name
+        </span>
+        <input
+          name="name"
+          placeholder={site.name || "Optional name override"}
+          className={`w-full ${fieldClassName}`}
+        />
+      </label>
+
+      <div className="mt-auto pt-4">
+        <button
+          type="submit"
+          disabled={isImporting}
+          className={primaryButtonClassName}
+        >
+          {isImporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Server className="h-4 w-4" />
+          )}
+          Import and assign
+        </button>
+      </div>
+    </Form>
+  );
+}
 
 function WorkflowLink({
   href,
