@@ -1,9 +1,7 @@
 // app/routes.ts
-import { type RouteConfig, index, route } from "@react-router/dev/routes";
+import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 
 export default [
-  index("routes/home.tsx"),
-
   route("login", "routes/login.tsx"),
   route("register", "routes/register.tsx"),
   route("logout", "routes/logout.tsx"),
@@ -30,7 +28,9 @@ export default [
   route("api/github/oauth/start", "routes/api.github.oauth.start.ts"),
   route("api/deploy-keys", "routes/api.deploy-keys.ts"),
 
-  route("app", "routes/app/layout.tsx", [
+  route("app/*", "routes/app-legacy-redirect.tsx"),
+
+  layout("routes/app/layout.tsx", [
     index("routes/app/index.tsx"),
 
     // Sites list + create modal

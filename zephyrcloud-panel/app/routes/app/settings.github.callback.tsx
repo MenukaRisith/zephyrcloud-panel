@@ -5,10 +5,21 @@ import { getSession, sessionStorage } from "~/services/session.server";
 
 function sanitizeReturnTo(value: unknown): string {
   const normalized = typeof value === "string" ? value.trim() : "";
-  if (!normalized.startsWith("/app")) {
-    return "/app/settings";
+  if (!normalized.startsWith("/")) {
+    return "/settings";
   }
-  return normalized;
+  if (normalized === "/app" || normalized.startsWith("/app/")) {
+    return normalized.replace(/^\/app(?=\/|$)/, "") || "/";
+  }
+  if (
+    normalized.startsWith("/api") ||
+    normalized.startsWith("/login") ||
+    normalized.startsWith("/register") ||
+    normalized.startsWith("/logout")
+  ) {
+    return "/settings";
+  }
+  return normalized || "/settings";
 }
 
 function withGithubStatus(
@@ -45,7 +56,7 @@ export async function loader({ request }: { request: Request }) {
     });
   }
 
-  const redirectUri = `${requestUrl.origin}/app/settings/github/callback`;
+  const redirectUri = `${requestUrl.origin}/settings/github/callback`;
   const exchangeResponse = await apiFetchAuthed(request, "/api/github/oauth/exchange", {
     method: "POST",
     body: JSON.stringify({

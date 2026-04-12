@@ -1,36 +1,42 @@
-// app/routes/app/index.tsx
 import * as React from "react";
-import { Link, useLoaderData } from "react-router";
-import { motion } from "framer-motion";
 import {
-  Boxes,
-  Globe,
-  Database,
-  Rocket,
+  Form,
+  Link,
+  useActionData,
+  useLoaderData,
+} from "react-router";
+import {
   Activity,
-  ArrowUpRight,
+  ArrowRight,
+  Boxes,
   CheckCircle2,
-  AlertTriangle,
+  Copy,
+  Database,
+  Github,
+  Globe,
   Loader2,
+  Rocket,
   Server,
-  Cpu,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserPlus,
-  Users,
 } from "lucide-react";
 
-import { apiFetchAuthed } from "../../services/api.authed.server";
-import { PANEL_NAME } from "../../lib/brand";
-import { requireUser } from "../../services/session.server";
-
-// --- Types ---
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
+import { apiFetchAuthed } from "~/services/api.authed.server";
+import { requireUser } from "~/services/session.server";
 
 type Site = {
   id: string;
   name: string;
   type: "wordpress" | "node" | "static" | "php" | "python";
-  status: string; // e.g. "RUNNING", "STOPPED", "ERROR", "PROVISIONING"
+  status: string;
+  primaryDomain?: string | null;
 };
 
 type DashboardStats = {
@@ -46,9 +52,24 @@ type ActivityItem = {
   tone: "ok" | "warn" | "neutral";
 };
 
+type WorkspaceDatabase = {
+  id: string;
+  engine: "mariadb" | "mysql" | "postgresql";
+  host: string;
+  port: number;
+  db_name: string;
+  username: string;
+  password: string;
+  public_url: string;
+  ssl_mode?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type LoaderData = {
   stats: DashboardStats;
   recent: ActivityItem[];
+  workspaceDatabase: WorkspaceDatabase | null;
   user: {
     email: string;
     name?: string;
@@ -61,7 +82,31 @@ type LoaderData = {
   };
 };
 
-// --- Loader ---
+type ActionData =
+  | { ok: true; message: string }
+  | { ok: false; error: string };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseMessage(payload: unknown, fallback: string) {
+  if (!isRecord(payload)) return fallback;
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+  if (Array.isArray(payload.message) && typeof payload.message[0] === "string") {
+    return payload.message[0];
+  }
+  if (typeof payload.error === "string" && payload.error.trim()) {
+    return payload.error;
+  }
+  return fallback;
+}
+
+async function safeJson(response: Response) {
+  return response.json().catch(() => null);
+}
 
 export async function loader({
   request,
@@ -71,153 +116,153 @@ export async function loader({
   const { user } = await requireUser(request);
 
   try {
-    // 1. Fetch Sites
-    const [sitesRes, githubRes] = await Promise.all([
+    const [sitesRes, githubRes, workspaceDbRes] = await Promise.all([
       apiFetchAuthed(request, "/api/sites", { method: "GET" }),
       apiFetchAuthed(request, "/api/github/connection", { method: "GET" }),
+      apiFetchAuthed(request, "/api/sites/workspace/database", { method: "GET" }),
     ]);
-    if (!sitesRes.ok) throw new Error("Failed to fetch sites");
 
-    const sitesData = await sitesRes.json();
-    const githubPayload = await githubRes.json().catch(() => null);
+    if (!sitesRes.ok) {
+      throw new Error("Failed to fetch sites");
+    }
+
+    const sitesPayload = await sitesRes.json();
+    const githubPayload = await safeJson(githubRes);
+    const workspaceDbPayload = workspaceDbRes.ok ? await safeJson(workspaceDbRes) : null;
+
+    const sites: Site[] = Array.isArray(sitesPayload)
+      ? sitesPayload
+      : Array.isArray(sitesPayload?.sites)
+        ? sitesPayload.sites
+        : Array.isArray(sitesPayload?.data)
+          ? sitesPayload.data
+          : [];
+
     const github =
       githubPayload && typeof githubPayload === "object"
         ? {
             configured: githubPayload.configured === true,
             connected: githubPayload.connected === true,
             login:
-              typeof (githubPayload as Record<string, unknown>).login ===
-              "string"
+              typeof (githubPayload as Record<string, unknown>).login === "string"
                 ? ((githubPayload as Record<string, unknown>).login as string)
                 : undefined,
           }
         : { configured: false, connected: false, login: undefined };
 
-    // Normalize response
-    let sites: Site[] = [];
-    if (Array.isArray(sitesData)) {
-      sites = sitesData;
-    } else if (sitesData?.sites && Array.isArray(sitesData.sites)) {
-      sites = sitesData.sites;
-    } else if (sitesData?.data && Array.isArray(sitesData.data)) {
-      sites = sitesData.data;
-    }
+    const workspaceDatabase =
+      workspaceDbPayload && typeof workspaceDbPayload === "object"
+        ? (workspaceDbPayload as WorkspaceDatabase)
+        : null;
 
-    // 2. Initialize Stats
     const stats: DashboardStats = {
       sites: sites.length,
       domains: 0,
-      databases: 0,
+      databases: workspaceDatabase ? 1 : 0,
       deployments: 0,
     };
 
-    // 3. Parallel Fetch Details for Accuracy
-    // (Note: In a large production app, you'd want a dedicated /api/stats endpoint to avoid N+1 fetches)
     const detailPromises = sites.map(async (site) => {
-      let dCount = 0;
-      let dbCount = 0;
-      let deployCount = 0;
+      let domainCount = 0;
+      let databaseCount = 0;
+      let deploymentCount = 0;
 
-      // Fetch Domains
       try {
-        const res = await apiFetchAuthed(
-          request,
-          `/api/sites/${site.id}/domains`,
-        );
+        const res = await apiFetchAuthed(request, `/api/sites/${site.id}/domains`);
         if (res.ok) {
-          const data = await res.json();
-          const list = Array.isArray(data) ? data : data.domains || [];
-          dCount = list.length;
+          const payload = await res.json().catch(() => null);
+          const list = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.domains)
+              ? payload.domains
+              : [];
+          domainCount = list.length;
         }
-      } catch (e) {
-        /* ignore */
+      } catch {
+        // ignore
       }
 
-      // Fetch Database
       try {
-        const res = await apiFetchAuthed(
-          request,
-          `/api/sites/${site.id}/database`,
-        );
+        const res = await apiFetchAuthed(request, `/api/sites/${site.id}/database`);
         if (res.ok) {
-          // Some backends return 204 or empty text if no DB
-          const text = await res.text();
-          if (text) {
-            const data = JSON.parse(text);
-            if (data && (data.id || data.engine)) dbCount = 1;
+          const payload = await safeJson(res);
+          if (payload && (payload as Record<string, unknown>).id) {
+            databaseCount = 1;
           }
         }
-      } catch (e) {
-        /* ignore */
+      } catch {
+        // ignore
       }
 
-      // Fetch Deployments
       try {
-        const res = await apiFetchAuthed(
-          request,
-          `/api/sites/${site.id}/deployments`,
-        );
+        const res = await apiFetchAuthed(request, `/api/sites/${site.id}/deployments`);
         if (res.ok) {
-          const data = await res.json();
-          const list = Array.isArray(data) ? data : data.deployments || [];
-          deployCount = list.length;
+          const payload = await res.json().catch(() => null);
+          const list = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.deployments)
+              ? payload.deployments
+              : [];
+          deploymentCount = list.length;
         }
-      } catch (e) {
-        /* ignore */
+      } catch {
+        // ignore
       }
 
-      return { dCount, dbCount, deployCount };
+      return { domainCount, databaseCount, deploymentCount };
     });
 
-    const results = await Promise.all(detailPromises);
-
-    // 4. Aggregate Results
-    results.forEach((r) => {
-      stats.domains += r.dCount;
-      stats.databases += r.dbCount;
-      stats.deployments += r.deployCount;
+    const details = await Promise.all(detailPromises);
+    details.forEach((detail) => {
+      stats.domains += detail.domainCount;
+      stats.databases += detail.databaseCount;
+      stats.deployments += detail.deploymentCount;
     });
 
-    // 5. Build Activity Feed
     const recent: ActivityItem[] = [];
+    if (!workspaceDatabase) {
+      recent.push({
+        title: "Managed database is available",
+        desc: "Provision one public database for this user directly from the dashboard.",
+        tone: "neutral",
+      });
+    }
 
     if (sites.length === 0) {
       recent.push({
-        title: `Welcome to ${PANEL_NAME}`,
-        desc: "Your infrastructure is empty. Create the first workload to start routing traffic through GetAeon.",
+        title: "No sites yet",
+        desc: "Create the first site to start routing traffic through the panel.",
         tone: "neutral",
       });
     } else {
-      const running = sites.filter(
-        (s) => s.status.toUpperCase() === "RUNNING",
+      const running = sites.filter((site) => site.status.toUpperCase() === "RUNNING").length;
+      const building = sites.filter((site) =>
+        ["BUILDING", "PROVISIONING", "QUEUED"].includes(site.status.toUpperCase()),
       ).length;
-      const provisioning = sites.filter((s) =>
-        ["BUILDING", "PROVISIONING", "QUEUED"].includes(s.status.toUpperCase()),
-      ).length;
-      const errors = sites.filter((s) =>
-        ["ERROR", "FAILED"].includes(s.status.toUpperCase()),
+      const failed = sites.filter((site) =>
+        ["ERROR", "FAILED"].includes(site.status.toUpperCase()),
       ).length;
 
-      if (provisioning > 0) {
+      if (building > 0) {
         recent.push({
-          title: "Deployments in progress",
-          desc: `${provisioning} site(s) are currently building or provisioning.`,
+          title: "Deployments active",
+          desc: `${building} site(s) are still building or provisioning.`,
           tone: "neutral",
         });
       }
 
-      if (errors > 0) {
+      if (failed > 0) {
         recent.push({
           title: "Attention required",
-          desc: `${errors} site(s) have encountered an error. Check logs immediately.`,
+          desc: `${failed} site(s) need review in logs or runtime status.`,
           tone: "warn",
         });
       }
 
-      if (running > 0 && errors === 0) {
+      if (running > 0 && failed === 0) {
         recent.push({
-          title: "Systems operational",
-          desc: `${running} site(s) are running healthy and serving traffic.`,
+          title: "Runtime healthy",
+          desc: `${running} site(s) are serving traffic without reported failures.`,
           tone: "ok",
         });
       }
@@ -226,7 +271,7 @@ export async function loader({
     if (github.configured && !github.connected) {
       recent.unshift({
         title: "Connect GitHub",
-        desc: "Link your GitHub account to automate private repository onboarding.",
+        desc: "Private repository onboarding is available after you connect your account.",
         tone: "warn",
       });
     }
@@ -234,6 +279,7 @@ export async function loader({
     return {
       stats,
       recent,
+      workspaceDatabase,
       github,
       user: {
         email: user.email,
@@ -247,12 +293,13 @@ export async function loader({
       stats: { sites: 0, domains: 0, databases: 0, deployments: 0 },
       recent: [
         {
-          title: "Connection Error",
-          desc: "Could not load dashboard stats.",
+          title: "Connection error",
+          desc: "Dashboard metrics could not be loaded from the API.",
           tone: "warn",
         },
       ],
-      github: { configured: false, connected: false },
+      workspaceDatabase: null,
+      github: { configured: false, connected: false, login: undefined },
       user: {
         email: user.email,
         name: user.name,
@@ -262,363 +309,438 @@ export async function loader({
   }
 }
 
-// --- Components ---
+export async function action({
+  request,
+}: {
+  request: Request;
+}): Promise<ActionData | null> {
+  const formData = await request.formData();
+  const intent = String(formData.get("intent") || "");
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  if (intent !== "create-workspace-database") {
+    return null;
+  }
+
+  const engine = String(formData.get("engine") || "").trim();
+  if (!["mariadb", "mysql", "postgresql"].includes(engine)) {
+    return { ok: false, error: "Choose a valid database engine." };
+  }
+
+  const response = await apiFetchAuthed(request, "/api/sites/workspace/database", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ engine }),
+  });
+
+  const payload = await safeJson(response);
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: parseMessage(payload, "Managed database provisioning failed."),
+    };
+  }
+
+  const label =
+    engine === "postgresql" ? "PostgreSQL" : engine === "mysql" ? "MySQL" : "MariaDB";
+
+  return {
+    ok: true,
+    message: `${label} database provisioning started. The dashboard will show the public URL and credentials once Coolify returns them.`,
+  };
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Card className="bg-white/[0.98]">
+      <CardContent className="flex items-center gap-4 px-5 py-5">
+        <div className="grid size-11 place-items-center rounded-md border border-[var(--line)] bg-[var(--surface-muted)] text-[var(--accent)]">
+          {icon}
+        </div>
+        <div>
+          <div className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+            {label}
+          </div>
+          <div className="mt-1 text-2xl font-semibold text-[var(--foreground)]">{value}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActivityToneBadge({ tone }: { tone: ActivityItem["tone"] }) {
+  const className =
+    tone === "ok"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "warn"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-[var(--line)] bg-[var(--surface-muted)] text-[var(--foreground)]";
+
+  return (
+    <span className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-medium ${className}`}>
+      {tone === "ok" ? "Healthy" : tone === "warn" ? "Check" : "Info"}
+    </span>
+  );
+}
+
+function CopyField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  const [copied, setCopied] = React.useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            {label}
+          </div>
+          <div className="mt-2 break-all font-mono text-sm text-[var(--foreground)]">
+            {value}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-[var(--line)] bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--line-strong)]"
+        >
+          <Copy className="h-3.5 w-3.5" />
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function formatEngineLabel(engine: WorkspaceDatabase["engine"]) {
+  if (engine === "postgresql") return "PostgreSQL";
+  if (engine === "mysql") return "MySQL";
+  return "MariaDB";
 }
 
 export default function AppIndex() {
-  const { stats, recent, github, user } = useLoaderData() as LoaderData;
+  const { stats, recent, github, workspaceDatabase, user } = useLoaderData() as LoaderData;
+  const actionData = useActionData() as ActionData | null;
   const isAdmin = user.role === "admin";
 
-  const cards = [
-    {
-      label: "Total Sites",
-      value: stats.sites,
-      icon: <Server className="h-5 w-5 text-indigo-400" />,
-      border: "border-indigo-500/20",
-      bg: "bg-indigo-500/5",
-    },
-    {
-      label: "Domains",
-      value: stats.domains,
-      icon: <Globe className="h-5 w-5 text-emerald-400" />,
-      border: "border-emerald-500/20",
-      bg: "bg-emerald-500/5",
-    },
-    {
-      label: "Databases",
-      value: stats.databases,
-      icon: <Database className="h-5 w-5 text-amber-400" />,
-      border: "border-amber-500/20",
-      bg: "bg-amber-500/5",
-    },
-    {
-      label: "Total Deploys",
-      value: stats.deployments,
-      icon: <Rocket className="h-5 w-5 text-blue-400" />,
-      border: "border-blue-500/20",
-      bg: "bg-blue-500/5",
-    },
-  ];
-
   return (
-    <div className="space-y-8 pb-20 lg:pb-0">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-white/50">
-            Overview of your infrastructure, delivery health, and recent
-            control-plane activity.
-          </p>
-        </div>
+    <div className="space-y-6 pb-10">
+      <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+        <Card className="bg-white/[0.98]">
+          <CardHeader>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
+                  Workspace
+                </div>
+                <CardTitle className="mt-2 text-3xl">
+                  {user.name || user.email}
+                </CardTitle>
+                <CardDescription className="mt-1 max-w-2xl">
+                  Run sites, manage one public database for this user, and keep GitHub-linked deployments inside one control plane.
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link to="/sites?new=1">
+                  <Button>
+                    <Rocket className="h-4 w-4" />
+                    Create site
+                  </Button>
+                </Link>
+                <Link to={github.connected ? "/sites?new=1" : "/settings"}>
+                  <Button variant="secondary">
+                    <Github className="h-4 w-4" />
+                    {github.connected ? "Deploy from GitHub" : "Connect GitHub"}
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              icon={<Server className="h-5 w-5" />}
+              label="Sites"
+              value={String(stats.sites)}
+            />
+            <StatCard
+              icon={<Globe className="h-5 w-5" />}
+              label="Domains"
+              value={String(stats.domains)}
+            />
+            <StatCard
+              icon={<Database className="h-5 w-5" />}
+              label="Databases"
+              value={String(stats.databases)}
+            />
+            <StatCard
+              icon={<Activity className="h-5 w-5" />}
+              label="Deployments"
+              value={String(stats.deployments)}
+            />
+          </CardContent>
+        </Card>
 
-        <div className="flex gap-3">
-          <Link
-            to="/app/sites"
-            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-          >
-            <Boxes className="h-4 w-4" />
-            View Sites
-          </Link>
-
-          <Link
-            to="/app/sites?new=1"
-            className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-black hover:bg-white/90 shadow-lg shadow-white/5 transition-all active:scale-95"
-          >
-            <Rocket className="h-4 w-4" />
-            Deploy New
-          </Link>
-        </div>
+        <Card className="bg-white/[0.98]">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
+                  Runtime notes
+                </div>
+                <CardTitle className="mt-2">Activity</CardTitle>
+              </div>
+              {isAdmin ? <Badge>Admin</Badge> : null}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {recent.map((item) => (
+              <div
+                key={`${item.title}:${item.desc}`}
+                className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-medium text-[var(--foreground)]">{item.title}</div>
+                    <div className="mt-1 text-sm leading-6 text-[var(--text-muted)]">
+                      {item.desc}
+                    </div>
+                  </div>
+                  <ActivityToneBadge tone={item.tone} />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
 
-      {isAdmin ? (
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.05 }}
-          className="rounded-[28px] border border-emerald-400/15 bg-emerald-400/[0.06] p-5 backdrop-blur-xl"
+      {actionData ? (
+        <div
+          className={`rounded-md border px-4 py-3 text-sm ${
+            actionData.ok
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
         >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Admin access
-              </div>
-              <h2 className="mt-3 text-xl font-semibold tracking-tight text-white">
-                Platform operations
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/60">
-                Manage customer users, plans, quota overrides, and site
-                ownership.
-              </p>
-            </div>
-            <Link
-              to="/app/admin"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-black shadow-lg shadow-white/5 transition-all hover:bg-white/90 active:scale-95"
-            >
-              Open Admin Console
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <AdminAction
-              to="/app/admin#create-users"
-              icon={<UserPlus className="h-4 w-4" />}
-              title="Create users"
-              desc="Add admins or customers with a plan."
-            />
-            <AdminAction
-              to="/app/admin#manage-users"
-              icon={<Users className="h-4 w-4" />}
-              title="Manage users"
-              desc="Edit access, tenants, and passwords."
-            />
-            <AdminAction
-              to="/app/admin#plans-resources"
-              icon={<SlidersHorizontal className="h-4 w-4" />}
-              title="Plans and resources"
-              desc="Set plans and quota overrides."
-            />
-            <AdminAction
-              to="/app/admin#create-sites"
-              icon={<Rocket className="h-4 w-4" />}
-              title="Create sites"
-              desc="Provision sites for any tenant."
-            />
-            <AdminAction
-              to="/app/admin#coolify-sites"
-              icon={<Server className="h-4 w-4" />}
-              title="Import Coolify"
-              desc="Find apps outside the dashboard."
-            />
-            <AdminAction
-              to="/app/admin#assign-sites"
-              icon={<Boxes className="h-4 w-4" />}
-              title="Assign sites"
-              desc="Connect unassigned sites to users."
-            />
-          </div>
-        </motion.section>
+          {actionData.ok ? actionData.message : actionData.error}
+        </div>
       ) : null}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map((card, idx) => (
-          <motion.div
-            key={card.label}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: idx * 0.05 }}
-            className={cx(
-              "relative overflow-hidden rounded-[24px] border p-5 backdrop-blur-xl",
-              card.border,
-              card.bg,
-            )}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-3xl font-bold text-white tracking-tight">
-                  {card.value}
-                </div>
-                <div className="text-xs font-medium text-white/50 mt-1 uppercase tracking-wider">
-                  {card.label}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl bg-white/5 ring-1 ring-white/5">
-                {card.icon}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Activity Section */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Activity Feed */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="lg:col-span-2 rounded-[28px] border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-white/5 text-white/70">
-                <Activity className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white">System Status</h2>
-                <p className="text-[11px] text-white/40">
-                  Real-time health check
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {recent.map((r, i) => (
-              <ActivityRow
-                key={i}
-                title={r.title}
-                desc={r.desc}
-                tone={r.tone}
-              />
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Quick Start / Next Steps */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-          className="rounded-[28px] border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl"
-        >
-          <div className="flex items-center gap-2.5 mb-6">
-            <div className="p-2 rounded-lg bg-white/5 text-white/70">
-              <Cpu className="h-4 w-4" />
-            </div>
+      <Card className="bg-white/[0.98]">
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-sm font-bold text-white">Quick Actions</h2>
-              <p className="text-[11px] text-white/40">Common tasks</p>
+              <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
+                Managed database
+              </div>
+              <CardTitle className="mt-2">
+                {workspaceDatabase ? "Connection details" : "Create one public database"}
+              </CardTitle>
+              <CardDescription className="mt-1 max-w-3xl">
+                Each user can provision one public MariaDB, MySQL, or PostgreSQL database. WordPress site creation stays on the existing automatic site-and-database flow and does not use this selector.
+              </CardDescription>
             </div>
+            {workspaceDatabase ? (
+              <Badge>{formatEngineLabel(workspaceDatabase.engine)}</Badge>
+            ) : null}
           </div>
+        </CardHeader>
+        <CardContent>
+          {workspaceDatabase ? (
+            <div className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <CopyField label="Public URL" value={workspaceDatabase.public_url} />
+                <CopyField
+                  label="Host"
+                  value={`${workspaceDatabase.host}:${workspaceDatabase.port}`}
+                />
+                <CopyField label="Database name" value={workspaceDatabase.db_name} />
+                <CopyField label="Username" value={workspaceDatabase.username} />
+                <CopyField label="Password" value={workspaceDatabase.password} />
+                <CopyField
+                  label="SSL mode"
+                  value={workspaceDatabase.ssl_mode || "default"}
+                />
+              </div>
+              <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--text-muted)]">
+                <div className="font-medium text-[var(--foreground)]">
+                  Public database is provisioned
+                </div>
+                <div className="mt-1 leading-6">
+                  Use the public URL directly in clients that accept connection strings, or use the host, port, username, password, and database values above in manual connection setups.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Form method="post" className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <input type="hidden" name="intent" value="create-workspace-database" />
 
-          <div className="space-y-2">
-            <Step
-              num="01"
-              title={
-                github.connected ? "Deploy Private Repo" : "Connect GitHub"
-              }
-              desc={
-                github.connected
-                  ? `GitHub is linked${github.login ? ` as @${github.login}` : ""}. Private repo onboarding is now one-click.`
-                  : "Link GitHub once so the panel can add private-repo deploy keys automatically."
-              }
-              to={github.connected ? "/app/sites?new=1" : "/app/settings"}
-            />
-            <Step
-              num="02"
-              title="Create Application"
-              desc="Deploy a public or private app, or spin up WordPress."
-              to="/app/sites?new=1"
-            />
-            <Step
-              num="03"
-              title="Review Team Access"
-              desc="Share the right sites with the right teammates."
-              to="/app/team"
-            />
-          </div>
-        </motion.div>
+              <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-5">
+                <div className="text-sm font-medium text-[var(--foreground)]">
+                  Engine selection
+                </div>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                  The panel provisions the database in Coolify, exposes a public endpoint, and stores the returned credentials on this dashboard.
+                </p>
+
+                <div className="mt-4 space-y-3">
+                  <label className="flex items-center gap-3 rounded-md border border-[var(--line)] bg-white px-4 py-3">
+                    <input type="radio" name="engine" value="mariadb" defaultChecked />
+                    <div>
+                      <div className="font-medium text-[var(--foreground)]">MariaDB</div>
+                      <div className="text-sm text-[var(--text-muted)]">MySQL-compatible runtime with the existing WordPress stack pattern.</div>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-md border border-[var(--line)] bg-white px-4 py-3">
+                    <input type="radio" name="engine" value="mysql" />
+                    <div>
+                      <div className="font-medium text-[var(--foreground)]">MySQL</div>
+                      <div className="text-sm text-[var(--text-muted)]">Native MySQL 8 database with a public connection string.</div>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-md border border-[var(--line)] bg-white px-4 py-3">
+                    <input type="radio" name="engine" value="postgresql" />
+                    <div>
+                      <div className="font-medium text-[var(--foreground)]">PostgreSQL</div>
+                      <div className="text-sm text-[var(--text-muted)]">Public PostgreSQL endpoint with Coolify-managed credentials.</div>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="mt-5">
+                  <Button type="submit">
+                    <Database className="h-4 w-4" />
+                    Provision database
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-5">
+                <div className="text-sm font-medium text-[var(--foreground)]">
+                  What this creates
+                </div>
+                <div className="mt-3 space-y-3 text-sm text-[var(--text-muted)]">
+                  <div className="rounded-md border border-[var(--line)] bg-white p-4">
+                    1. A dedicated Coolify database resource under your workspace user.
+                  </div>
+                  <div className="rounded-md border border-[var(--line)] bg-white p-4">
+                    2. A public connection endpoint with the returned host and port.
+                  </div>
+                  <div className="rounded-md border border-[var(--line)] bg-white p-4">
+                    3. Stored credentials visible on this dashboard for later use.
+                  </div>
+                </div>
+              </div>
+            </Form>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <Card className="bg-white/[0.98] xl:col-span-2">
+          <CardHeader>
+            <CardTitle>Next actions</CardTitle>
+            <CardDescription>Quick links into the areas used most often after provisioning.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <Link
+              to="/sites?new=1"
+              className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4 transition hover:border-[var(--line-strong)]"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-medium text-[var(--foreground)]">Create site</div>
+                <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+              </div>
+              <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                Start a Node, static, PHP, Python, or WordPress site.
+              </div>
+            </Link>
+            <Link
+              to="/sites"
+              className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4 transition hover:border-[var(--line-strong)]"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-medium text-[var(--foreground)]">Review sites</div>
+                <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+              </div>
+              <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                Inspect runtime status, logs, domains, and site-specific settings.
+              </div>
+            </Link>
+            <Link
+              to="/settings"
+              className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4 transition hover:border-[var(--line-strong)]"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-medium text-[var(--foreground)]">GitHub access</div>
+                <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
+              </div>
+              <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                Connect a GitHub account for private repository onboarding.
+              </div>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/[0.98]">
+          <CardHeader>
+            <CardTitle>GitHub</CardTitle>
+            <CardDescription>Repository automation status for this user.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-medium text-[var(--foreground)]">
+                  {github.connected ? "Connected" : "Not connected"}
+                </div>
+                <Badge>{github.connected ? "Ready" : "Pending"}</Badge>
+              </div>
+              <div className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+                {github.connected
+                  ? `Connected as ${github.login || "GitHub user"}.`
+                  : github.configured
+                    ? "Connect GitHub to automate private repository deployments."
+                    : "GitHub OAuth is not configured on the panel yet."}
+              </div>
+            </div>
+            <Link to={github.connected ? "/sites?new=1" : "/settings"}>
+              <Button variant="secondary" className="w-full justify-center">
+                {github.connected ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Use GitHub for a site
+                  </>
+                ) : (
+                  <>
+                    <Github className="h-4 w-4" />
+                    Open GitHub settings
+                  </>
+                )}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </div>
-  );
-}
-
-// --- Subcomponents ---
-
-function AdminAction({
-  to,
-  icon,
-  title,
-  desc,
-}: {
-  to: string;
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="group flex min-h-[112px] flex-col justify-between rounded-2xl border border-white/10 bg-black/20 p-4 transition-all hover:border-emerald-300/25 hover:bg-emerald-300/10"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-emerald-100 ring-1 ring-white/10">
-          {icon}
-        </span>
-        <ArrowUpRight className="h-4 w-4 text-white/25 transition group-hover:text-emerald-100" />
-      </div>
-      <div>
-        <div className="text-sm font-semibold text-white">{title}</div>
-        <div className="mt-1 text-xs leading-5 text-white/55">{desc}</div>
-      </div>
-    </Link>
-  );
-}
-
-function ActivityRow({
-  title,
-  desc,
-  tone,
-}: {
-  title: string;
-  desc: string;
-  tone: "ok" | "warn" | "neutral";
-}) {
-  const styles = {
-    ok: "border-emerald-500/10 bg-emerald-500/5 text-emerald-200",
-    warn: "border-red-500/10 bg-red-500/5 text-red-200",
-    neutral: "border-white/5 bg-white/5 text-white/80",
-  }[tone];
-
-  const icon = {
-    ok: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
-    warn: <AlertTriangle className="h-4 w-4 text-red-400" />,
-    neutral: <Loader2 className="h-4 w-4 text-white/50 animate-spin" />,
-  }[tone];
-
-  return (
-    <div
-      className={cx(
-        "flex items-start gap-4 rounded-2xl border p-4 transition-all hover:bg-white/[0.02]",
-        styles,
-      )}
-    >
-      <div className="mt-0.5 grid h-8 w-8 place-items-center rounded-xl bg-black/20 ring-1 ring-white/5">
-        {icon}
-      </div>
-      <div>
-        <div className="text-sm font-semibold">{title}</div>
-        <div className="mt-0.5 text-xs opacity-70 leading-relaxed">{desc}</div>
-      </div>
-    </div>
-  );
-}
-
-function Step({
-  num,
-  title,
-  desc,
-  to,
-}: {
-  num: string;
-  title: string;
-  desc: string;
-  to: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="group flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.01] p-3 hover:bg-white/[0.04] hover:border-white/10 transition-all"
-    >
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/5 text-xs font-bold text-white/40 font-mono group-hover:text-white group-hover:bg-white/10 transition-colors">
-        {num}
-      </div>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="text-sm font-semibold text-white/90">{title}</div>
-        </div>
-        <div className="text-[11px] text-white/50">{desc}</div>
-      </div>
-      <ArrowUpRight className="ml-auto h-4 w-4 text-white/20 transition group-hover:text-white/60" />
-    </Link>
   );
 }

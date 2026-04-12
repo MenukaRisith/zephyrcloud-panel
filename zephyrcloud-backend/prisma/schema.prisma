@@ -28,6 +28,7 @@ model Tenant {
   github_connections UserGithubConnection[]
   domains            Domain[]
   site_invites       SiteInvite[]
+  user_databases     UserDatabase[]
 
   plan                      SubscriptionPlan @default(FREE)
   max_sites                 Int?
@@ -69,6 +70,7 @@ model User {
   site_members       SiteMember[]
   deploy_keys        SiteDeployKey[]
   github_connection  UserGithubConnection?
+  managed_database   UserDatabase?
 
   @@index([tenant_id])
 }
@@ -326,6 +328,35 @@ model SiteDatabase {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  @@index([coolify_database_id])
+}
+
+model UserDatabase {
+  id BigInt @id @default(autoincrement())
+
+  user_id BigInt @unique
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  tenant_id BigInt
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  engine   String
+  host     String
+  port     Int
+  db_name  String
+  username String
+  password String
+  public_url String @db.Text
+  ssl_mode   String?
+
+  coolify_project_id  String?
+  coolify_database_id String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@index([coolify_project_id])
   @@index([coolify_database_id])
 }
 

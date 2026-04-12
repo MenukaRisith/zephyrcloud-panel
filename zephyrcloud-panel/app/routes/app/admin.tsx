@@ -25,6 +25,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { inputOnDarkClass } from "~/lib/ui";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { requireUser } from "~/services/session.server";
 
@@ -636,7 +637,7 @@ export async function loader({
   request: Request;
 }): Promise<LoaderData | Response> {
   const { user } = await requireUser(request);
-  if (user.role !== "admin") return redirect("/app");
+  if (user.role !== "admin") return redirect("/");
 
   const errors: string[] = [];
   const [appsRes, usersRes, tenantsRes, sitesRes, coolifySitesRes, healthRes] =
@@ -721,7 +722,7 @@ export async function action({
   request: Request;
 }): Promise<ActionData | Response> {
   const { user } = await requireUser(request);
-  if (user.role !== "admin") return redirect("/app");
+  if (user.role !== "admin") return redirect("/");
 
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "");
@@ -1223,7 +1224,7 @@ export default function AdminPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
-          className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
@@ -1239,7 +1240,7 @@ export default function AdminPage() {
           </div>
           <Form
             method="post"
-            className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4"
+            className="mt-5 space-y-3 rounded-md border border-white/10 bg-[#111823] p-4"
           >
             <input type="hidden" name="intent" value="create-user" />
             <div className="grid gap-3 md:grid-cols-2">
@@ -1321,7 +1322,7 @@ export default function AdminPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, delay: 0.04 }}
-          className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
@@ -1337,7 +1338,7 @@ export default function AdminPage() {
           </div>
           <Form
             method="post"
-            className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4"
+            className="mt-5 space-y-3 rounded-md border border-white/10 bg-[#111823] p-4"
           >
             <input type="hidden" name="intent" value="create-site" />
             <div className="grid gap-3 md:grid-cols-2">
@@ -1487,7 +1488,7 @@ export default function AdminPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.06 }}
-        className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -1535,7 +1536,7 @@ export default function AdminPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18, delay: index * 0.04 }}
-            className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+            className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1547,7 +1548,7 @@ export default function AdminPage() {
                 </h2>
                 <p className="mt-2 text-sm text-white/55">
                   {app.name}
-                  {app.base_directory ? ` · ${app.base_directory}` : ""}
+                  {app.base_directory ? ` Â· ${app.base_directory}` : ""}
                 </p>
               </div>
               <span
@@ -1615,7 +1616,7 @@ export default function AdminPage() {
 
             <Form
               method="post"
-              className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4"
+              className="mt-5 space-y-3 rounded-md border border-white/10 bg-[#111823] p-4"
             >
               <input type="hidden" name="intent" value="upsert-env" />
               <input type="hidden" name="target" value={app.target} />
@@ -1625,14 +1626,14 @@ export default function AdminPage() {
               <input
                 name="key"
                 placeholder="GITHUB_OAUTH_CLIENT_ID"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-mono text-white outline-none focus:border-white/25"
+                className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
                 required
               />
               <textarea
                 name="value"
                 rows={3}
                 placeholder="Value"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-mono text-white outline-none focus:border-white/25"
+                className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
                 required
               />
               <EnvFlags />
@@ -1672,7 +1673,7 @@ export default function AdminPage() {
                   />
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-6 text-sm text-white/45">
+                <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
                   No environment variables found.
                 </div>
               )}
@@ -1686,7 +1687,7 @@ export default function AdminPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.08 }}
-        className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -1734,7 +1735,7 @@ export default function AdminPage() {
               />
             ))
           ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-6 text-sm text-white/45">
+            <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
               No tenants matched that search.
             </div>
           )}
@@ -1746,7 +1747,7 @@ export default function AdminPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.1 }}
-        className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
       >
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
@@ -1774,7 +1775,7 @@ export default function AdminPage() {
               />
             ))
           ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-6 text-sm text-white/45">
+            <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
               No sites matched that search.
             </div>
           )}
@@ -1786,7 +1787,7 @@ export default function AdminPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.12 }}
-        className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl"
+        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -1819,7 +1820,7 @@ export default function AdminPage() {
               />
             ))
           ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-6 text-sm text-white/45">
+            <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
               No users matched that search.
             </div>
           )}
@@ -1830,10 +1831,10 @@ export default function AdminPage() {
 }
 
 const fieldClassName =
-  "min-w-0 rounded-lg border border-white/10 bg-[#0B1118] px-3 py-2.5 text-white outline-none transition placeholder:text-white/35 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/10";
+  `${inputOnDarkClass} min-h-11 [&>option]:bg-white [&>option]:text-slate-900`;
 
 const primaryButtonClassName =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60";
 
 function CoolifySiteImportCard({
   site,
@@ -1994,7 +1995,7 @@ function WorkflowLink({
   return (
     <a
       href={href}
-      className="group flex min-h-[108px] flex-col justify-between rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-white/20 hover:bg-white/[0.06]"
+      className="group flex min-h-[108px] flex-col justify-between rounded-md border border-white/10 bg-[#111823] p-4 transition hover:border-white/20 hover:bg-white/[0.06]"
     >
       <div className="flex items-center justify-between gap-3">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-white/75 ring-1 ring-white/10">
@@ -2140,7 +2141,7 @@ function EnvRow({
   currentIntent: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <div className="rounded-md border border-white/10 bg-[#111823] p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="font-mono text-sm font-semibold text-white">
           {env.key}
@@ -2161,13 +2162,13 @@ function EnvRow({
             name="value"
             defaultValue={env.value}
             rows={4}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-mono text-white outline-none focus:border-white/25"
+            className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
           />
         ) : (
           <input
             name="value"
             defaultValue={env.value}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-mono text-white outline-none focus:border-white/25"
+            className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
           />
         )}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -2176,7 +2177,7 @@ function EnvRow({
             <button
               type="submit"
               disabled={isBusy && currentIntent === "upsert-env"}
-              className="inline-flex items-center gap-2 rounded-2xl bg-white px-3.5 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-md bg-white px-3.5 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
             >
               {isBusy && currentIntent === "upsert-env" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -2204,7 +2205,7 @@ function EnvRow({
         <button
           type="submit"
           disabled={isBusy && currentIntent === "delete-env"}
-          className="inline-flex items-center gap-2 rounded-2xl border border-red-400/20 bg-red-400/10 px-3.5 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-3.5 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
         >
           {isBusy && currentIntent === "delete-env" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -2220,7 +2221,7 @@ function EnvRow({
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-white/65">
+    <span className="rounded-md border border-white/12 bg-white/6 px-2.5 py-1 text-[11px] font-medium text-white/72">
       {children}
     </span>
   );
@@ -2238,7 +2239,7 @@ function UserRow({
   isChangingPassword: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <div className="rounded-md border border-white/10 bg-[#111823] p-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="text-base font-semibold text-white">{user.name}</div>
         <Badge>{user.role}</Badge>
@@ -2405,7 +2406,7 @@ function TenantRow({
   isUpdating: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <div className="rounded-md border border-white/10 bg-[#111823] p-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="text-base font-semibold text-white">{tenant.name}</div>
         <Badge>{tenant.plan}</Badge>
@@ -2548,7 +2549,7 @@ function SiteRow({
   );
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <div className="rounded-md border border-white/10 bg-[#111823] p-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="text-base font-semibold text-white">{site.name}</div>
         <Badge>{site.type}</Badge>

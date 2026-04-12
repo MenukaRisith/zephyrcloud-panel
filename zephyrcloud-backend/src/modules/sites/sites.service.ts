@@ -15,6 +15,7 @@ import {
   type Domain,
   type SiteDatabase,
   type SiteDeployKey,
+  type UserDatabase,
   SiteMemberRole,
 } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -25,12 +26,14 @@ import {
   CoolifyService,
   type CoolifyResourceType,
   type CoolifyDbDetails,
+  type ManagedDatabaseEngine,
 } from '../../services/coolify/coolify.service';
 import { SiteTypeDto, type CreateSiteDto } from './dto/create-site.dto';
 import type { CreateDeployKeyDto } from './dto/create-deploy-key.dto';
 import type { AddDomainDto } from './dto/add-domain.dto';
 import type { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import type { AddSiteMemberDto } from './dto/add-site-member.dto';
+import type { CreateUserDatabaseDto } from './dto/create-user-database.dto';
 
 // --- Helpers ---
 
@@ -59,6 +62,15 @@ function rand(bytes = 18): string {
  */
 function safeSvc(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+}
+
+function safeDatabaseIdentifier(name: string, maxLength = 32): string {
+  const normalized = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return normalized.slice(0, maxLength) || 'workspace';
 }
 
 function toTeamRole(role?: string): SiteMemberRole {
@@ -92,6 +104,7 @@ type DeploymentPayload = {
   updated_at: Date;
 };
 type SiteDatabasePayload = SiteDatabase;
+type UserDatabasePayload = UserDatabase;
 type SiteDeployKeyPayload = SiteDeployKey;
 type CoolifyCreateProjectInput = Parameters<CoolifyService['createProject']>[0];
 type CoolifyCreateProjectResult = Awaited<
@@ -1422,6 +1435,104 @@ export class SitesService {
   }
 
   // --- Database ---
+  public async getWorkspaceDatabase(
+    user: JwtPayload,
+  ): Promise<{
+    id: string;
+    engine: string;
+    host: string;
+    port: number;
+    db_name: string;
+    username: string;
+    password: string;
+    public_url: string;
+    ssl_mode?: string | null;
+    created_at: Date;
+    updated_at: Date;
+  } | null> {
+    const userId = this.requireUserId(user);
+    const db = await this.prisma.userDatabase.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!db) return null;
+
+    return {
+      id: db.id.toString(),
+      engine: db.engine,
+      host: db.host,
+      port: db.port,
+      db_name: db.db_name,
+      username: db.username,
+      password: db.password,
+      public_url: db.public_url,
+      ssl_mode: db.ssl_mode,
+      created_at: db.created_at,
+      updated_at: db.updated_at,
+    };
+  }
+
+  public async createWorkspaceDatabase(
+    user: JwtPayload,
+    dto: CreateUserDatabaseDto,
+  ): Promise<UserDatabasePayload> {
+    const tenantId = this.requireTenantId(user);
+    const userId = this.requireUserId(user);
+
+    const existing = await this.prisma.userDatabase.findUnique({
+      where: { user_id: userId },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const userRecord = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        tenant_id: true,
+      },
+    });
+
+    if (!userRecord || userRecord.tenant_id !== tenantId) {
+      throw new ForbiddenException('Workspace database cannot be created.');
+    }
+
+    const naming = this.buildWorkspaceDatabaseNaming(
+      userRecord.email,
+      userRecord.id,
+    );
+    const dbPassword = rand(24);
+    const rootPassword = rand(24);
+    const provisioned = await this.coolify.createPublicDatabase({
+      name: naming.resourceName,
+      engine: dto.engine as ManagedDatabaseEngine,
+      dbName: naming.databaseName,
+      username: naming.username,
+      password: dbPassword,
+      rootPassword,
+    });
+
+    return this.prisma.userDatabase.create({
+      data: {
+        user_id: userId,
+        tenant_id: tenantId,
+        engine: provisioned.engine,
+        host: provisioned.host,
+        port: provisioned.port,
+        db_name: provisioned.dbName,
+        username: provisioned.username,
+        password: provisioned.password,
+        public_url: provisioned.externalUrl,
+        ssl_mode: provisioned.sslMode,
+        coolify_project_id: provisioned.projectId,
+        coolify_database_id: provisioned.databaseId,
+      },
+    });
+  }
+
   public async getDatabase(
     user: JwtPayload,
     id: string,
@@ -1589,6 +1700,24 @@ export class SitesService {
         nextOffset: hasMore ? offset + limit : null,
       };
     });
+  }
+
+  private buildWorkspaceDatabaseNaming(email: string, userId: bigint): {
+    resourceName: string;
+    databaseName: string;
+    username: string;
+  } {
+    const emailLocalPart = email.split('@')[0] ?? 'workspace';
+    const suffix = userId.toString();
+    const base = safeDatabaseIdentifier(emailLocalPart, 18);
+    const databaseName = safeDatabaseIdentifier(`${base}_${suffix}`, 32);
+    const username = safeDatabaseIdentifier(`u_${base}_${suffix}`, 24);
+
+    return {
+      resourceName: safeSvc(`${base}-${suffix}-db`).slice(0, 40),
+      databaseName,
+      username,
+    };
   }
 
   private async getOwnedDatabaseOrThrow(

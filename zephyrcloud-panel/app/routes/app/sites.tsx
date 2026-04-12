@@ -1,4 +1,4 @@
-// app/routes/app/sites.tsx
+// app/routes/sites.tsx
 import * as React from "react";
 import {
   Form,
@@ -400,7 +400,7 @@ export async function action({
 
     return new Response(null, {
       status: 302,
-      headers: { Location: `/app/sites/${siteId}` },
+      headers: { Location: `/sites/${siteId}` },
     });
   } catch (error: unknown) {
     return {
@@ -591,7 +591,7 @@ export default function SitesPage() {
                   </div>
                 </div>
                 <Link
-                  to={`/app/sites/${site.id}`}
+                  to={`/sites/${site.id}`}
                   className="grid size-10 place-items-center rounded-xl bg-white/5 text-white/60 transition-all hover:bg-white/10 hover:text-white"
                 >
                   <ArrowRight className="h-4 w-4" />
@@ -1259,7 +1259,7 @@ function CreateSiteModal({
                             administer.
                           </div>
                           <a
-                            href="/api/github/oauth/start?returnTo=/app/sites?new=1"
+                            href="/api/github/oauth/start?returnTo=/sites?new=1"
                             className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
                           >
                             <Github className="h-4 w-4" />

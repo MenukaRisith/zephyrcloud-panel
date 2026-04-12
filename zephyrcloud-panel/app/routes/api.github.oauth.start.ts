@@ -7,10 +7,21 @@ import { apiFetchAuthed } from "~/services/api.authed.server";
 
 function sanitizeReturnTo(value: string | null): string {
   const normalized = String(value || "").trim();
-  if (!normalized.startsWith("/app")) {
-    return "/app/settings";
+  if (!normalized.startsWith("/")) {
+    return "/settings";
   }
-  return normalized;
+  if (normalized === "/app" || normalized.startsWith("/app/")) {
+    return normalized.replace(/^\/app(?=\/|$)/, "") || "/";
+  }
+  if (
+    normalized.startsWith("/api") ||
+    normalized.startsWith("/login") ||
+    normalized.startsWith("/register") ||
+    normalized.startsWith("/logout")
+  ) {
+    return "/settings";
+  }
+  return normalized || "/settings";
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -33,7 +44,7 @@ export async function loader({ request }: { request: Request }) {
   }
 
   const state = crypto.randomBytes(20).toString("hex");
-  const callbackUrl = `${currentUrl.origin}/app/settings/github/callback`;
+  const callbackUrl = `${currentUrl.origin}/settings/github/callback`;
 
   session.set("githubOauthState", state);
   session.set("githubOauthReturnTo", returnTo);

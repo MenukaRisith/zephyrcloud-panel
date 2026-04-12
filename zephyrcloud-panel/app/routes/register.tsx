@@ -127,7 +127,7 @@ export async function action({
         ...result.user,
         tenant_id: result.user.tenant_id ?? undefined,
       },
-      redirectTo: "/app",
+      redirectTo: "/",
     });
   } catch (error) {
     const message =

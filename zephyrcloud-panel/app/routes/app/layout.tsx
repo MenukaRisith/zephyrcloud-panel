@@ -8,24 +8,23 @@ import {
   useLocation,
   useNavigation,
 } from "react-router";
-import { AnimatePresence, motion } from "framer-motion";
 import {
-  Bell,
   Boxes,
   ChevronRight,
   Github,
   LayoutDashboard,
-  LifeBuoy,
   Loader2,
   LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Shield,
+  Menu,
   ShieldCheck,
   Users,
+  X,
 } from "lucide-react";
 
+import { Button } from "~/components/ui/button";
 import { PANEL_HOST, PANEL_NAME } from "~/lib/brand";
+import { cn } from "~/lib/utils";
+import { badgeClass, shellInsetClass } from "~/lib/ui";
 import { requireUser } from "../../services/session.server";
 
 type LoaderData = {
@@ -37,6 +36,14 @@ type LoaderData = {
   };
 };
 
+type NavItem = {
+  to: string;
+  label: string;
+  icon: React.ReactNode;
+  end?: boolean;
+  badge?: string;
+};
+
 export async function loader({
   request,
 }: {
@@ -46,442 +53,229 @@ export async function loader({
   return { user };
 }
 
-type NavItem = {
-  to: string;
-  label: string;
-  icon: React.ReactNode;
-  end?: boolean;
-  badge?: string;
-};
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 function initialsFromEmail(email: string) {
-  const name = (email || "").split("@")[0] || "U";
-  const parts = name.split(/[._-]+/g).filter(Boolean);
+  const local = (email || "").split("@")[0] || "user";
+  const parts = local.split(/[._-]+/g).filter(Boolean);
   const first = (parts[0]?.[0] || "U").toUpperCase();
   const second = (parts[1]?.[0] || parts[0]?.[1] || "").toUpperCase();
   return `${first}${second}`.slice(0, 2);
 }
 
 function pageTitleFromPath(pathname: string) {
-  if (pathname === "/app") return "Overview";
-  if (pathname.startsWith("/app/sites")) return "Sites";
-  if (pathname.startsWith("/app/team")) return "Team";
-  if (pathname.startsWith("/app/settings")) return "Integrations";
-  if (pathname.startsWith("/app/admin")) return "Admin";
+  if (pathname === "/") return "Overview";
+  if (pathname === "/sites") return "Sites";
+  if (pathname.startsWith("/sites/")) return "Site";
+  if (pathname.startsWith("/team")) return "Team";
+  if (pathname.startsWith("/settings")) return "Integrations";
+  if (pathname.startsWith("/admin")) return "Admin";
   return "Dashboard";
+}
+
+function NavigationItem({ item, onSelect }: { item: NavItem; onSelect?: () => void }) {
+  return (
+    <NavLink to={item.to} end={item.end} onClick={onSelect}>
+      {({ isActive }) => (
+        <span
+          className={cn(
+            "flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm transition",
+            isActive
+              ? "border-white/16 bg-white/10 text-white"
+              : "border-transparent text-white/68 hover:border-white/10 hover:bg-white/6 hover:text-white",
+          )}
+        >
+          <span className="shrink-0">{item.icon}</span>
+          <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
+          {item.badge ? <span className={badgeClass}>{item.badge}</span> : null}
+        </span>
+      )}
+    </NavLink>
+  );
+}
+
+function Sidebar({
+  user,
+  navItems,
+  onSelect,
+}: {
+  user: LoaderData["user"];
+  navItems: NavItem[];
+  onSelect?: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="px-4 pb-5 pt-4">
+        <Link to="/" onClick={onSelect} className="flex items-center gap-3">
+          <div className="grid size-11 place-items-center rounded-md border border-white/14 bg-white/8 text-white">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-white">{PANEL_NAME}</div>
+            <div className="truncate text-xs text-white/45">{PANEL_HOST}</div>
+          </div>
+        </Link>
+      </div>
+
+      <div className="px-4">
+        <div className="mb-2 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-white/34">
+          Workspace
+        </div>
+        <nav className="space-y-1.5">
+          {navItems.map((item) => (
+            <NavigationItem key={item.to} item={item} onSelect={onSelect} />
+          ))}
+        </nav>
+      </div>
+
+      <div className="mt-auto px-4 pb-4 pt-6">
+        <div className={cn(shellInsetClass, "p-4")}>
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-md border border-white/14 bg-white/8 text-sm font-semibold">
+              {initialsFromEmail(user.email || "user@local")}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-white">
+                {user.name || user.email}
+              </div>
+              <div className="truncate text-xs text-white/45">
+                {user.role || "member"}
+                {user.tenant_name ? ` · ${user.tenant_name}` : ""}
+              </div>
+            </div>
+          </div>
+          <Form method="post" action="/logout" className="mt-4">
+            <Button
+              type="submit"
+              variant="dark-secondary"
+              className="w-full justify-center"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </Button>
+          </Form>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function AppLayout() {
   const { user } = useLoaderData() as LoaderData;
   const location = useLocation();
   const navigation = useNavigation();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
   const isNavigating = navigation.state !== "idle";
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const title = pageTitleFromPath(location.pathname);
+
   const navItems: NavItem[] = [
     {
-      to: "/app",
+      to: "/",
       label: "Overview",
       icon: <LayoutDashboard className="h-4 w-4" />,
       end: true,
     },
     {
-      to: "/app/sites",
+      to: "/sites",
       label: "Sites",
       icon: <Boxes className="h-4 w-4" />,
     },
     {
-      to: "/app/team",
+      to: "/team",
       label: "Team",
       icon: <Users className="h-4 w-4" />,
-      badge: "Shared",
     },
     {
-      to: "/app/settings",
+      to: "/settings",
       label: "Integrations",
       icon: <Github className="h-4 w-4" />,
     },
   ];
 
-  if (user?.role === "admin") {
+  if (user.role === "admin") {
     navItems.push({
-      to: "/app/admin",
+      to: "/admin",
       label: "Admin",
       icon: <ShieldCheck className="h-4 w-4" />,
       badge: "Core",
     });
   }
 
-  const mobileNavItems: NavItem[] =
-    user?.role === "admin"
-      ? [
-          {
-            to: "/app",
-            label: "Home",
-            icon: <LayoutDashboard className="h-4 w-4" />,
-            end: true,
-          },
-          {
-            to: "/app/sites",
-            label: "Sites",
-            icon: <Boxes className="h-4 w-4" />,
-          },
-          {
-            to: "/app/team",
-            label: "Team",
-            icon: <Users className="h-4 w-4" />,
-          },
-          {
-            to: "/app/settings",
-            label: "GitHub",
-            icon: <Github className="h-4 w-4" />,
-          },
-          {
-            to: "/app/admin",
-            label: "Admin",
-            icon: <ShieldCheck className="h-4 w-4" />,
-          },
-        ]
-      : [
-          {
-            to: "/app",
-            label: "Home",
-            icon: <LayoutDashboard className="h-4 w-4" />,
-            end: true,
-          },
-          {
-            to: "/app/sites",
-            label: "Sites",
-            icon: <Boxes className="h-4 w-4" />,
-          },
-          {
-            to: "/app/team",
-            label: "Team",
-            icon: <Users className="h-4 w-4" />,
-          },
-          {
-            to: "/app/settings",
-            label: "GitHub",
-            icon: <Github className="h-4 w-4" />,
-          },
-        ];
-
-  const title = pageTitleFromPath(location.pathname);
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 h-[34rem] w-[34rem] -translate-x-1/2 rounded-full bg-indigo-600/18 blur-3xl" />
-        <div className="absolute -bottom-40 right-[-10rem] h-[26rem] w-[26rem] rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:56px_56px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_55%)]" />
-      </div>
+    <div className="min-h-screen bg-[var(--ink)] text-white">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
+        <aside className="hidden w-[280px] shrink-0 border-r border-white/10 bg-black/12 lg:block">
+          <Sidebar user={user} navItems={navItems} />
+        </aside>
 
-      <div className="relative flex min-h-screen">
-        <AnimatePresence initial={false}>
-          {sidebarOpen ? (
-            <motion.aside
-              key="sidebar"
-              initial={{ x: -16, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -16, opacity: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="sticky top-0 hidden h-screen w-[280px] shrink-0 border-r border-white/10 bg-white/5 backdrop-blur lg:block"
-            >
-              <div className="flex h-full flex-col">
-                <div className="flex items-center justify-between px-5 py-5">
-                  <Link to="/app" className="flex items-center gap-3">
-                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/10">
-                      <Shield className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold tracking-tight">
-                        {PANEL_NAME}
-                      </div>
-                      <div className="text-xs text-white/55">
-                        {PANEL_HOST}
-                      </div>
-                    </div>
-                  </Link>
-
-                  <button
-                    onClick={() => setSidebarOpen(false)}
-                    className="rounded-xl p-2 text-white/60 hover:bg-white/5 hover:text-white"
-                    aria-label="Collapse sidebar"
-                  >
-                    <PanelLeftClose className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <nav className="px-3">
-                  <div className="mb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-white/45">
-                    Workspace
-                  </div>
-                  <div className="space-y-1">
-                    {navItems.map((item) => (
-                      <NavItemLink key={item.to} item={item} />
-                    ))}
-                  </div>
-                </nav>
-
-                <div className="mt-auto border-t border-white/10 p-4">
-                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
-                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10 text-sm font-semibold">
-                      {initialsFromEmail(user?.email || "user@local")}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-white/90">
-                        {user?.name || user?.email || "User"}
-                      </div>
-                      <div className="truncate text-xs text-white/55">
-                        {user?.role || "member"}
-                      </div>
-                    </div>
-
-                    <Form method="post" action="/logout">
-                      <button
-                        type="submit"
-                        className="rounded-xl p-2 text-white/60 hover:bg-white/5 hover:text-white"
-                        aria-label="Log out"
-                      >
-                        <LogOut className="h-4 w-4" />
-                      </button>
-                    </Form>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between px-1 text-xs text-white/45">
-                    <span>Need help?</span>
-                    <Link
-                      to="/app/settings"
-                      className="inline-flex items-center gap-1 text-white/70 hover:text-white"
-                    >
-                      <LifeBuoy className="h-3.5 w-3.5" /> Integrations
-                    </Link>
-                  </div>
-                </div>
+        {mobileOpen ? (
+          <div className="fixed inset-0 z-40 bg-black/55 lg:hidden">
+            <div className="absolute inset-y-0 left-0 w-[280px] border-r border-white/10 bg-[var(--ink)]">
+              <div className="flex items-center justify-end px-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-md border border-white/14 bg-white/8 p-2 text-white/72"
+                  aria-label="Close navigation"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-            </motion.aside>
-          ) : null}
-        </AnimatePresence>
+              <Sidebar
+                user={user}
+                navItems={navItems}
+                onSelect={() => setMobileOpen(false)}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-white/10 bg-[#070A12]/60 backdrop-blur">
-            <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 lg:px-6">
+          <header className="sticky top-0 z-30 border-b border-white/10 bg-[rgba(6,8,13,0.88)] backdrop-blur">
+            <div className="flex items-center gap-3 px-4 py-4 sm:px-6 lg:px-8">
               <button
-                onClick={() => setSidebarOpen((value) => !value)}
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2 text-white/75 hover:bg-white/10 hover:text-white lg:hidden"
-                aria-label="Toggle sidebar"
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                className="rounded-md border border-white/14 bg-white/8 p-2 text-white/72 lg:hidden"
+                aria-label="Open navigation"
               >
-                {sidebarOpen ? (
-                  <PanelLeftClose className="h-4 w-4" />
-                ) : (
-                  <PanelLeftOpen className="h-4 w-4" />
-                )}
+                <Menu className="h-4 w-4" />
               </button>
 
-              {!sidebarOpen ? (
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="hidden items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white lg:inline-flex"
-                >
-                  <PanelLeftOpen className="h-4 w-4" />
-                  Menu
-                </button>
-              ) : null}
-
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="truncate text-sm font-semibold tracking-tight">
-                  {title}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-white/34">
+                  <span>Control Plane</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                  <span className="truncate">{title}</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-white/25" />
-                <div className="truncate text-sm text-white/60">
-                  {user?.tenant_name ?? "Workspace"}
+                <div className="mt-1 flex min-w-0 items-center gap-2">
+                  <h1 className="truncate text-xl font-semibold text-white">{title}</h1>
+                  {isNavigating ? <Loader2 className="h-4 w-4 animate-spin text-white/45" /> : null}
                 </div>
               </div>
 
-              <div className="ml-auto hidden items-center gap-3 lg:flex">
-                {user?.role === "admin" ? (
-                  <Link
-                    to="/app/admin"
-                    className="inline-flex items-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/15"
-                  >
-                    <ShieldCheck className="h-4 w-4" />
-                    Admin Console
+              <div className="ml-auto hidden items-center gap-3 sm:flex">
+                <Link to="/sites?new=1">
+                  <Button variant="dark">Create site</Button>
+                </Link>
+                {user.role === "admin" ? (
+                  <Link to="/admin">
+                    <Button variant="dark-secondary">Admin</Button>
                   </Link>
                 ) : null}
-                <Link
-                  to="/app/settings"
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/75 transition hover:bg-white/10 hover:text-white"
-                >
-                  <Github className="h-4 w-4" />
-                  Integrations
-                </Link>
-                <Link
-                  to="/app/sites?new=1"
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3.5 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
-                >
-                  <Boxes className="h-4 w-4" />
-                  New Site
-                </Link>
               </div>
-
-              <button
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white"
-                aria-label="Notifications"
-              >
-                <Bell className="h-4 w-4" />
-              </button>
             </div>
-
-            <AnimatePresence>
-              {isNavigating ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="h-[2px] w-full bg-white/15"
-                >
-                  <motion.div
-                    initial={{ x: "-30%" }}
-                    animate={{ x: "100%" }}
-                    transition={{
-                      duration: 0.85,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                    className="h-full w-1/3 bg-white/60"
-                  />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
           </header>
 
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-6">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="min-w-0"
-            >
+          <main className="min-w-0 flex-1">
+            <div className="px-4 py-6 sm:px-6 lg:px-8">
               <Outlet />
-            </motion.div>
-          </main>
-
-          <footer className="border-t border-white/10 bg-white/5">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 text-xs text-white/45 lg:px-6">
-              <span>(c) {new Date().getFullYear()} {PANEL_NAME}</span>
-              <div className="flex items-center gap-4">
-                <Link to="/app" className="hover:text-white">
-                  Overview
-                </Link>
-                <Link to="/app/sites" className="hover:text-white">
-                  Sites
-                </Link>
-                <Link to="/app/settings" className="hover:text-white">
-                  Integrations
-                </Link>
-              </div>
             </div>
-          </footer>
+          </main>
         </div>
       </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070A12]/70 backdrop-blur lg:hidden">
-        <div
-          className={cx(
-            "mx-auto grid max-w-7xl gap-1 px-2 py-2",
-            mobileNavItems.length === 5 ? "grid-cols-5" : "grid-cols-4",
-          )}
-        >
-          {mobileNavItems.map((item) => (
-            <MobileNav
-              key={item.to}
-              to={item.to}
-              label={item.label}
-              icon={item.icon}
-              end={item.end}
-            />
-          ))}
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {isNavigating ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="fixed bottom-20 right-4 z-40 hidden items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 backdrop-blur md:inline-flex"
-          >
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading...
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
     </div>
-  );
-}
-
-function NavItemLink({ item }: { item: NavItem }) {
-  return (
-    <NavLink
-      to={item.to}
-      end={item.end}
-      className={({ isActive }) =>
-        cx(
-          "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition",
-          isActive
-            ? "border border-white/12 bg-white/10 text-white shadow-[0_12px_30px_-18px_rgba(0,0,0,0.9)]"
-            : "text-white/70 hover:bg-white/5 hover:text-white",
-        )
-      }
-    >
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 ring-1 ring-white/10 group-hover:bg-white/10">
-        {item.icon}
-      </span>
-      <span className="flex-1">{item.label}</span>
-      {item.badge ? (
-        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/60">
-          {item.badge}
-        </span>
-      ) : null}
-      <ChevronRight className="h-4 w-4 text-white/25 opacity-0 transition group-hover:opacity-100" />
-    </NavLink>
-  );
-}
-
-function MobileNav({
-  to,
-  label,
-  icon,
-  end,
-}: {
-  to: string;
-  label: string;
-  icon: React.ReactNode;
-  end?: boolean;
-}) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        cx(
-          "flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs transition",
-          isActive
-            ? "bg-white/10 text-white"
-            : "text-white/60 hover:bg-white/5 hover:text-white",
-        )
-      }
-    >
-      <span className="grid h-8 w-8 place-items-center rounded-xl bg-white/5 ring-1 ring-white/10">
-        {icon}
-      </span>
-      <span>{label}</span>
-    </NavLink>
   );
 }

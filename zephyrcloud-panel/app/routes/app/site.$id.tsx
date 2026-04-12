@@ -1,4 +1,4 @@
-﻿// app/routes/app/site.$id.tsx
+// app/routes/app/site.$id.tsx
 import * as React from "react";
 import { Form, useFetcher, useLoaderData, useNavigation } from "react-router";
 import { motion } from "framer-motion";
@@ -617,14 +617,14 @@ export default function SiteOverview() {
       if (document.hidden || logsFetcher.state !== "idle") return;
 
       logsFetcher.load(
-        `/app/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
+        `/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
       );
     }, 5000); // 5 seconds
 
     // Initial load when entering tab
     if (logsFetcher.state === "idle" && !logsFetcher.data) {
       logsFetcher.load(
-        `/app/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
+        `/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
       );
     }
 
@@ -635,7 +635,7 @@ export default function SiteOverview() {
   React.useEffect(() => {
     // Initial Load
     if (statusFetcher.state === "idle" && !statusFetcher.data) {
-      statusFetcher.load(`/app/sites/${site.id}/status`);
+      statusFetcher.load(`/sites/${site.id}/status`);
     }
 
     // Faster polling if we think we are building/restarting
@@ -648,7 +648,7 @@ export default function SiteOverview() {
       // Prevent polling if hidden or request pending
       if (document.hidden || statusFetcher.state !== "idle") return;
 
-      statusFetcher.load(`/app/sites/${site.id}/status`);
+      statusFetcher.load(`/sites/${site.id}/status`);
     }, pollInterval);
 
     return () => clearInterval(interval);
@@ -658,7 +658,7 @@ export default function SiteOverview() {
     if (tab !== "database" || !db) return;
     if (dbTablesFetcher.state !== "idle") return;
     if (!dbTablesFetcher.data) {
-      dbTablesFetcher.load(`/app/sites/${site.id}/database/tables`);
+      dbTablesFetcher.load(`/sites/${site.id}/database/tables`);
     }
   }, [tab, db, site.id, dbTablesFetcher.state, dbTablesFetcher.data]);
 
@@ -676,7 +676,7 @@ export default function SiteOverview() {
     if (tab !== "database") return;
     if (!selectedTable) return;
     dbRowsFetcher.load(
-      `/app/sites/${site.id}/database/tables/${encodeURIComponent(selectedTable)}?limit=${rowLimit}&offset=${rowOffset}`,
+      `/sites/${site.id}/database/tables/${encodeURIComponent(selectedTable)}?limit=${rowLimit}&offset=${rowOffset}`,
     );
   }, [tab, site.id, selectedTable, rowLimit, rowOffset]);
 
@@ -707,10 +707,10 @@ export default function SiteOverview() {
 
   function refreshDatabaseExplorer() {
     if (!db) return;
-    dbTablesFetcher.load(`/app/sites/${site.id}/database/tables`);
+    dbTablesFetcher.load(`/sites/${site.id}/database/tables`);
     if (selectedTable) {
       dbRowsFetcher.load(
-        `/app/sites/${site.id}/database/tables/${encodeURIComponent(selectedTable)}?limit=${rowLimit}&offset=${rowOffset}`,
+        `/sites/${site.id}/database/tables/${encodeURIComponent(selectedTable)}?limit=${rowLimit}&offset=${rowOffset}`,
       );
     }
   }
@@ -1125,7 +1125,7 @@ export default function SiteOverview() {
               <button
                 onClick={() =>
                   logsFetcher.load(
-                    `/app/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
+                    `/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
                   )
                 }
                 className="p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-colors"

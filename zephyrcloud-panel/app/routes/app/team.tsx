@@ -50,7 +50,7 @@ export default function TeamPage() {
             {sites.map((site) => (
               <Link
                 key={site.id}
-                to={`/app/sites/${site.id}`}
+                to={`/sites/${site.id}`}
                 className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3 transition hover:bg-white/5"
               >
                 <div className="min-w-0">

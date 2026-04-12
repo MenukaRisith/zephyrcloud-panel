@@ -61,6 +61,8 @@ type GithubRepoListItem = {
   default_branch: string;
 };
 
+export type ManagedDatabaseEngine = 'mariadb' | 'mysql' | 'postgresql';
+
 export type CoolifyEnvVar = {
   uuid?: string;
   key: string;
@@ -137,6 +139,43 @@ export type CoolifyApplicationSummary = {
   status?: string;
   fqdn?: string;
   base_directory?: string;
+};
+
+type CoolifyDatabaseResource = CoolifyDatabase & {
+  destination?: CoolifyDestinationLike & {
+    server?: {
+      ip?: string;
+      [key: string]: unknown;
+    };
+  };
+  external_db_url?: string | null;
+  internal_db_url?: string | null;
+  is_public?: boolean;
+  public_port?: number | null;
+  ssl_mode?: string | null;
+  mariadb_database?: string | null;
+  mariadb_password?: string | null;
+  mariadb_user?: string | null;
+  mysql_database?: string | null;
+  mysql_password?: string | null;
+  mysql_user?: string | null;
+  postgres_db?: string | null;
+  postgres_password?: string | null;
+  postgres_user?: string | null;
+};
+
+export type CoolifyManagedDatabase = {
+  projectId: string;
+  databaseId: string;
+  engine: ManagedDatabaseEngine;
+  host: string;
+  port: number;
+  dbName: string;
+  username: string;
+  password: string;
+  externalUrl: string;
+  publicPort?: number;
+  sslMode?: string;
 };
 
 @Injectable()
@@ -633,6 +672,89 @@ export class CoolifyService {
     await this.client.get(`/api/v1/applications/${uuid}/stop`);
   }
 
+  async createPublicDatabase(args: {
+    name: string;
+    engine: ManagedDatabaseEngine;
+    dbName: string;
+    username: string;
+    password: string;
+    rootPassword?: string;
+  }): Promise<CoolifyManagedDatabase> {
+    const servers = await this.client.get<CoolifyServer[]>('/api/v1/servers');
+    const serverUuid = this.serverOverrideUuid || servers?.[0]?.uuid;
+    if (!serverUuid) throw new Error('No Coolify server found.');
+
+    const destination = this.resolveDestination(serverUuid);
+    if (!destination) {
+      throw new Error('No Coolify destination UUID configured.');
+    }
+
+    const project = await this.client.post<CoolifyProject>('/api/v1/projects', {
+      name: args.name,
+      description: `Database project for ${args.name}`,
+    });
+
+    const projectDetails = await this.client.get<{
+      environments: CoolifyEnvironment[];
+    }>(`/api/v1/projects/${project.uuid}`);
+    const environment = projectDetails?.environments?.[0];
+    if (!environment) {
+      throw new Error(`No environment found for project ${project.uuid}`);
+    }
+
+    const endpoint = `/api/v1/databases/${args.engine}`;
+    const basePayload = {
+      project_uuid: project.uuid,
+      server_uuid: serverUuid,
+      environment_uuid: environment.uuid,
+      destination_uuid: destination.uuid,
+      name: args.name,
+      instant_deploy: true,
+      is_public: true,
+      image: this.getDatabaseImage(args.engine),
+    };
+
+    let payload: Record<string, unknown>;
+    if (args.engine === 'mariadb') {
+      payload = {
+        ...basePayload,
+        mariadb_root_password: args.rootPassword ?? args.password,
+        mariadb_user: args.username,
+        mariadb_password: args.password,
+        mariadb_database: args.dbName,
+      };
+    } else if (args.engine === 'mysql') {
+      payload = {
+        ...basePayload,
+        mysql_root_password: args.rootPassword ?? args.password,
+        mysql_user: args.username,
+        mysql_password: args.password,
+        mysql_database: args.dbName,
+      };
+    } else {
+      payload = {
+        ...basePayload,
+        postgres_user: args.username,
+        postgres_password: args.password,
+        postgres_db: args.dbName,
+      };
+    }
+
+    const created = await this.client.post<CoolifyDatabase>(endpoint, payload);
+    const resource = await this.waitForPublicDatabase(created.uuid);
+    const details = this.extractManagedDatabase(resource, args.engine);
+
+    return {
+      projectId: project.uuid,
+      databaseId: created.uuid,
+      ...details,
+    };
+  }
+
+  async getDatabase(uuid: string): Promise<CoolifyDatabaseResource> {
+    return this.client.get<CoolifyDatabaseResource>(`/api/v1/databases/${uuid}`);
+  }
+
   async getLogs(type: string, uuid: string, lines = 200): Promise<string> {
     if (!uuid?.trim()) throw new Error('Missing resourceId');
     const boundedLines = Math.min(5000, Math.max(10, Math.trunc(lines)));
@@ -968,6 +1090,116 @@ export class CoolifyService {
 
   private stripUndefined<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj)) as T;
+  }
+
+  private getDatabaseImage(engine: ManagedDatabaseEngine): string {
+    if (engine === 'postgresql') return 'postgres:17-alpine';
+    if (engine === 'mysql') return 'mysql:8';
+    return 'mariadb:11';
+  }
+
+  private async waitForPublicDatabase(
+    uuid: string,
+  ): Promise<CoolifyDatabaseResource> {
+    const attempts = 8;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const resource = await this.getDatabase(uuid);
+      if (
+        typeof resource.external_db_url === 'string' &&
+        resource.external_db_url.trim().length > 0
+      ) {
+        return resource;
+      }
+
+      if (attempt < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+      }
+    }
+
+    throw new Error(
+      `Coolify database ${uuid} did not expose a public connection URL.`,
+    );
+  }
+
+  private extractManagedDatabase(
+    resource: CoolifyDatabaseResource,
+    engine: ManagedDatabaseEngine,
+  ): Omit<CoolifyManagedDatabase, 'projectId' | 'databaseId'> {
+    const externalUrl = this.toStringValue(resource.external_db_url)?.trim();
+    if (!externalUrl) {
+      throw new Error('Coolify did not return an external database URL.');
+    }
+
+    const parsedUrl = new URL(externalUrl);
+    const dbName =
+      decodeURIComponent(parsedUrl.pathname.replace(/^\/+/, '')) ||
+      this.getDatabaseNameFromResource(resource, engine);
+    const username =
+      decodeURIComponent(parsedUrl.username) ||
+      this.getDatabaseUsernameFromResource(resource, engine);
+    const password =
+      decodeURIComponent(parsedUrl.password) ||
+      this.getDatabasePasswordFromResource(resource, engine);
+    const port = parsedUrl.port
+      ? Number(parsedUrl.port)
+      : this.getDefaultDatabasePort(engine);
+
+    return {
+      engine,
+      host: parsedUrl.hostname,
+      port,
+      dbName,
+      username,
+      password,
+      externalUrl,
+      publicPort:
+        this.toNumberValue(resource.public_port) ?? (port > 0 ? port : undefined),
+      sslMode: this.toStringValue(resource.ssl_mode) ?? undefined,
+    };
+  }
+
+  private getDatabaseNameFromResource(
+    resource: CoolifyDatabaseResource,
+    engine: ManagedDatabaseEngine,
+  ): string {
+    if (engine === 'postgresql') {
+      return this.toStringValue(resource.postgres_db) ?? 'postgres';
+    }
+    if (engine === 'mysql') {
+      return this.toStringValue(resource.mysql_database) ?? 'mysql';
+    }
+    return this.toStringValue(resource.mariadb_database) ?? 'mariadb';
+  }
+
+  private getDatabaseUsernameFromResource(
+    resource: CoolifyDatabaseResource,
+    engine: ManagedDatabaseEngine,
+  ): string {
+    if (engine === 'postgresql') {
+      return this.toStringValue(resource.postgres_user) ?? 'postgres';
+    }
+    if (engine === 'mysql') {
+      return this.toStringValue(resource.mysql_user) ?? 'mysql';
+    }
+    return this.toStringValue(resource.mariadb_user) ?? 'mariadb';
+  }
+
+  private getDatabasePasswordFromResource(
+    resource: CoolifyDatabaseResource,
+    engine: ManagedDatabaseEngine,
+  ): string {
+    if (engine === 'postgresql') {
+      return this.toStringValue(resource.postgres_password) ?? '';
+    }
+    if (engine === 'mysql') {
+      return this.toStringValue(resource.mysql_password) ?? '';
+    }
+    return this.toStringValue(resource.mariadb_password) ?? '';
+  }
+
+  private getDefaultDatabasePort(engine: ManagedDatabaseEngine): number {
+    if (engine === 'postgresql') return 5432;
+    return 3306;
   }
 
   private getDockerImageForType(type: string): string {

@@ -20,6 +20,7 @@ import { CreateDeployKeyDto } from './dto/create-deploy-key.dto';
 import { AddDomainDto } from './dto/add-domain.dto';
 import { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import { AddSiteMemberDto } from './dto/add-site-member.dto';
+import { CreateUserDatabaseDto } from './dto/create-user-database.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('sites')
@@ -121,6 +122,19 @@ export class SitesController {
     @Body() dto: CreateDeployKeyDto,
   ) {
     return this.sites.createSiteDeployKey(user, dto);
+  }
+
+  @Get('workspace/database')
+  public workspaceDatabase(@CurrentUser() user: JwtPayload) {
+    return this.sites.getWorkspaceDatabase(user);
+  }
+
+  @Post('workspace/database')
+  public createWorkspaceDatabase(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateUserDatabaseDto,
+  ) {
+    return this.sites.createWorkspaceDatabase(user, dto);
   }
 
   // --- Single Site Ops ---

@@ -105,7 +105,7 @@ export async function action({
     return { ok: false, error: message };
   }
 
-  return redirect("/app/settings?github=disconnected");
+  return redirect("/settings?github=disconnected");
 }
 
 function statusCopy(status: string | null, message: string | null) {
@@ -185,7 +185,7 @@ export default function SettingsPage() {
         </div>
 
         <Link
-          to="/app/sites?new=1"
+          to="/sites?new=1"
           className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
         >
           Open Site Creator
@@ -301,7 +301,7 @@ export default function SettingsPage() {
 
               <div className="flex flex-col gap-3">
                 <a
-                  href="/api/github/oauth/start?returnTo=/app/settings"
+                  href="/api/github/oauth/start?returnTo=/settings"
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
                 >
                   Reconnect GitHub
@@ -336,7 +336,7 @@ export default function SettingsPage() {
                 </p>
               </div>
               <a
-                href="/api/github/oauth/start?returnTo=/app/settings"
+                href="/api/github/oauth/start?returnTo=/settings"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
               >
                 <Github className="h-4 w-4" />
@@ -397,7 +397,7 @@ export default function SettingsPage() {
             </div>
 
             <Link
-              to="/app/sites?new=1"
+              to="/sites?new=1"
               className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
             >
               Open site creation

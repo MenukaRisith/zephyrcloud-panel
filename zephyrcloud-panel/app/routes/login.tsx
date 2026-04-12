@@ -36,7 +36,7 @@ export async function action({
   const formData = await request.formData();
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
-  const redirectTo = String(formData.get("redirectTo") || "/app");
+  const redirectTo = String(formData.get("redirectTo") || "/");
 
   const fieldErrors: ActionData extends infer T ? any : never = {};
   if (!email) fieldErrors.email = "Email is required.";
@@ -210,7 +210,7 @@ export default function LoginRoute() {
                 ) : null}
 
                 <Form method="post" className="space-y-4">
-                  <input type="hidden" name="redirectTo" value="/app" />
+                  <input type="hidden" name="redirectTo" value="/" />
 
                   <Field
                     label="Email"
