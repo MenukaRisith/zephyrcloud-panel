@@ -631,6 +631,26 @@ export class CoolifyService {
     }
   }
 
+  async getApplicationDomains(uuid: string): Promise<string[]> {
+    if (!uuid) throw new Error('Application UUID missing');
+    try {
+      const resource = await this.client.get<unknown>(
+        `/api/v1/applications/${uuid}`,
+      );
+      if (!this.isRecord(resource)) return [];
+      const fqdn =
+        this.toStringValue(resource.coolify_fqdn) ??
+        this.toStringValue(resource.fqdn) ??
+        '';
+      return fqdn
+        .split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
   // Kept for backward compatibility if needed, but getResourceStatus is preferred
   async getLiveResourceStatus(args: {
     serverUuid: string;

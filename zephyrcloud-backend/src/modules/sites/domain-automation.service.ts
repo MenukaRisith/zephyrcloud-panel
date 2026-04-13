@@ -216,6 +216,56 @@ export class DomainAutomationService {
       return this.failTimeout(domain.id);
     }
 
+    if (!domain.site?.coolify_resource_id) {
+      return this.prisma.domain.update({
+        where: { id: domain.id },
+        data: {
+          status: DomainStatus.error,
+          diagnostic_message: 'Site is not provisioned in Coolify yet.',
+          verification_checked_at: new Date(),
+        },
+      });
+    }
+
+    const coolifyDomains = await this.coolify.getApplicationDomains(
+      domain.site.coolify_resource_id,
+    );
+    const normalizedExpected = this.normalizeDomain(domain.domain);
+    const hasCoolifyDomain = coolifyDomains.some(
+      (value) => this.normalizeDomain(value) === normalizedExpected,
+    );
+
+    if (!hasCoolifyDomain) {
+      try {
+        await this.coolify.addDomain(
+          this.getResourceType(domain.site),
+          domain.site.coolify_resource_id,
+          `https://${domain.domain}`,
+        );
+      } catch (error) {
+        return this.prisma.domain.update({
+          where: { id: domain.id },
+          data: {
+            status: DomainStatus.error,
+            diagnostic_message: `Coolify domain attach failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            verification_checked_at: new Date(),
+          },
+        });
+      }
+
+      return this.prisma.domain.update({
+        where: { id: domain.id },
+        data: {
+          status: DomainStatus.attaching,
+          verification_checked_at: new Date(),
+          diagnostic_message:
+            'DNS verified. Waiting for Coolify to attach the domain.',
+        },
+      });
+    }
+
     const isReady = await this.checkHttps(domain.domain);
     if (isReady) {
       return this.prisma.domain.update({
@@ -240,6 +290,10 @@ export class DomainAutomationService {
           'DNS is verified and Coolify is still issuing SSL for this domain.',
       },
     });
+  }
+
+  private normalizeDomain(value: string): string {
+    return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
   }
 
   private async checkHttps(domain: string): Promise<boolean> {
