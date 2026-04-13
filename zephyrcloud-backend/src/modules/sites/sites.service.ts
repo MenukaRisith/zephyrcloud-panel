@@ -435,7 +435,7 @@ export class SitesService {
   private async refreshLiveSiteRecord<T extends SitePayload>(
     site: T,
   ): Promise<T> {
-    if (!site.coolify_resource_id || !site.coolify_server_uuid) {
+    if (!site.coolify_resource_id) {
       return site;
     }
 
@@ -885,7 +885,7 @@ export class SitesService {
       await this.getOwnedSiteOrThrow(siteId, user),
     );
 
-    if (!site.coolify_resource_id || !site.coolify_server_uuid) {
+    if (!site.coolify_resource_id) {
       return {
         status: String(site.status).toUpperCase(),
         source: 'db',
