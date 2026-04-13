@@ -1,5 +1,6 @@
 // src/modules/sites/sites.controller.ts
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -73,6 +74,18 @@ export class SitesController {
     this.logger.debug(`Found ${sites.length} sites`);
 
     return sites.map((site) => this.toSiteResponse(site));
+  }
+
+  @Delete()
+  public async deleteByName(
+    @CurrentUser() user: JwtPayload,
+    @Query('name') name?: string,
+  ) {
+    const trimmed = typeof name === 'string' ? name.trim() : '';
+    if (!trimmed) {
+      throw new BadRequestException('name is required');
+    }
+    return this.sites.deleteSitesByName(user, trimmed);
   }
 
   @Post()

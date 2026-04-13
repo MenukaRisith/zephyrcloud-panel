@@ -358,6 +358,32 @@ export class SitesService {
     return Promise.all(sites.map((site) => this.refreshLiveSiteRecord(site)));
   }
 
+  public async deleteSitesByName(user: JwtPayload, name: string) {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Only admins can delete sites by name.');
+    }
+
+    const tenantId = BigInt(user.tenant_id);
+    const sites = await this.prisma.site.findMany({
+      where: { tenant_id: tenantId, name },
+      select: { id: true },
+    });
+    if (!sites.length) {
+      return { deleted_sites: 0, deleted_domains: 0 };
+    }
+
+    const siteIds = sites.map((site) => site.id);
+    const [domainsResult, sitesResult] = await this.prisma.$transaction([
+      this.prisma.domain.deleteMany({ where: { site_id: { in: siteIds } } }),
+      this.prisma.site.deleteMany({ where: { id: { in: siteIds } } }),
+    ]);
+
+    return {
+      deleted_sites: sitesResult.count,
+      deleted_domains: domainsResult.count,
+    };
+  }
+
   // -------------------------
   // Git Helpers
   // -------------------------
