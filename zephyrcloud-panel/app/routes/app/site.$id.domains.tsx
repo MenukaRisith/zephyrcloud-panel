@@ -4,12 +4,13 @@ import { Copy, Globe, Loader2 } from "lucide-react";
 import {
   SiteSectionCard,
   copyToClipboard,
+  domainRecordType,
   domainStatusMeta,
   type SiteRouteContext,
 } from "./site-detail.shared";
 
 export default function SiteDomainsPage() {
-  const { domains, dnsTarget, actionPath, isSubmitting } = useOutletContext<SiteRouteContext>();
+  const { domains, dnsTarget, actionPath, isSubmitting, currentIntent } = useOutletContext<SiteRouteContext>();
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
@@ -23,20 +24,76 @@ export default function SiteDomainsPage() {
                   key={domain.id}
                   className="flex flex-col gap-3 border border-[var(--line)] bg-[var(--surface)] px-3 py-3 md:flex-row md:items-center md:justify-between"
                 >
-                  <div className="inline-flex items-center gap-3">
-                    <Globe className="h-4 w-4 text-[var(--text-soft)]" />
-                    <div>
-                      <div className="text-xs font-medium text-[var(--foreground)]">{domain.domain}</div>
-                      {domain.status ? (
-                        <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-[var(--text-soft)]">
-                          {domain.status.replace(/_/g, " ")}
-                        </div>
-                      ) : null}
+                  <div className="min-w-0 space-y-2">
+                    <div className="inline-flex items-center gap-3">
+                      <Globe className="h-4 w-4 text-[var(--text-soft)]" />
+                      <div>
+                        <div className="text-xs font-medium text-[var(--foreground)]">{domain.domain}</div>
+                        {domain.status ? (
+                          <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                            {domain.status.replace(/_/g, " ")}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
+                    {domain.target_hostname ? (
+                      <div className="space-y-1 text-[11px] text-[var(--text-muted)]">
+                        <div>
+                          Expected {domainRecordType(domain)} target:{" "}
+                          <span className="font-mono text-[var(--foreground)]">{domain.target_hostname}</span>
+                        </div>
+                        {domain.verification_checked_at ? (
+                          <div>
+                            Last checked:{" "}
+                            <span className="text-[var(--foreground)]">
+                              {new Date(domain.verification_checked_at).toLocaleString()}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {domain.diagnostic_message ? (
+                      <div className="text-[11px] leading-5 text-[var(--text-muted)]">
+                        {domain.diagnostic_message}
+                      </div>
+                    ) : null}
                   </div>
-                  <span className={`inline-flex items-center border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${meta.className}`}>
-                    {meta.label}
-                  </span>
+                  <div className="flex flex-col items-start gap-2 md:items-end">
+                    <span className={`inline-flex items-center border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${meta.className}`}>
+                      {meta.label}
+                    </span>
+                    {String(domain.status || "").toLowerCase().includes("pending") ? (
+                      <Form method="post" action={actionPath}>
+                        <input type="hidden" name="intent" value="verifyDomain" />
+                        <input type="hidden" name="domain_id" value={domain.id} />
+                        <button
+                          className="inline-flex min-h-8 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-[11px] text-[var(--foreground)]"
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting && currentIntent === "verifyDomain" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : null}
+                          Verify
+                        </button>
+                      </Form>
+                    ) : null}
+                    {String(domain.status || "").toLowerCase().includes("timeout") ||
+                    String(domain.status || "").toLowerCase().includes("error") ? (
+                      <Form method="post" action={actionPath}>
+                        <input type="hidden" name="intent" value="retryDomain" />
+                        <input type="hidden" name="domain_id" value={domain.id} />
+                        <button
+                          className="inline-flex min-h-8 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-[11px] text-[var(--foreground)]"
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting && currentIntent === "retryDomain" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : null}
+                          Retry
+                        </button>
+                      </Form>
+                    ) : null}
+                  </div>
                 </article>
               );
             })}
@@ -46,7 +103,7 @@ export default function SiteDomainsPage() {
         )}
       </SiteSectionCard>
 
-      <SiteSectionCard title="Connect domain" subtitle="Add a new domain and point DNS to the panel target.">
+      <SiteSectionCard title="Connect domain" subtitle="Add a new domain and point DNS to this site's default hostname.">
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 border border-[var(--line)] bg-[var(--surface)] px-3 py-3">
             <div className="min-w-0">
@@ -71,8 +128,8 @@ export default function SiteDomainsPage() {
           </div>
           <p className="text-xs leading-5 text-[var(--text-muted)]">
             {dnsTarget.isConfigured
-              ? "Use this target when pointing your domain to this site."
-              : "Use the panel host as the DNS target for this site."}
+              ? "Point the domain here, wait for DNS to propagate, then click Verify. We will keep checking every 10 minutes for up to 2 hours."
+              : "This site does not have a default hostname yet."}
           </p>
 
           <Form method="post" action={actionPath} className="space-y-3">

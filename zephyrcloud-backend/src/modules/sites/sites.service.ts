@@ -9,6 +9,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import {
+  DomainStatus,
   PrismaClient,
   SubscriptionPlan,
   type Site,
@@ -28,12 +29,15 @@ import {
   type CoolifyDbDetails,
   type ManagedDatabaseEngine,
 } from '../../services/coolify/coolify.service';
+import { CloudflareDnsService } from '../../services/cloudflare/cloudflare.service';
 import { SiteTypeDto, type CreateSiteDto } from './dto/create-site.dto';
 import type { CreateDeployKeyDto } from './dto/create-deploy-key.dto';
 import type { AddDomainDto } from './dto/add-domain.dto';
 import type { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import type { AddSiteMemberDto } from './dto/add-site-member.dto';
 import type { CreateUserDatabaseDto } from './dto/create-user-database.dto';
+import { DomainAutomationService } from './domain-automation.service';
+import { DomainVerificationService } from './domain-verification.service';
 
 // --- Helpers ---
 
@@ -148,7 +152,47 @@ export class SitesService {
     private readonly prisma: PrismaService,
     private readonly coolify: CoolifyService,
     private readonly github: GithubService,
+    private readonly cloudflare: CloudflareDnsService,
+    private readonly domainAutomation: DomainAutomationService,
+    private readonly domainVerifier: DomainVerificationService,
   ) {}
+
+  private getHostBaseDomain(): string {
+    const value = (process.env.HOST_BASE_DOMAIN ?? '').trim().toLowerCase();
+    if (!value) {
+      throw new Error('HOST_BASE_DOMAIN is missing in .env');
+    }
+    return value.replace(/\.$/, '');
+  }
+
+  private getHostCnameTarget(): string {
+    const value = (process.env.HOST_CNAME_TARGET ?? '').trim().toLowerCase();
+    if (!value) {
+      throw new Error('HOST_CNAME_TARGET is missing in .env');
+    }
+    return value.replace(/\.$/, '');
+  }
+
+  private buildDefaultDomainTarget(siteId: bigint): string {
+    const prefix = (process.env.HOSTNAME_PREFIX ?? 'site')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/^-+|-+$/g, '') || 'site';
+    return `${prefix}-${siteId.toString()}.${this.getHostBaseDomain()}`;
+  }
+
+  private buildInitialDomainInstructions(
+    domain: string,
+    target: string,
+    routingMode: 'subdomain_cname' | 'apex_flattening' | 'apex_alias',
+  ): string {
+    if (routingMode === 'apex_alias') {
+      return `Point ${domain} to ${target} using an ALIAS or ANAME record, then click Verify.`;
+    }
+
+    return `Point ${domain} to ${target} using a CNAME record, then click Verify.`;
+  }
 
   private async getTenantPolicyOrThrow(
     tenantId: bigint,
@@ -569,6 +613,8 @@ export class SitesService {
     user: JwtPayload,
     dto: CreateSiteDto,
   ): Promise<SitePayload> {
+    this.cloudflare.ensureConfig();
+    const hostCnameTarget = this.getHostCnameTarget();
     const tenantId = this.requireTenantId(user);
     const userId = this.requireUserId(user);
     const tenantPolicy = await this.getTenantPolicyOrThrow(tenantId);
@@ -659,6 +705,7 @@ export class SitesService {
     let shouldCleanupAutoProvisionedKey = false;
 
     let site: SitePayload | null = null;
+    let cloudflareRecordId: string | null = null;
     try {
       if (usesGithubConnection) {
         if (!repoFullName) {
@@ -723,8 +770,13 @@ export class SitesService {
           coolify_server_uuid: null,
           coolify_resource_type: null,
           coolify_destination_uuid: null,
+          default_domain_target: null,
+          cloudflare_dns_record_id: null,
+          coolify_default_hostname: null,
         },
       });
+
+      const defaultDomainTarget = this.buildDefaultDomainTarget(site.id);
 
       // 2. Prepare config and send to Coolify
       const coolifyPayload: CoolifyCreateProjectInput = {
@@ -798,6 +850,28 @@ export class SitesService {
           coolify_resource_type: coolifyResult.resourceType || 'application',
           coolify_server_uuid: coolifyResult.serverUuid,
           coolify_destination_uuid: coolifyResult.destinationUuid,
+          default_domain_target: defaultDomainTarget,
+          coolify_default_hostname: defaultDomainTarget,
+        },
+      });
+
+      const cloudflareRecord =
+        await this.cloudflare.createSiteHostnameRecord(
+          defaultDomainTarget,
+          hostCnameTarget,
+        );
+      cloudflareRecordId = cloudflareRecord.recordId;
+
+      await this.coolify.addDomain(
+        this.getResourceType(updatedSite),
+        coolifyResult.resourceId,
+        `https://${defaultDomainTarget}`,
+      );
+
+      const finalizedSite = await this.prisma.site.update({
+        where: { id: site.id },
+        data: {
+          cloudflare_dns_record_id: cloudflareRecord.recordId,
         },
       });
 
@@ -808,11 +882,19 @@ export class SitesService {
         });
       }
 
-      return updatedSite;
+      return finalizedSite;
     } catch (error) {
       this.logger.error(
         `[createSite] Failed: ${error instanceof Error ? error.message : String(error)}`,
       );
+
+      if (cloudflareRecordId) {
+        await this.cloudflare.deleteRecord(cloudflareRecordId).catch((cleanupError) => {
+          this.logger.warn(
+            `[createSite] Failed to clean up Cloudflare DNS record ${cloudflareRecordId}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+          );
+        });
+      }
 
       if (site) {
         await this.prisma.site.update({
@@ -1195,30 +1277,71 @@ export class SitesService {
       requireWrite: true,
     });
     const domain = normalizeDomain(dto.domain);
-    const fullUrl = `https://${domain}`;
-
-    if (site.coolify_resource_id) {
-      try {
-        const type = this.getResourceType(site);
-        await this.coolify.addDomain(type, site.coolify_resource_id, fullUrl);
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        this.logger.warn(
-          `[addDomain] Failed to sync domain to Coolify: ${msg}`,
-        );
-      }
+    if (!domain) {
+      throw new BadRequestException('Domain is required');
     }
+
+    if (!site.default_domain_target) {
+      throw new BadRequestException(
+        'Site is missing a default domain target. Recreate or repair the site before adding custom domains.',
+      );
+    }
+
+    const existing = await this.prisma.domain.findUnique({
+      where: { domain },
+    });
+    if (existing) {
+      throw new BadRequestException('That domain is already connected to another site.');
+    }
+
+    const routingMode = this.domainVerifier.classifyDomain(domain);
 
     return this.prisma.domain.create({
       data: {
         tenant_id: site.tenant_id,
         site_id: site.id,
         domain,
-        status: 'pending_ns',
+        status: DomainStatus.pending_dns,
         ssl_enabled: false,
         coolify_domain_id: null,
+        target_hostname: site.default_domain_target,
+        routing_mode: routingMode,
+        verification_started_at: new Date(),
+        diagnostic_message: this.buildInitialDomainInstructions(
+          domain,
+          site.default_domain_target,
+          routingMode,
+        ),
       },
     });
+  }
+
+  public async verifyDomain(
+    user: JwtPayload,
+    id: string,
+    domainId: string,
+  ): Promise<DomainPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const parsedDomainId = toBigIntStrict(domainId, 'domainId');
+    await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    return this.domainAutomation.verifyNow(siteId, parsedDomainId);
+  }
+
+  public async retryDomain(
+    user: JwtPayload,
+    id: string,
+    domainId: string,
+  ): Promise<DomainPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const parsedDomainId = toBigIntStrict(domainId, 'domainId');
+    await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    return this.domainAutomation.retryDomain(siteId, parsedDomainId);
   }
 
   // --- Team Access ---

@@ -218,6 +218,24 @@ export class SitesController {
     return this.sites.addDomain(user, id, dto);
   }
 
+  @Post(':id/domains/:domainId/verify')
+  public verifyDomain(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Param('domainId') domainId: string,
+  ) {
+    return this.sites.verifyDomain(user, id, domainId);
+  }
+
+  @Post(':id/domains/:domainId/retry')
+  public retryDomain(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Param('domainId') domainId: string,
+  ) {
+    return this.sites.retryDomain(user, id, domainId);
+  }
+
   // --- Team ---
   @Get(':id/team')
   public team(@CurrentUser() user: JwtPayload, @Param('id') id: string) {

@@ -598,9 +598,9 @@ export class CoolifyService {
         }
       }
     } catch (error: unknown) {
-      this.logger.error(
-        `[addDomain] Failed to sync to Coolify: ${this.formatError(error)}`,
-      );
+      const message = this.formatError(error);
+      this.logger.error(`[addDomain] Failed to sync to Coolify: ${message}`);
+      throw new Error(message);
     }
   }
 

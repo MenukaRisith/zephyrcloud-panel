@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AdminBootstrapService } from './bootstrap/admin-bootstrap.service';
@@ -19,6 +20,7 @@ import { GithubModule } from './modules/github/github.module';
       cache: true,
       expandVariables: true,
     }),
+    ScheduleModule.forRoot(),
 
     // Global PrismaService
     PrismaModule,

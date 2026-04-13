@@ -143,10 +143,19 @@ enum SiteStatus {
 }
 
 enum DomainStatus {
-  pending_ns
-  verifying
+  pending_dns
+  verified_dns
+  attaching
+  ssl_issuing
   active
+  verification_failed_timeout
   error
+}
+
+enum DomainRoutingMode {
+  subdomain_cname
+  apex_flattening
+  apex_alias
 }
 
 enum DeploymentStatus {
@@ -201,6 +210,9 @@ model Site {
   repo_url    String?
   repo_branch String?
   auto_deploy Boolean @default(false)
+  default_domain_target  String?
+  cloudflare_dns_record_id String?
+  coolify_default_hostname String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -215,6 +227,7 @@ model Site {
   @@index([tenant_id])
   @@index([coolify_project_id])
   @@index([coolify_resource_id])
+  @@index([default_domain_target])
 }
 
 model SiteDeployKey {
@@ -278,10 +291,19 @@ model Domain {
   site    Site?   @relation(fields: [site_id], references: [id], onDelete: SetNull)
 
   domain String       @unique
-  status DomainStatus @default(pending_ns)
+  status DomainStatus @default(pending_dns)
 
   coolify_domain_id String?
   ssl_enabled       Boolean @default(false)
+  target_hostname   String?
+  routing_mode      DomainRoutingMode?
+  verification_started_at DateTime?
+  verification_checked_at DateTime?
+  verified_at             DateTime?
+  coolify_attached_at     DateTime?
+  ssl_ready_at            DateTime?
+  diagnostic_message      String?
+  retry_count             Int       @default(0)
 
   created_at DateTime @default(now())
 

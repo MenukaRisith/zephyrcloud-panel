@@ -21,6 +21,7 @@ export type Site = {
   type: "wordpress" | "node" | "static" | "php" | "python";
   status: string;
   primaryDomain?: string | null;
+  default_domain_target?: string | null;
   repo_url?: string;
   repo_branch?: string;
   created_at?: string;
@@ -40,6 +41,14 @@ export type Domain = {
   domain: string;
   status?: string;
   ssl_enabled?: boolean;
+  target_hostname?: string | null;
+  routing_mode?: "subdomain_cname" | "apex_flattening" | "apex_alias" | null;
+  diagnostic_message?: string | null;
+  verification_checked_at?: string | null;
+  verification_started_at?: string | null;
+  verified_at?: string | null;
+  ssl_ready_at?: string | null;
+  retry_count?: number;
   created_at?: string;
 };
 
@@ -287,6 +296,30 @@ export function extractGithubRepoRef(input: string) {
 
 export function domainStatusMeta(domain: Domain) {
   const status = String(domain.status || "").toLowerCase();
+  if (status.includes("timeout")) {
+    return {
+      label: "Verification timed out",
+      className: "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
+    };
+  }
+  if (status.includes("verified")) {
+    return {
+      label: "DNS verified",
+      className: "border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]",
+    };
+  }
+  if (status.includes("attaching")) {
+    return {
+      label: "Attaching",
+      className: "border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]",
+    };
+  }
+  if (status.includes("ssl_issuing")) {
+    return {
+      label: "Issuing SSL",
+      className: "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]",
+    };
+  }
   if (status.includes("pending")) {
     return {
       label: "Pending DNS",
@@ -309,6 +342,13 @@ export function domainStatusMeta(domain: Domain) {
     label: status ? status.replace(/_/g, " ") : "Configured",
     className: "border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)]",
   };
+}
+
+export function domainRecordType(domain: Domain) {
+  if (domain.routing_mode === "apex_alias") {
+    return "ALIAS / ANAME";
+  }
+  return "CNAME";
 }
 
 export async function copyToClipboard(text: string) {

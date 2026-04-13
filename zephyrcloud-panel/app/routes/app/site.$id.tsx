@@ -93,15 +93,24 @@ export async function loader({
     const site = await siteRes.json();
     const deployments = await depRes.json();
     const domains = await domRes.json();
+    const sitePayload = (site.data || site) as Site;
 
     return {
-      site: (site.data || site) as Site,
+      site: sitePayload,
       deployments: Array.isArray(deployments) ? (deployments as Deployment[]) : [],
       domains: Array.isArray(domains) ? (domains as Domain[]) : [],
       db,
       envs: Array.isArray(envs) ? envs : [],
       team,
-      dnsTarget: resolveDnsTarget(request),
+      dnsTarget:
+        typeof sitePayload.default_domain_target === "string" &&
+        sitePayload.default_domain_target.trim().length > 0
+          ? {
+              value: sitePayload.default_domain_target.trim(),
+              recordType: "CNAME",
+              isConfigured: true,
+            }
+          : resolveDnsTarget(request),
     };
   } catch (error) {
     console.error("Loader Error:", error);
@@ -167,6 +176,34 @@ export async function action({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain }),
       });
+      return null;
+    }
+
+    if (intent === "verifyDomain") {
+      const domainId = String(fd.get("domain_id") || "").trim();
+      if (!domainId) return null;
+
+      await apiFetchAuthed(
+        request,
+        `/api/sites/${id}/domains/${encodeURIComponent(domainId)}/verify`,
+        {
+          method: "POST",
+        },
+      );
+      return null;
+    }
+
+    if (intent === "retryDomain") {
+      const domainId = String(fd.get("domain_id") || "").trim();
+      if (!domainId) return null;
+
+      await apiFetchAuthed(
+        request,
+        `/api/sites/${id}/domains/${encodeURIComponent(domainId)}/retry`,
+        {
+          method: "POST",
+        },
+      );
       return null;
     }
 
