@@ -24,7 +24,7 @@ export class CloudflareDnsService {
   private readonly zoneId: string;
 
   public constructor(private readonly config: ConfigService) {
-    this.zoneId = (this.config.get<string>('CLOUDFLARE_ZONE_ID') ?? '').trim();
+    this.zoneId = this.getEnv('CLOUDFLARE_ZONE_ID');
 
     this.client = axios.create({
       baseURL: 'https://api.cloudflare.com/client/v4',
@@ -36,9 +36,9 @@ export class CloudflareDnsService {
   }
 
   public ensureConfig(): void {
-    const token = (this.config.get<string>('CLOUDFLARE_API_TOKEN') ?? '').trim();
-    const apiKey = (this.config.get<string>('CLOUDFLARE_API_KEY') ?? '').trim();
-    const email = (this.config.get<string>('CLOUDFLARE_EMAIL') ?? '').trim();
+    const token = this.getEnv('CLOUDFLARE_API_TOKEN');
+    const apiKey = this.getEnv('CLOUDFLARE_API_KEY');
+    const email = this.getEnv('CLOUDFLARE_EMAIL');
     const hasToken = Boolean(token);
     const hasKeyAuth = Boolean(apiKey && email);
     if (!hasToken && !hasKeyAuth) {
@@ -52,13 +52,13 @@ export class CloudflareDnsService {
   }
 
   private buildAuthHeaders(): Record<string, string> {
-    const token = (this.config.get<string>('CLOUDFLARE_API_TOKEN') ?? '').trim();
+    const token = this.getEnv('CLOUDFLARE_API_TOKEN');
     if (token) {
       return { Authorization: `Bearer ${token}` };
     }
 
-    const apiKey = (this.config.get<string>('CLOUDFLARE_API_KEY') ?? '').trim();
-    const email = (this.config.get<string>('CLOUDFLARE_EMAIL') ?? '').trim();
+    const apiKey = this.getEnv('CLOUDFLARE_API_KEY');
+    const email = this.getEnv('CLOUDFLARE_EMAIL');
     if (apiKey && email) {
       return {
         'X-Auth-Email': email,
@@ -67,6 +67,12 @@ export class CloudflareDnsService {
     }
 
     return {};
+  }
+
+  private getEnv(key: string): string {
+    const fromConfig = (this.config.get<string>(key) ?? '').trim();
+    if (fromConfig) return fromConfig;
+    return (process.env[key] ?? '').trim();
   }
 
   public async createSiteHostnameRecord(
