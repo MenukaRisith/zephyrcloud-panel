@@ -363,7 +363,10 @@ export class SitesService {
       throw new ForbiddenException('Only admins can delete sites by name.');
     }
 
-    const tenantId = BigInt(user.tenant_id);
+    if (!user.tenant_id) {
+      throw new ForbiddenException('Tenant is required to delete sites by name.');
+    }
+    const tenantId = toBigIntStrict(user.tenant_id, 'tenant_id');
     const sites = await this.prisma.site.findMany({
       where: { tenant_id: tenantId, name },
       select: { id: true },
