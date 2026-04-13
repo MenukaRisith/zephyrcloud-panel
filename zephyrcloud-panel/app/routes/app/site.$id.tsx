@@ -215,6 +215,22 @@ export async function action({
       return redirect("/sites");
     }
 
+    if (intent === "updateBuildSettings") {
+      const install_command = String(fd.get("install_command") || "");
+      const build_command = String(fd.get("build_command") || "");
+      const start_command = String(fd.get("start_command") || "");
+      await apiFetchAuthed(request, `/api/sites/${id}/build-settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          install_command,
+          build_command,
+          start_command,
+        }),
+      });
+      return null;
+    }
+
     if (intent === "createEnv") {
       const key = String(fd.get("key") || "").trim();
       const value = String(fd.get("value") || "");

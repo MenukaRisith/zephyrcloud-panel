@@ -16,7 +16,7 @@ function getSettingsSection(value: string | null): SiteSettingsSection {
 
 export default function SiteSettingsPage() {
   const [searchParams] = useSearchParams();
-  const { envs, team, canManageTeam, actionPath, currentIntent, isSubmitting } =
+  const { site, envs, team, canManageTeam, actionPath, currentIntent, isSubmitting } =
     useOutletContext<SiteRouteContext>();
   const currentSection = getSettingsSection(searchParams.get("section"));
 
@@ -28,6 +28,62 @@ export default function SiteSettingsPage() {
       {currentSection === "configuration" ? (
         <SiteSectionCard title="Configuration" subtitle="Manage secure keys and runtime values for this site.">
           <div className="space-y-4">
+            {site.type === "node" || site.type === "python" ? (
+              <Form
+                method="post"
+                action={actionPath}
+                className="space-y-4 border border-[var(--line)] bg-[var(--surface)] px-4 py-4"
+              >
+                <input type="hidden" name="intent" value="updateBuildSettings" />
+                <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_auto]">
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                      Install Command
+                    </label>
+                    <input
+                      name="install_command"
+                      placeholder="npm ci"
+                      defaultValue={site.install_command ?? ""}
+                      className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                      Build Command
+                    </label>
+                    <input
+                      name="build_command"
+                      placeholder="npm run build"
+                      defaultValue={site.build_command ?? ""}
+                      className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                      Start Command
+                    </label>
+                    <input
+                      name="start_command"
+                      placeholder="npm start"
+                      defaultValue={site.start_command ?? ""}
+                      className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)]"
+                    />
+                  </div>
+                  <div className="self-end">
+                    <button
+                      disabled={!canManageTeam || isSubmitting}
+                      className="inline-flex min-h-9 items-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)] disabled:opacity-60"
+                    >
+                      {isSubmitting && currentIntent === "updateBuildSettings" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </Form>
+            ) : null}
+
             {canManageTeam ? (
               <Form
                 method="post"

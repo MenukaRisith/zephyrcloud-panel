@@ -36,6 +36,7 @@ import type { AddDomainDto } from './dto/add-domain.dto';
 import type { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import type { AddSiteMemberDto } from './dto/add-site-member.dto';
 import type { CreateUserDatabaseDto } from './dto/create-user-database.dto';
+import type { UpdateSiteBuildSettingsDto } from './dto/update-site-build-settings.dto';
 import { DomainAutomationService } from './domain-automation.service';
 import { DomainVerificationService } from './domain-verification.service';
 
@@ -1405,6 +1406,52 @@ export class SitesService {
         ),
       },
     });
+  }
+
+  public async updateBuildSettings(
+    user: JwtPayload,
+    id: string,
+    dto: UpdateSiteBuildSettingsDto,
+  ) {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    if (site.type !== 'node' && site.type !== 'python') {
+      throw new BadRequestException(
+        'Build settings are only available for Node.js and Python sites.',
+      );
+    }
+
+    const normalizeValue = (value?: string | null) => {
+      if (typeof value !== 'string') return null;
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
+
+    const build_command = normalizeValue(dto.build_command);
+    const install_command = normalizeValue(dto.install_command);
+    const start_command = normalizeValue(dto.start_command);
+
+    const updated = await this.prisma.site.update({
+      where: { id: siteId },
+      data: {
+        build_command,
+        install_command,
+        start_command,
+      },
+    });
+
+    if (site.coolify_resource_id) {
+      await this.coolify.updateApplicationCommands(site.coolify_resource_id, {
+        build_command,
+        install_command,
+        start_command,
+      });
+    }
+
+    return updated;
   }
 
   public async verifyDomain(

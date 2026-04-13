@@ -213,6 +213,9 @@ model Site {
   default_domain_target  String?
   cloudflare_dns_record_id String?
   coolify_default_hostname String?
+  build_command String?
+  install_command String?
+  start_command String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

@@ -22,6 +22,7 @@ import { AddDomainDto } from './dto/add-domain.dto';
 import { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import { AddSiteMemberDto } from './dto/add-site-member.dto';
 import { CreateUserDatabaseDto } from './dto/create-user-database.dto';
+import { UpdateSiteBuildSettingsDto } from './dto/update-site-build-settings.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('sites')
@@ -192,6 +193,15 @@ export class SitesController {
   @Post(':id/stop')
   public stop(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.sites.stopSite(user, id);
+  }
+
+  @Post(':id/build-settings')
+  public updateBuildSettings(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateSiteBuildSettingsDto,
+  ) {
+    return this.sites.updateBuildSettings(user, id, dto);
   }
 
   @Delete(':id')

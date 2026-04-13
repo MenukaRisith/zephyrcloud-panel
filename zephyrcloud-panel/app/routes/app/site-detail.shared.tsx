@@ -25,6 +25,9 @@ export type Site = {
   repo_url?: string;
   repo_branch?: string;
   created_at?: string;
+  build_command?: string | null;
+  install_command?: string | null;
+  start_command?: string | null;
 };
 
 export type Deployment = {

@@ -86,6 +86,12 @@ type CoolifyEnvInput = {
   is_shown_once?: boolean;
 };
 
+type UpdateApplicationCommandsInput = {
+  install_command?: string | null;
+  build_command?: string | null;
+  start_command?: string | null;
+};
+
 type CreatePrivateKeyInput = {
   name: string;
   description?: string;
@@ -378,6 +384,27 @@ export class CoolifyService {
       return { success: true, deleted: targets.length };
     } catch (error: unknown) {
       throw new Error(`Failed to delete env: ${this.formatError(error)}`);
+    }
+  }
+
+  async updateApplicationCommands(
+    uuid: string,
+    input: UpdateApplicationCommandsInput,
+  ): Promise<void> {
+    if (!uuid) throw new Error('Resource UUID missing');
+    const payload = this.stripUndefined({
+      install_command: input.install_command ?? undefined,
+      build_command: input.build_command ?? undefined,
+      start_command: input.start_command ?? undefined,
+    });
+    if (!Object.keys(payload).length) return;
+
+    try {
+      await this.client.patch(`/api/v1/applications/${uuid}`, payload);
+    } catch (error: unknown) {
+      this.logger.warn(
+        `[updateApplicationCommands] Failed to update commands for ${uuid}: ${this.formatError(error)}`,
+      );
     }
   }
 
