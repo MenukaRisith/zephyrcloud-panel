@@ -48,13 +48,14 @@ export class DomainVerificationService {
     expectedTarget: string,
   ): Promise<VerificationResult> {
     const chain = await this.resolveCnameChain(domain);
+    const directTarget = chain[0] ?? null;
     const observedTarget = chain[chain.length - 1] ?? null;
 
-    if (observedTarget && observedTarget === expectedTarget) {
+    if (directTarget === expectedTarget || chain.includes(expectedTarget)) {
       return {
         ok: true,
         routingMode: 'subdomain_cname',
-        observedTarget,
+        observedTarget: directTarget ?? observedTarget,
         resolvedChain: chain,
         message: `CNAME points to ${expectedTarget}.`,
       };
@@ -62,7 +63,7 @@ export class DomainVerificationService {
 
     const ipHints = await this.resolveAddresses(domain);
     const message = observedTarget
-      ? `CNAME points to ${observedTarget}, expected ${expectedTarget}.`
+      ? `CNAME points to ${directTarget ?? observedTarget}, expected ${expectedTarget}.`
       : ipHints.length > 0
         ? `Subdomains must use a CNAME to ${expectedTarget}, but ${domain} currently resolves directly to IP addresses.`
         : `No CNAME record found for ${domain} yet.`;
