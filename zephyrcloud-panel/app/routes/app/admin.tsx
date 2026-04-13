@@ -7,7 +7,6 @@ import {
   useNavigation,
   useSearchParams,
 } from "react-router";
-import { motion } from "framer-motion";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -29,13 +28,44 @@ import {
 import {
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
-import { inputOnDarkClass } from "~/lib/ui";
+import { inputClass } from "~/lib/ui";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { requireUser } from "~/services/session.server";
+
+type MotionLikeProps<T extends HTMLElement> = React.HTMLAttributes<T> & {
+  animate?: unknown;
+  exit?: unknown;
+  initial?: unknown;
+  transition?: unknown;
+  whileHover?: unknown;
+  whileTap?: unknown;
+};
+
+function MotionDiv({
+  animate,
+  exit,
+  initial,
+  transition,
+  whileHover,
+  whileTap,
+  ...props
+}: MotionLikeProps<HTMLDivElement>) {
+  return <div {...props} />;
+}
+
+function MotionSection({
+  animate,
+  exit,
+  initial,
+  transition,
+  whileHover,
+  whileTap,
+  ...props
+}: MotionLikeProps<HTMLElement>) {
+  return <section {...props} />;
+}
 
 type PanelEnv = {
   key: string;
@@ -246,14 +276,14 @@ function formatDate(value: string | null) {
 }
 
 function statusTone(status?: string) {
-  if (!status) return "border-white/10 bg-white/5 text-white/60";
+  if (!status) return "border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)]";
   const normalized = status.toLowerCase();
   if (
     normalized.includes("healthy") ||
     normalized.includes("running") ||
     normalized === "up"
   ) {
-    return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
+    return "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]";
   }
   if (normalized.includes("error") || normalized.includes("failed")) {
     return "border-red-400/20 bg-red-400/10 text-red-100";
@@ -1125,17 +1155,17 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
+    <div className="space-y-4 pb-20 lg:pb-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/45">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--text-muted)]">
             Administration
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+          <h1 className="mt-2 text-lg font-semibold tracking-tight text-[var(--foreground)]">
             Workspace administration
           </h1>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
+        <div className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
           <ShieldCheck className="h-4 w-4" />
           Admin only
         </div>
@@ -1206,26 +1236,7 @@ export default function AdminPage() {
       ) : null}
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="users">
-            <Users className="h-4 w-4" />
-            Users
-          </TabsTrigger>
-          <TabsTrigger value="plans">
-            <ShieldCheck className="h-4 w-4" />
-            Plans
-          </TabsTrigger>
-          <TabsTrigger value="sites">
-            <Globe className="h-4 w-4" />
-            Sites
-          </TabsTrigger>
-          <TabsTrigger value="platform">
-            <Server className="h-4 w-4" />
-            Platform
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="users" className="space-y-6">
+        <TabsContent value="users" className="space-y-4">
           <AdminUsersTab
             adminEmails={adminEmails}
             currentIntent={currentIntent}
@@ -1239,7 +1250,7 @@ export default function AdminPage() {
           />
         </TabsContent>
 
-        <TabsContent value="plans" className="space-y-6">
+        <TabsContent value="plans" className="space-y-4">
           <AdminPlansTab
             currentIntent={currentIntent}
             currentTenantId={currentTenantId}
@@ -1250,7 +1261,7 @@ export default function AdminPage() {
           />
         </TabsContent>
 
-        <TabsContent value="sites" className="space-y-6">
+        <TabsContent value="sites" className="space-y-4">
           <AdminSitesTab
             createSiteAssignableUsers={createSiteAssignableUsers}
             createSiteTenant={createSiteTenant}
@@ -1269,7 +1280,7 @@ export default function AdminPage() {
           />
         </TabsContent>
 
-        <TabsContent value="platform" className="space-y-6">
+        <TabsContent value="platform" className="space-y-4">
           <AdminPlatformTab
             currentIntent={currentIntent}
             currentKey={currentKey}
@@ -1292,13 +1303,13 @@ function SearchField({
   placeholder: string;
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white/60">
+    <label className="flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2.5 text-sm text-[var(--text-muted)]">
       <Search className="h-4 w-4" />
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full min-w-0 bg-transparent text-white outline-none placeholder:text-white/35 md:w-72"
+        className="w-full min-w-0 bg-transparent text-[var(--foreground)] outline-none placeholder:text-[var(--text-muted)] md:w-72"
       />
     </label>
   );
@@ -1327,25 +1338,25 @@ function AdminUsersTab({
 }) {
   return (
     <>
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <motion.section
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <MotionSection
           id="create-users"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
-          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+          className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
         >
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
               People
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
+            <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
               Create people
             </h2>
           </div>
           <Form
             method="post"
-            className="mt-5 space-y-3 rounded-md border border-white/10 bg-[#111823] p-4"
+            className="mt-4 space-y-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
           >
             <input type="hidden" name="intent" value="create-user" />
             <div className="grid gap-3 md:grid-cols-2">
@@ -1420,46 +1431,46 @@ function AdminUsersTab({
               Create person
             </button>
           </Form>
-        </motion.section>
+        </MotionSection>
 
-        <motion.section
+        <MotionSection
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, delay: 0.03 }}
-          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+          className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
             Directory
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">
+          <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
             Manage users
           </h2>
-          <p className="mt-2 text-sm leading-6 text-white/55">
+          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
             {adminEmails.length
               ? `${adminEmails.length} admin accounts`
               : "No admin accounts"}
           </p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <PlanLimit label="Total users" value={String(stats.total_users)} />
             <PlanLimit label="Active users" value={String(stats.active_users)} />
             <PlanLimit label="Admins" value={String(stats.admin_users)} />
           </div>
-          <div className="mt-5">
+          <div className="mt-4">
             <SearchField
               value={userQuery}
               onChange={onUserQueryChange}
               placeholder="Search people"
             />
           </div>
-        </motion.section>
+        </MotionSection>
       </div>
 
-      <motion.section
+      <MotionSection
         id="manage-users"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.05 }}
-        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
       >
         <div className="space-y-4">
           {filteredUsers.length > 0 ? (
@@ -1477,12 +1488,12 @@ function AdminUsersTab({
               />
             ))
           ) : (
-            <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
+            <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
               No users matched that search.
             </div>
           )}
         </div>
-      </motion.section>
+      </MotionSection>
     </>
   );
 }
@@ -1503,19 +1514,19 @@ function AdminPlansTab({
   onPlanQueryChange: (value: string) => void;
 }) {
   return (
-    <motion.section
+    <MotionSection
       id="plans-resources"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18 }}
-      className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+      className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
             Workspaces and plans
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">
+          <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
             Manage plans and limits
           </h2>
         </div>
@@ -1527,14 +1538,14 @@ function AdminPlansTab({
       </div>
 
       {planCatalog.length > 0 ? (
-        <div className="mt-6 grid gap-3 lg:grid-cols-3">
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {planCatalog.map((plan) => (
             <PlanCatalogCard key={plan.key} plan={plan} />
           ))}
         </div>
       ) : null}
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-4 space-y-4">
         {filteredTenants.length > 0 ? (
           filteredTenants.map((tenant) => (
             <TenantRow
@@ -1547,12 +1558,12 @@ function AdminPlansTab({
             />
           ))
         ) : (
-          <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
+          <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
             No workspaces matched that search.
           </div>
         )}
       </div>
-    </motion.section>
+    </MotionSection>
   );
 }
 
@@ -1589,25 +1600,25 @@ function AdminSitesTab({
 }) {
   return (
     <>
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <motion.section
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <MotionSection
           id="create-sites"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
-          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+          className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
         >
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
               Websites
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
+            <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
               Create sites
             </h2>
           </div>
           <Form
             method="post"
-            className="mt-5 space-y-3 rounded-md border border-white/10 bg-[#111823] p-4"
+            className="mt-4 space-y-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
           >
             <input type="hidden" name="intent" value="create-site" />
             <div className="grid gap-3 md:grid-cols-2">
@@ -1712,12 +1723,12 @@ function AdminSitesTab({
                 className={fieldClassName}
               />
             </div>
-            <p className="text-xs text-white/45">
+            <p className="text-xs text-[var(--text-muted)]">
               Owner options are limited to administrators and people in the
               selected workspace.
             </p>
             {createSiteTenant ? (
-              <div className="grid gap-3 rounded-md border border-white/10 bg-[#0B1118] p-4 text-xs text-white/55 md:grid-cols-4">
+              <div className="grid gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4 text-xs text-[var(--text-muted)] md:grid-cols-4">
                 <PlanLimit
                   label="Sites used"
                   value={`${createSiteTenant.usage.sites}/${createSiteTenant.resources.effective.max_sites}`}
@@ -1749,50 +1760,50 @@ function AdminSitesTab({
               Create site
             </button>
           </Form>
-        </motion.section>
+        </MotionSection>
 
-        <motion.section
+        <MotionSection
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, delay: 0.03 }}
-          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+          className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
             Directory
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">
+          <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
             Browse sites
           </h2>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <PlanLimit label="Total sites" value={String(stats.total_sites)} />
             <PlanLimit
               label="Unassigned sites"
               value={String(stats.unassigned_sites)}
             />
           </div>
-          <div className="mt-5">
+          <div className="mt-4">
             <SearchField
               value={siteQuery}
               onChange={onSiteQueryChange}
               placeholder="Search sites, domains, or repositories"
             />
           </div>
-        </motion.section>
+        </MotionSection>
       </div>
 
-      <motion.section
+      <MotionSection
         id="coolify-sites"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.05 }}
-        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
               Imported apps
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
+            <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
               Import existing apps
             </h2>
           </div>
@@ -1800,7 +1811,7 @@ function AdminSitesTab({
         </div>
 
         {coolifySites.length > 0 ? (
-          <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
             {coolifySites.map((site) => (
               <CoolifySiteImportCard
                 key={site.uuid}
@@ -1815,29 +1826,29 @@ function AdminSitesTab({
             ))}
           </div>
         ) : (
-          <div className="mt-5 rounded-md border border-dashed border-white/10 bg-black/20 px-4 py-6 text-sm text-white/50">
+          <div className="mt-4 rounded-md border border-dashed border-[var(--line)] bg-[var(--surface-muted)] px-4 py-5 text-xs text-[var(--text-muted)]">
             No additional apps are available to import right now.
           </div>
         )}
-      </motion.section>
+      </MotionSection>
 
-      <motion.section
+      <MotionSection
         id="assign-sites"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, delay: 0.07 }}
-        className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
       >
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
             Site access
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">
+          <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
             Assign existing sites
           </h2>
         </div>
 
-        <div className="mt-6 space-y-4">
+        <div className="mt-4 space-y-4">
           {filteredSites.length > 0 ? (
             filteredSites.map((site) => (
               <SiteRow
@@ -1850,12 +1861,12 @@ function AdminSitesTab({
               />
             ))
           ) : (
-            <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
+            <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
               No sites matched that search.
             </div>
           )}
         </div>
-      </motion.section>
+      </MotionSection>
     </>
   );
 }
@@ -1872,24 +1883,24 @@ function AdminPlatformTab({
   panelApps: PanelApp[];
 }) {
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
+    <div className="grid gap-4 xl:grid-cols-2">
       {panelApps.map((app, index) => (
-        <motion.section
+        <MotionSection
           key={app.uuid}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, delay: index * 0.04 }}
-          className="rounded-md border border-white/10 bg-white/[0.06] p-6 shadow-[0_24px_64px_-40px_rgba(0,0,0,0.55)]"
+          className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.28em] text-white/40">
+              <div className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
                 {app.target}
               </div>
-              <h2 className="mt-2 text-xl font-semibold text-white">
+              <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
                 {app.label}
               </h2>
-              <p className="mt-2 text-sm text-white/55">
+              <p className="mt-2 text-sm text-[var(--text-muted)]">
                 {app.name}
                 {app.base_directory ? ` - ${app.base_directory}` : ""}
               </p>
@@ -1902,12 +1913,12 @@ function AdminPlatformTab({
           </div>
 
           {app.fqdn ? (
-            <div className="mt-4 rounded-md border border-white/10 bg-black/20 px-4 py-3">
-              <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-white/40">
+            <div className="mt-4 rounded-md border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-3">
+              <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">
                 <Globe className="h-4 w-4" />
                 Public endpoints
               </div>
-              <div className="break-all text-xs font-mono text-white/70">
+              <div className="break-all text-xs font-mono text-[var(--text-muted)]">
                 {app.fqdn}
               </div>
             </div>
@@ -1923,7 +1934,7 @@ function AdminPlatformTab({
                   currentIntent === "restart-panel-app" &&
                   currentTarget === app.target
                 }
-                className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/[0.1] hover:text-white disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)] disabled:opacity-60"
               >
                 {currentIntent === "restart-panel-app" &&
                 currentTarget === app.target ? (
@@ -1959,22 +1970,22 @@ function AdminPlatformTab({
 
           <Form
             method="post"
-            className="mt-5 space-y-3 rounded-md border border-white/10 bg-[#111823] p-4"
+            className="mt-4 space-y-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
           >
             <input type="hidden" name="intent" value="upsert-env" />
             <input type="hidden" name="target" value={app.target} />
-            <div className="text-sm font-semibold text-white">Add variable</div>
+            <div className="text-sm font-semibold text-[var(--foreground)]">Add variable</div>
             <input
               name="key"
               placeholder="GITHUB_OAUTH_CLIENT_ID"
-              className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+              className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm font-mono text-[var(--foreground)] outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
               required
             />
             <textarea
               name="value"
               rows={3}
               placeholder="Value"
-              className="w-full rounded-md border border-white/14 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+              className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm font-mono text-[var(--foreground)] outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
               required
             />
             <EnvFlags />
@@ -1985,7 +1996,7 @@ function AdminPlatformTab({
                 currentTarget === app.target &&
                 !currentKey
               }
-              className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-md bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-muted)] disabled:opacity-60"
             >
               {currentIntent === "upsert-env" &&
               currentTarget === app.target &&
@@ -1998,7 +2009,7 @@ function AdminPlatformTab({
             </button>
           </Form>
 
-          <div className="mt-5 space-y-3">
+          <div className="mt-4 space-y-3">
             {app.envs.length > 0 ? (
               app.envs.map((env) => (
                 <EnvRow
@@ -2012,22 +2023,22 @@ function AdminPlatformTab({
                 />
               ))
             ) : (
-              <div className="rounded-md border border-dashed border-white/10 bg-[#111823] px-4 py-6 text-sm text-white/55">
+              <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
                 No variables added yet.
               </div>
             )}
           </div>
-        </motion.section>
+        </MotionSection>
       ))}
     </div>
   );
 }
 
 const fieldClassName =
-  `${inputOnDarkClass} min-h-11 [&>option]:bg-[var(--surface-dark)] [&>option]:text-white`;
+  `${inputClass} min-h-10 [&>option]:bg-[var(--surface)] [&>option]:text-[var(--foreground)]`;
 
 const primaryButtonClassName =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-muted)] disabled:opacity-60";
 
 function CoolifySiteImportCard({
   site,
@@ -2048,7 +2059,7 @@ function CoolifySiteImportCard({
   return (
     <Form
       method="post"
-      className="flex min-h-[360px] min-w-0 flex-col rounded-md border border-white/10 bg-[#0B1118] p-5"
+      className="flex min-h-[360px] min-w-0 flex-col rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
     >
       <input type="hidden" name="intent" value="import-coolify-site" />
       <input type="hidden" name="coolify_resource_id" value={site.uuid} />
@@ -2056,12 +2067,12 @@ function CoolifySiteImportCard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="break-words text-base font-semibold text-white">
+            <h3 className="break-words text-base font-semibold text-[var(--foreground)]">
               {site.name || "Coolify application"}
             </h3>
             {site.status ? <Badge>{site.status}</Badge> : null}
           </div>
-          <div className="mt-2 break-all font-mono text-xs text-white/45">
+          <div className="mt-2 break-all font-mono text-xs text-[var(--text-muted)]">
             {site.uuid}
           </div>
         </div>
@@ -2069,11 +2080,11 @@ function CoolifySiteImportCard({
       </div>
 
       {site.fqdn ? (
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">
+        <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
             Public URL
           </div>
-          <div className="mt-1 break-all text-xs leading-5 text-white/60">
+          <div className="mt-1 break-all text-xs leading-5 text-[var(--text-muted)]">
             {site.fqdn}
           </div>
         </div>
@@ -2081,7 +2092,7 @@ function CoolifySiteImportCard({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-white/55">Tenant</span>
+          <span className="text-xs font-semibold text-[var(--text-muted)]">Tenant</span>
           <select
             name="tenant_id"
             className={`w-full ${fieldClassName}`}
@@ -2101,7 +2112,7 @@ function CoolifySiteImportCard({
         </label>
 
         <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-white/55">Owner</span>
+          <span className="text-xs font-semibold text-[var(--text-muted)]">Owner</span>
           <select
             name="assign_user_id"
             defaultValue=""
@@ -2118,7 +2129,7 @@ function CoolifySiteImportCard({
         </label>
 
         <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-white/55">Site type</span>
+          <span className="text-xs font-semibold text-[var(--text-muted)]">Site type</span>
           <select
             name="type"
             defaultValue="node"
@@ -2133,7 +2144,7 @@ function CoolifySiteImportCard({
         </label>
 
         <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-white/55">User role</span>
+          <span className="text-xs font-semibold text-[var(--text-muted)]">User role</span>
           <select
             name="role"
             defaultValue="editor"
@@ -2146,7 +2157,7 @@ function CoolifySiteImportCard({
       </div>
 
       <label className="mt-3 space-y-1.5">
-        <span className="text-xs font-semibold text-white/55">
+        <span className="text-xs font-semibold text-[var(--text-muted)]">
           Dashboard name
         </span>
         <input
@@ -2185,13 +2196,13 @@ function Banner({
 }) {
   const className =
     tone === "success"
-      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-100"
+      ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]"
       : tone === "warn"
         ? "border-amber-400/25 bg-amber-400/10 text-amber-100"
         : "border-red-400/25 bg-red-400/10 text-red-100";
 
   return (
-    <div className={`rounded-md border px-5 py-4 text-sm ${className}`}>
+    <div className={`rounded-md border px-4 py-3 text-xs ${className}`}>
       <div className="flex items-center gap-2 font-semibold">
         {tone === "success" ? (
           <CheckCircle2 className="h-4 w-4" />
@@ -2215,16 +2226,14 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="panel-surface rounded-md border border-white/10 p-5">
-      <div className="flex items-center gap-3 text-white/75">
-        <div className="grid h-11 w-11 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
-          {icon}
-        </div>
-        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">
+    <div className="border border-[var(--line)] bg-[var(--surface)] p-4">
+      <div className="flex items-center gap-3 text-[var(--text-muted)]">
+        <div className="text-[var(--text-soft)]">{icon}</div>
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">
           {label}
         </div>
       </div>
-      <div className="mt-4 text-3xl font-semibold tracking-tight text-white">
+      <div className="mt-4 text-lg font-semibold tracking-tight text-[var(--foreground)]">
         {value}
       </div>
     </div>
@@ -2242,7 +2251,7 @@ function EnvFlags({
   >;
 }) {
   return (
-    <div className="flex flex-wrap gap-2 text-xs text-white/70">
+    <div className="flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
       <Flag
         name="is_buildtime"
         label="Build-time"
@@ -2277,7 +2286,7 @@ function Flag({
   checked: boolean;
 }) {
   return (
-    <label className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-3 py-1.5">
+    <label className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5">
       <input type="hidden" name={`${name}_present`} value="1" />
       <input
         type="checkbox"
@@ -2302,9 +2311,9 @@ function EnvRow({
   currentIntent: string;
 }) {
   return (
-    <div className="rounded-md border border-white/10 bg-[#111823] p-4">
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="font-mono text-sm font-semibold text-white">
+        <div className="font-mono text-sm font-semibold text-[var(--foreground)]">
           {env.key}
         </div>
         {env.is_buildtime ? <Badge>Build-time</Badge> : null}
@@ -2338,7 +2347,7 @@ function EnvRow({
             <button
               type="submit"
               disabled={isBusy && currentIntent === "upsert-env"}
-              className="inline-flex items-center gap-2 rounded-md bg-white px-3.5 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-md bg-[var(--surface)] px-3.5 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-muted)] disabled:opacity-60"
             >
               {isBusy && currentIntent === "upsert-env" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -2382,7 +2391,7 @@ function EnvRow({
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-md border border-white/12 bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-white/72">
+    <span className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)]">
       {children}
     </span>
   );
@@ -2400,14 +2409,14 @@ function UserRow({
   isChangingPassword: boolean;
 }) {
   return (
-    <div className="rounded-md border border-white/10 bg-[#111823] p-4">
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="text-base font-semibold text-white">{user.name}</div>
+        <div className="text-base font-semibold text-[var(--foreground)]">{user.name}</div>
         <Badge>{user.role}</Badge>
         <Badge>{user.is_active ? "active" : "suspended"}</Badge>
       </div>
-      <div className="mt-2 text-sm text-white/60">{user.email}</div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/45">
+      <div className="mt-2 text-sm text-[var(--text-muted)]">{user.email}</div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
         <span>Tenant: {user.tenant_name || "No tenant"}</span>
         <span>Sites: {user.site_memberships}</span>
         <span>Last login: {formatDate(user.last_login_at)}</span>
@@ -2417,7 +2426,7 @@ function UserRow({
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.4fr_0.95fr]">
         <Form
           method="post"
-          className="space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4"
+          className="space-y-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
         >
           <input type="hidden" name="intent" value="update-user" />
           <input type="hidden" name="user_id" value={user.id} />
@@ -2478,11 +2487,11 @@ function UserRow({
 
         <Form
           method="post"
-          className="space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4"
+          className="space-y-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
         >
           <input type="hidden" name="intent" value="set-password" />
           <input type="hidden" name="user_id" value={user.id} />
-          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
             <LockKeyhole className="h-4 w-4" />
             Password reset
           </div>
@@ -2514,17 +2523,17 @@ function UserRow({
 
 function PlanCatalogCard({ plan }: { plan: PlanCatalogItem }) {
   return (
-    <div className="min-w-0 rounded-md border border-white/10 bg-[#0B1118] p-4">
+    <div className="min-w-0 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-white">{plan.label}</div>
-          <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-white/35">
+          <div className="text-sm font-semibold text-[var(--foreground)]">{plan.label}</div>
+          <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             {plan.key}
           </div>
         </div>
         <Badge>{plan.resources.max_sites} sites</Badge>
       </div>
-      <p className="mt-3 min-h-10 text-xs leading-5 text-white/50">
+      <p className="mt-3 min-h-10 text-xs leading-5 text-[var(--text-muted)]">
         {plan.description}
       </p>
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
@@ -2548,11 +2557,11 @@ function PlanCatalogCard({ plan }: { plan: PlanCatalogItem }) {
 
 function PlanLimit({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
         {label}
       </div>
-      <div className="mt-1 font-semibold text-white/75">{value}</div>
+      <div className="mt-1 font-semibold text-[var(--text-muted)]">{value}</div>
     </div>
   );
 }
@@ -2567,14 +2576,14 @@ function TenantRow({
   isUpdating: boolean;
 }) {
   return (
-    <div className="rounded-md border border-white/10 bg-[#111823] p-4">
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="text-base font-semibold text-white">{tenant.name}</div>
+        <div className="text-base font-semibold text-[var(--foreground)]">{tenant.name}</div>
         <Badge>{tenant.plan}</Badge>
         <Badge>{tenant.is_active ? "active" : "suspended"}</Badge>
         <Badge>{tenant.slug}</Badge>
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/45">
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
         <span>Users: {tenant.usage.users}</span>
         <span>Sites: {tenant.usage.sites}</span>
         <span>Assigned: {tenant.usage.assigned_sites}</span>
@@ -2605,7 +2614,7 @@ function TenantRow({
       </div>
       <Form
         method="post"
-        className="mt-4 space-y-3 rounded-md border border-white/10 bg-white/[0.03] p-4"
+        className="mt-4 space-y-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
       >
         <input type="hidden" name="intent" value="update-tenant" />
         <input type="hidden" name="tenant_id" value={tenant.id} />
@@ -2675,7 +2684,7 @@ function TenantRow({
             className={fieldClassName}
           />
         </div>
-        <p className="text-xs text-white/45">
+        <p className="text-xs text-[var(--text-muted)]">
           Leave a quota field blank to remove the override and fall back to the
           plan default.
         </p>
@@ -2710,9 +2719,9 @@ function SiteRow({
   );
 
   return (
-    <div className="rounded-md border border-white/10 bg-[#111823] p-4">
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="text-base font-semibold text-white">{site.name}</div>
+        <div className="text-base font-semibold text-[var(--foreground)]">{site.name}</div>
         <Badge>{site.type}</Badge>
         <Badge>{site.tenant_name}</Badge>
         <Badge>{site.tenant_plan}</Badge>
@@ -2720,7 +2729,7 @@ function SiteRow({
           {site.is_unassigned ? "unassigned" : `${site.member_count} members`}
         </Badge>
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/45">
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
         <span>Status: {site.status}</span>
         <span>CPU: {site.cpu_limit}</span>
         <span>Memory: {site.memory_mb} MB</span>
@@ -2738,7 +2747,7 @@ function SiteRow({
       ) : null}
       <Form
         method="post"
-        className="mt-4 rounded-md border border-white/10 bg-white/[0.03] p-4"
+        className="mt-4 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
       >
         <input type="hidden" name="intent" value="assign-site" />
         <input type="hidden" name="site_id" value={site.id} />
@@ -2794,15 +2803,15 @@ function ResourceCard({
   const resolved = overrideValue ?? base;
 
   return (
-    <div className="rounded-md border border-white/10 bg-white/[0.03] px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/40">
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
         {label}
       </div>
-      <div className="mt-2 text-lg font-semibold text-white">
+      <div className="mt-2 text-lg font-semibold text-[var(--foreground)]">
         {resolved}
         {suffix ? ` ${suffix}` : ""}
       </div>
-      <div className="mt-1 text-xs text-white/45">
+      <div className="mt-1 text-xs text-[var(--text-muted)]">
         {overrideValue === null
           ? "Using plan default"
           : `Override on top of ${base}${suffix ? ` ${suffix}` : ""}`}

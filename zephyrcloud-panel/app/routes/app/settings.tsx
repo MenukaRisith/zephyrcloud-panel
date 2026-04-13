@@ -6,7 +6,6 @@ import {
   useLoaderData,
   useSearchParams,
 } from "react-router";
-import { motion } from "framer-motion";
 import {
   ArrowRight,
   CheckCircle2,
@@ -28,7 +27,7 @@ import {
 } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import { apiFetchAuthed } from "~/services/api.authed.server";
-import { PANEL_NAME } from "~/lib/brand";
+import { softInsetClass } from "~/lib/ui";
 
 type GithubConnectionData = {
   configured: boolean;
@@ -122,31 +121,31 @@ function statusCopy(status: string | null, message: string | null) {
   switch (status) {
     case "connected":
       return {
-        tone: "emerald",
+        tone: "success",
         title: "GitHub connected",
         body: "You can now choose eligible private repositories during site setup.",
       };
     case "disconnected":
       return {
-        tone: "amber",
+        tone: "warn",
         title: "GitHub disconnected",
         body: "Private repositories will need to be connected manually until GitHub is linked again.",
       };
     case "not-configured":
       return {
-        tone: "red",
+        tone: "error",
         title: "GitHub is not available yet",
         body: "GitHub sign-in has not been enabled for this workspace yet.",
       };
     case "invalid-state":
       return {
-        tone: "red",
+        tone: "error",
         title: "GitHub sign-in expired",
         body: "Please start the GitHub connection flow again.",
       };
     case "error":
       return {
-        tone: "red",
+        tone: "error",
         title: "GitHub connection failed",
         body:
           message ||
@@ -159,12 +158,14 @@ function statusCopy(status: string | null, message: string | null) {
 
 function toneClass(tone: string) {
   switch (tone) {
-    case "emerald":
-      return "border-emerald-400/25 bg-emerald-400/10 text-emerald-100";
-    case "amber":
-      return "border-amber-400/25 bg-amber-400/10 text-amber-100";
-    case "red":
-      return "border-red-400/25 bg-red-400/10 text-red-100";
+    case "success":
+      return "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]";
+    case "warn":
+      return "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]";
+    case "error":
+      return "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]";
+    default:
+      return "border-[var(--line)] bg-[var(--surface-muted)] text-[var(--text-muted)]";
   }
 }
 
@@ -179,197 +180,165 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
-      <Card className="panel-grid overflow-hidden">
-        <CardHeader>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                Connections
-              </div>
-              <CardTitle className="mt-2 text-3xl">GitHub</CardTitle>
-              <CardDescription className="mt-2 max-w-3xl">
-                Connect GitHub to choose repositories faster when creating a new site.
-              </CardDescription>
-            </div>
-            <Link to="/sites?new=1">
-              <Button variant="dark">
-                New site
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </CardHeader>
-      </Card>
-
+    <div className="space-y-4 pb-8">
       {githubStatus ? (
-        <div
-          className={`rounded-md border px-5 py-4 text-sm ${toneClass(githubStatus.tone)}`}
-        >
+        <div className={`border px-4 py-3 text-xs ${toneClass(githubStatus.tone)}`}>
           <div className="font-semibold">{githubStatus.title}</div>
-          <p className="mt-1 text-sm/6 opacity-85">{githubStatus.body}</p>
+          <p className="mt-1 text-xs/5 opacity-85">{githubStatus.body}</p>
         </div>
       ) : null}
 
       {actionData?.ok === false ? (
-        <div className="rounded-md border border-red-400/25 bg-red-400/10 px-5 py-4 text-sm text-red-100">
+        <div className="border border-[var(--danger)] bg-[var(--danger-soft)] px-4 py-3 text-xs text-[var(--danger)]">
           <div className="font-semibold">Action failed</div>
           <p className="mt-1 opacity-85">{actionData.error}</p>
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="min-w-0"
-        >
-          <Card className="h-full">
-            <CardHeader>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="grid size-14 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
-                    <Github className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <CardTitle>GitHub account</CardTitle>
-                    <CardDescription>
-                      Used to browse repositories and connect private projects during site setup.
-                    </CardDescription>
-                  </div>
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
+        <Card className="h-full">
+          <CardHeader>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-4">
+                <Github className="mt-0.5 h-5 w-5 text-[var(--text-soft)]" />
+                <div className="space-y-2">
+                  <CardTitle>GitHub identity</CardTitle>
+                  <CardDescription>
+                    Used to browse repositories and connect private projects during site setup.
+                  </CardDescription>
                 </div>
-
-                {github.connected ? (
-                  <Badge className="border-emerald-400/20 bg-emerald-400/10 text-emerald-100">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Connected
-                  </Badge>
-                ) : (
-                  <Badge className="bg-white/[0.05] text-white/74">
-                    <ShieldAlert className="h-3.5 w-3.5" />
-                    Not connected
-                  </Badge>
-                )}
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {!github.configured ? (
-                <div className="rounded-md border border-red-400/20 bg-red-400/10 p-5 text-sm text-red-100">
-                  <div className="font-semibold">GitHub sign-in is not enabled</div>
-                  <p className="mt-2 leading-6 opacity-85">
-                    Ask an administrator to enable GitHub sign-in for this workspace.
-                  </p>
-                </div>
-              ) : github.connected ? (
-                <>
-                  <div className="rounded-md border border-white/10 bg-white/[0.04] p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                      {github.avatar_url ? (
-                        <img
-                          src={github.avatar_url}
-                          alt={github.login || "GitHub avatar"}
-                          className="h-14 w-14 rounded-md border border-white/10 object-cover"
-                        />
-                      ) : (
-                        <div className="grid h-14 w-14 place-items-center rounded-md border border-white/10 bg-white/[0.05] text-white/70">
-                          <Github className="h-5 w-5" />
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-lg font-semibold text-white">
-                          {github.name || github.login || "GitHub account"}
-                        </div>
-                        {github.login ? (
-                          <div className="text-sm text-white/55">@{github.login}</div>
-                        ) : null}
-                      </div>
-                    </div>
-                    <Separator className="my-5" />
-                    <div className="flex flex-wrap gap-2">
-                      {github.scopes.length > 0 ? (
-                        github.scopes.map((scope) => <Badge key={scope}>{scope}</Badge>)
-                      ) : (
-                        <Badge>OAuth scopes unavailable</Badge>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="flex flex-wrap gap-3">
-                    <a href="/api/github/oauth/start?returnTo=/settings">
-                      <Button variant="dark">
-                        Reconnect
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </a>
-                    <Form method="post">
-                      <input type="hidden" name="intent" value="disconnect-github" />
-                      <Button type="submit" variant="secondary">
-                        <Unplug className="h-4 w-4" />
-                        Disconnect
-                      </Button>
-                    </Form>
-                  </div>
-                </>
+              {github.connected ? (
+                <Badge className="border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Connected
+                </Badge>
               ) : (
-                <div className="flex flex-col gap-4 rounded-md border border-white/10 bg-white/[0.04] p-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <div className="text-base font-semibold text-white">
-                      Connect GitHub for private repositories
+                <Badge className="border-[var(--line)] bg-[var(--surface-muted)] text-[var(--text-muted)]">
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                  Not connected
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!github.configured ? (
+              <div className="border border-[var(--danger)] bg-[var(--danger-soft)] p-4 text-xs text-[var(--danger)]">
+                <div className="font-semibold">GitHub sign-in is not enabled</div>
+                <p className="mt-2 leading-6 opacity-85">
+                  Ask an administrator to enable GitHub sign-in for this workspace.
+                </p>
+              </div>
+            ) : github.connected ? (
+              <>
+                <div className={`${softInsetClass} space-y-4 px-4 py-4`}>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    {github.avatar_url ? (
+                      <img
+                        src={github.avatar_url}
+                        alt={github.login || "GitHub avatar"}
+                        className="h-12 w-12 border border-[var(--line)] object-cover"
+                      />
+                    ) : (
+                      <Github className="h-5 w-5 text-[var(--text-soft)]" />
+                    )}
+                    <div className="min-w-0 space-y-1">
+                      <div className="text-sm font-semibold text-[var(--foreground)]">
+                        {github.name || github.login || "GitHub account"}
+                      </div>
+                      {github.login ? (
+                        <div className="text-xs text-[var(--text-muted)]">@{github.login}</div>
+                      ) : null}
                     </div>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-                      Once connected, you can choose from eligible repositories while creating a site.
-                    </p>
                   </div>
+                  <Separator />
+                  <div className="flex flex-wrap gap-2">
+                    {github.scopes.length > 0 ? (
+                      github.scopes.map((scope) => <Badge key={scope}>{scope}</Badge>)
+                    ) : (
+                      <Badge>OAuth scopes unavailable</Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
                   <a href="/api/github/oauth/start?returnTo=/settings">
-                    <Button variant="dark">
-                      <Github className="h-4 w-4" />
-                      Connect GitHub
+                    <Button>
+                      Reconnect
+                      <ArrowRight className="h-4 w-4" />
                     </Button>
                   </a>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="disconnect-github" />
+                    <Button type="submit" variant="secondary">
+                      <Unplug className="h-4 w-4" />
+                      Disconnect
+                    </Button>
+                  </Form>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+              </>
+            ) : (
+              <div className={`${softInsetClass} flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between`}>
+                <div className="max-w-2xl space-y-2">
+                  <div className="text-sm font-semibold text-[var(--foreground)]">
+                    Connect GitHub for private repositories
+                  </div>
+                  <p className="text-xs leading-5 text-[var(--text-muted)]">
+                    Once connected, you can choose from eligible repositories while creating a site.
+                  </p>
+                </div>
+                <a href="/api/github/oauth/start?returnTo=/settings">
+                  <Button>
+                    <Github className="h-4 w-4" />
+                    Connect GitHub
+                  </Button>
+                </a>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="space-y-6"
-        >
+        <div className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="grid size-11 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
-                <div>
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 text-[var(--text-soft)]" />
+                <div className="space-y-2">
                   <CardTitle>What this enables</CardTitle>
                   <CardDescription>Private repository setup after GitHub is connected.</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm text-white/70">
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                1. Choose a connected private repository.
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                2. A secure repository key is prepared automatically.
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
-                3. Your site is created with the selected repository.
-              </div>
+            <CardContent>
+              <ol className="space-y-3 text-xs text-[var(--text-muted)]">
+                <li className={`${softInsetClass} flex gap-3 px-4 py-4`}>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                    01
+                  </span>
+                  <span>Choose a connected private repository.</span>
+                </li>
+                <li className={`${softInsetClass} flex gap-3 px-4 py-4`}>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                    02
+                  </span>
+                  <span>A secure repository key is prepared automatically.</span>
+                </li>
+                <li className={`${softInsetClass} flex gap-3 px-4 py-4`}>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                    03
+                  </span>
+                  <span>Your site is created with the selected repository.</span>
+                </li>
+              </ol>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="grid size-11 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
-                  <KeyRound className="h-5 w-5" />
-                </div>
-                <div>
+              <div className="flex items-start gap-3">
+                <KeyRound className="mt-0.5 h-5 w-5 text-[var(--text-soft)]" />
+                <div className="space-y-2">
                   <CardTitle>Prefer manual setup?</CardTitle>
                   <CardDescription>
                     You can still use a public repository or a manual deploy key.
@@ -386,7 +355,7 @@ export default function SettingsPage() {
               </Link>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

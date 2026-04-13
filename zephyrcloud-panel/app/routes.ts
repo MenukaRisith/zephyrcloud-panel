@@ -38,6 +38,7 @@ export default [
 
     // Team access overview
     route("team", "routes/app/team.tsx"),
+    route("databases", "routes/app/databases.tsx"),
 
     // Personal integrations
     route("settings", "routes/app/settings.tsx"),
@@ -45,10 +46,17 @@ export default [
     route("admin", "routes/app/admin.tsx"),
 
     // Site page
-    route("sites/:id", "routes/app/site.$id.tsx"),
+    route("sites/:id", "routes/app/site.$id.tsx", [
+      index("routes/app/site.$id._index.tsx"),
+      route("deployments", "routes/app/site.$id.deployments.tsx"),
+      route("logs", "routes/app/site.$id.logs-view.tsx"),
+      route("domains", "routes/app/site.$id.domains.tsx"),
+      route("database", "routes/app/site.$id.database.tsx"),
+      route("settings", "routes/app/site.$id.settings.tsx"),
+    ]),
 
     // Logs resource route (loader-only)
-    route("sites/:id/logs", "routes/app/site.$id.logs.ts"),
+    route("sites/:id/log-events", "routes/app/site.$id.logs.ts"),
 
     // Live status resource route (loader-only)
     route("sites/:id/status", "routes/app/sites.$id.status.ts"),

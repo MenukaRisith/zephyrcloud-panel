@@ -1,29 +1,14 @@
 import * as React from "react";
-import {
-  Form,
-  Link,
-  useActionData,
-  useLoaderData,
-} from "react-router";
-import {
-  Activity,
-  Copy,
-  Database,
-  Github,
-  Globe,
-  Rocket,
-  Server,
-} from "lucide-react";
+import { Link, useLoaderData } from "react-router";
+import { Activity, Database, Github, Globe, Rocket, Server } from "lucide-react";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
-  Card,
-  CardContent,
   CardDescription,
-  CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import { softInsetClass } from "~/lib/ui";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { requireUser } from "~/services/session.server";
 
@@ -77,28 +62,6 @@ type LoaderData = {
     login?: string;
   };
 };
-
-type ActionData =
-  | { ok: true; message: string }
-  | { ok: false; error: string };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function parseMessage(payload: unknown, fallback: string) {
-  if (!isRecord(payload)) return fallback;
-  if (typeof payload.message === "string" && payload.message.trim()) {
-    return payload.message;
-  }
-  if (Array.isArray(payload.message) && typeof payload.message[0] === "string") {
-    return payload.message[0];
-  }
-  if (typeof payload.error === "string" && payload.error.trim()) {
-    return payload.error;
-  }
-  return fallback;
-}
 
 async function safeJson(response: Response) {
   return response.json().catch(() => null);
@@ -217,11 +180,7 @@ export async function loader({
 
     const recent: ActivityItem[] = [];
     if (!workspaceDatabase) {
-      recent.push({
-        title: "Database",
-        desc: "Not set up",
-        tone: "neutral",
-      });
+      recent.push({ title: "Database", desc: "Not set up", tone: "neutral" });
     }
 
     if (sites.length === 0) {
@@ -305,46 +264,6 @@ export async function loader({
   }
 }
 
-export async function action({
-  request,
-}: {
-  request: Request;
-}): Promise<ActionData | null> {
-  const formData = await request.formData();
-  const intent = String(formData.get("intent") || "");
-
-  if (intent !== "create-workspace-database") {
-    return null;
-  }
-
-  const engine = String(formData.get("engine") || "").trim();
-  if (!["mariadb", "mysql", "postgresql"].includes(engine)) {
-    return { ok: false, error: "Choose a valid database engine." };
-  }
-
-  const response = await apiFetchAuthed(request, "/api/sites/workspace/database", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ engine }),
-  });
-
-  const payload = await safeJson(response);
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: parseMessage(payload, "Database setup could not be started."),
-    };
-  }
-
-  const label =
-    engine === "postgresql" ? "PostgreSQL" : engine === "mysql" ? "MySQL" : "MariaDB";
-
-  return {
-    ok: true,
-    message: `${label} database setup has started. Connection details will appear here when the service is ready.`,
-  };
-}
-
 function StatCard({
   icon,
   label,
@@ -355,301 +274,112 @@ function StatCard({
   value: string;
 }) {
   return (
-    <Card className="min-w-0">
-      <CardContent className="flex items-center justify-between gap-4 px-5 py-5">
-        <div className="min-w-0">
-          <div className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-white/42">
-            {label}
-          </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-white">{value}</div>
-        </div>
-        <div className="grid size-11 shrink-0 place-items-center rounded-md border border-white/10 bg-[var(--accent-soft)] text-white">
-          {icon}
-        </div>
-      </CardContent>
-    </Card>
+    <article className={`${softInsetClass} flex min-h-20 flex-col justify-between gap-3 px-4 py-3.5`}>
+      <div className="inline-flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+        <span className="text-[var(--text-soft)]">{icon}</span>
+        {label}
+      </div>
+      <div className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+        {value}
+      </div>
+    </article>
   );
 }
 
 function ActivityToneBadge({ tone }: { tone: ActivityItem["tone"] }) {
   const className =
     tone === "ok"
-      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+      ? "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]"
       : tone === "warn"
-        ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
-        : "border-white/10 bg-white/[0.05] text-white/76";
+        ? "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]"
+        : "border-[var(--line)] bg-[var(--surface-muted)] text-[var(--text-muted)]";
 
   return (
     <span
-      className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${className}`}
+      className={`inline-flex items-center border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${className}`}
     >
       {tone === "ok" ? "Healthy" : tone === "warn" ? "Check" : "Info"}
     </span>
   );
 }
 
-function CopyField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  const [copied, setCopied] = React.useState(false);
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  return (
-    <div className="rounded-md border border-white/10 bg-white/[0.04] p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
-            {label}
-          </div>
-          <div className="mt-2 break-all font-mono text-sm text-white">
-            {value}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-white/82 transition hover:border-white/20 hover:bg-white/[0.09]"
-        >
-          <Copy className="h-3.5 w-3.5" />
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function formatEngineLabel(engine: WorkspaceDatabase["engine"]) {
-  if (engine === "postgresql") return "PostgreSQL";
-  if (engine === "mysql") return "MySQL";
-  return "MariaDB";
-}
-
 export default function AppIndex() {
-  const { stats, recent, github, workspaceDatabase, user } = useLoaderData() as LoaderData;
-  const actionData = useActionData() as ActionData | null;
+  const { stats, recent, github, user } = useLoaderData() as LoaderData;
   const isAdmin = user.role === "admin";
   const summaryStats = [
+    { icon: <Server className="h-4 w-4" />, label: "Sites", value: String(stats.sites) },
+    { icon: <Globe className="h-4 w-4" />, label: "Domains", value: String(stats.domains) },
     {
-      icon: <Server className="h-5 w-5" />,
-      label: "Sites",
-      value: String(stats.sites),
-    },
-    {
-      icon: <Globe className="h-5 w-5" />,
-      label: "Domains",
-      value: String(stats.domains),
-    },
-    {
-      icon: <Database className="h-5 w-5" />,
+      icon: <Database className="h-4 w-4" />,
       label: "Databases",
       value: String(stats.databases),
     },
     {
-      icon: <Activity className="h-5 w-5" />,
+      icon: <Activity className="h-4 w-4" />,
       label: "Deployments",
       value: String(stats.deployments),
     },
   ];
-  const statusCards = [
-    {
-      label: "GitHub",
-      value: github.connected ? "Connected" : github.configured ? "Ready to connect" : "Unavailable",
-    },
-    {
-      label: "Database",
-      value: workspaceDatabase ? formatEngineLabel(workspaceDatabase.engine) : "Not set up",
-    },
-    {
-      label: "Role",
-      value: isAdmin ? "Administrator" : "Member",
-    },
-  ];
 
   return (
-    <div className="space-y-6 pb-10">
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
-        <Card className="panel-grid overflow-hidden">
-          <CardHeader>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                  Workspace
-                </div>
-                <CardTitle className="mt-2 text-3xl">At a glance</CardTitle>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Link to="/sites?new=1">
-                  <Button>
-                    <Rocket className="h-4 w-4" />
-                    New site
-                  </Button>
-                </Link>
-                <Link to={github.connected ? "/sites?new=1" : "/settings"}>
-                  <Button variant="secondary">
-                    <Github className="h-4 w-4" />
-                    {github.connected ? "Use GitHub" : "Connect GitHub"}
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-              {summaryStats.map((item) => (
-                <StatCard
-                  key={item.label}
-                  icon={item.icon}
-                  label={item.label}
-                  value={item.value}
-                />
-              ))}
-            </div>
-            <div className="grid gap-3 lg:grid-cols-3">
-              {statusCards.map((item) => (
-                <div
-                  key={item.label}
-                  className="min-w-0 rounded-md border border-white/10 bg-white/[0.04] px-4 py-3"
-                >
-                  <div className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-white/38">
-                    {item.label}
-                  </div>
-                  <div className="mt-2 truncate text-base font-semibold text-white">{item.value}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                  Workspace
-                </div>
-                <CardTitle className="mt-2">Recent activity</CardTitle>
-              </div>
-              {isAdmin ? <Badge>Admin</Badge> : null}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recent.map((item) => (
-              <div
-                key={`${item.title}:${item.desc}`}
-                className="rounded-md border border-white/10 bg-white/[0.04] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-medium text-white">{item.title}</div>
-                    <div className="mt-1 text-sm text-white/54">{item.desc}</div>
-                  </div>
-                  <ActivityToneBadge tone={item.tone} />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      {actionData ? (
-        <div
-          className={`rounded-md border px-4 py-3 text-sm ${
-            actionData.ok
-              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-              : "border-red-400/20 bg-red-400/10 text-red-100"
-          }`}
-        >
-          {actionData.ok ? actionData.message : actionData.error}
-        </div>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                Database
-              </div>
-              <CardTitle className="mt-2">
-                {workspaceDatabase ? "Connection details" : "Set up a database"}
-              </CardTitle>
-            </div>
-            {workspaceDatabase ? (
-              <Badge>{formatEngineLabel(workspaceDatabase.engine)}</Badge>
-            ) : null}
+    <div className="space-y-4 pb-8 text-sm">
+      <section className="space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <CardTitle className="text-lg">At a glance</CardTitle>
+            <CardDescription className="text-xs leading-5">
+              Operational metrics for your current workspace.
+            </CardDescription>
           </div>
-        </CardHeader>
-        <CardContent>
-          {workspaceDatabase ? (
-            <div className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <CopyField label="Public URL" value={workspaceDatabase.public_url} />
-                <CopyField
-                  label="Host"
-                  value={`${workspaceDatabase.host}:${workspaceDatabase.port}`}
-                />
-                <CopyField label="Database name" value={workspaceDatabase.db_name} />
-                <CopyField label="Username" value={workspaceDatabase.username} />
-                <CopyField label="Password" value={workspaceDatabase.password} />
-                <CopyField
-                  label="SSL mode"
-                  value={workspaceDatabase.ssl_mode || "default"}
-                />
+          <div className="flex flex-wrap gap-2">
+            <Link to="/sites?new=1">
+              <Button size="sm">
+                <Rocket className="h-3.5 w-3.5" />
+                New site
+              </Button>
+            </Link>
+            <Link to={github.connected ? "/sites?new=1" : "/settings"}>
+              <Button variant="secondary" size="sm">
+                <Github className="h-3.5 w-3.5" />
+                {github.connected ? "Use GitHub" : "Connect GitHub"}
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {summaryStats.map((item) => (
+            <StatCard key={item.label} icon={item.icon} label={item.label} value={item.value} />
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-2">
+            <CardTitle>Recent activity</CardTitle>
+            <CardDescription className="text-xs leading-5">
+              Current signals that may need attention across your workspace.
+            </CardDescription>
+          </div>
+          {isAdmin ? <Badge>Admin</Badge> : null}
+        </div>
+        <div className="space-y-2.5">
+          {recent.map((item) => (
+            <div
+              key={`${item.title}:${item.desc}`}
+              className={`${softInsetClass} flex items-start justify-between gap-3 px-4 py-4`}
+            >
+              <div className="space-y-1.5">
+                <div className="text-sm font-medium text-[var(--foreground)]">{item.title}</div>
+                <div className="text-xs text-[var(--text-muted)]">{item.desc}</div>
               </div>
+              <ActivityToneBadge tone={item.tone} />
             </div>
-          ) : (
-            <Form method="post" className="space-y-4">
-              <input type="hidden" name="intent" value="create-workspace-database" />
+          ))}
+        </div>
+      </section>
 
-              <div className="rounded-md border border-white/10 bg-white/[0.04] p-5">
-                <div className="text-sm font-medium text-white">
-                  Database type
-                </div>
-                <div className="mt-4 space-y-3">
-                  <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
-                    <input type="radio" name="engine" value="mariadb" defaultChecked />
-                    <div>
-                      <div className="font-medium text-white">MariaDB</div>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
-                    <input type="radio" name="engine" value="mysql" />
-                    <div>
-                      <div className="font-medium text-white">MySQL</div>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 rounded-md border border-white/10 bg-[var(--surface-elevated)] px-4 py-3 text-white">
-                    <input type="radio" name="engine" value="postgresql" />
-                    <div>
-                      <div className="font-medium text-white">PostgreSQL</div>
-                    </div>
-                  </label>
-                </div>
-
-                <div className="mt-5">
-                  <Button type="submit">
-                    <Database className="h-4 w-4" />
-                    Create database
-                  </Button>
-                </div>
-              </div>
-            </Form>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

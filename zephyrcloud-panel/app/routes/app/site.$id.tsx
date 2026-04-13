@@ -1,190 +1,60 @@
-// app/routes/app/site.$id.tsx
 import * as React from "react";
-import { Form, useFetcher, useLoaderData, useNavigation } from "react-router";
-import { motion } from "framer-motion";
+import {
+  Form,
+  Outlet,
+  useFetcher,
+  useLoaderData,
+  useLocation,
+  useNavigation,
+} from "react-router";
 import {
   Boxes,
-  Rocket,
-  RefreshCw,
-  Terminal,
-  History,
-  Globe,
-  Database,
-  Settings,
-  Loader2,
-  Copy,
-  Plus,
-  ArrowRight,
   ExternalLink,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Trash2,
-  Eye,
-  EyeOff,
+  Globe,
+  Loader2,
   Play,
+  RefreshCw,
+  Rocket,
   Square,
-  AlertTriangle, // Added this icon
-  Info, // Added this icon
+  Terminal,
 } from "lucide-react";
 
-import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Textarea } from "~/components/ui/textarea";
 import { resolveDnsTarget } from "~/lib/brand";
 import { apiFetchAuthed } from "~/services/api.authed.server";
+import {
+  extractGithubRepoRef,
+  normalizeStatus,
+  StatusBadge,
+  type DBInfo,
+  type Deployment,
+  type Domain,
+  type EnvVar,
+  type Site,
+  type SiteRouteContext,
+  type StatusPayload,
+  type TeamInfo,
+} from "./site-detail.shared";
 
-// --- Types ---
-
-type Site = {
-  id: string;
-  name: string;
-  type: "wordpress" | "node" | "static" | "php" | "python";
-  status: string;
-  primaryDomain?: string | null;
-  repo_url?: string;
-  repo_branch?: string;
-  created_at?: string;
-};
-
-type Deployment = {
-  id: string;
-  created_at?: string;
-  status: string;
-  commit_message?: string;
-  commit_hash?: string;
-  triggered_by?: string;
-};
-
-type Domain = {
-  id: string;
-  domain: string;
-  status?: string;
-  ssl_enabled?: boolean;
-  created_at?: string;
-};
-
-type DBInfo = {
-  engine: "mariadb" | "mysql" | "postgres";
-  host: string;
-  port: number;
-  username: string;
-  db_name: string;
-  password?: string;
-};
-
-type EnvVar = {
-  key: string;
-  value: string;
-  is_preview?: boolean;
-  is_multiline?: boolean;
-  is_shown_once?: boolean;
-  is_buildtime?: boolean;
-  is_build_time?: boolean;
-  is_literal?: boolean;
-};
-type TeamRole = "viewer" | "editor";
-type TeamMember = {
-  id: string;
-  user_id: string;
-  email: string;
-  name: string;
-  role: TeamRole;
-  created_at?: string;
-};
-type TeamInvite = {
-  id: string;
-  email: string;
-  role: TeamRole;
-  status: "pending" | "accepted" | "revoked";
-  created_at?: string;
-};
-type TeamInfo = {
-  can_write: boolean;
-  members: TeamMember[];
-  invites: TeamInvite[];
-};
-
-type StatusPayload =
-  | { ok: true; status: string; source?: string; updatedAt?: string; raw?: any }
-  | { ok: false; error: string };
-
-type LoaderData = {
-  site: Site;
-  deployments: Deployment[];
-  domains: Domain[];
-  db: DBInfo | null;
-  envs: EnvVar[];
-  team: TeamInfo;
-  dnsTarget: {
-    value: string;
-    recordType: string;
-    isConfigured: boolean;
-  };
-};
-
-type SiteTab =
-  | "overview"
-  | "deployments"
-  | "logs"
-  | "domains"
-  | "database"
-  | "settings";
-
-type LogsPayload =
-  | {
-      ok: true;
-      logs: string;
-      lines?: number;
-      updatedAt?: string;
-      source?: string;
-    }
-  | { ok: false; error: string };
-
-type DbTablesPayload =
-  | {
-      ok: true;
-      connected: boolean;
-      database: string;
-      engine: string;
-      tables: Array<{ name: string; approxRows: number | null }>;
-    }
-  | { ok: false; error: string };
-
-type DbRowsPayload =
-  | {
-      ok: true;
-      table: string;
-      columns: string[];
-      rows: Record<string, unknown>[];
-      limit: number;
-      offset: number;
-      hasMore: boolean;
-      nextOffset: number | null;
-    }
-  | { ok: false; error: string };
-
-// --- Server Loader ---
+type LoaderData = Omit<SiteRouteContext, "displayStatus" | "canManageTeam" | "currentIntent" | "isSubmitting" | "actionPath">;
 
 export async function loader({
   request,
   params,
 }: {
   request: Request;
-  params: any;
+  params: { id?: string };
 }): Promise<LoaderData> {
   const id = String(params.id);
 
   try {
-    const [siteRes, depRes, domRes, dbRes, envRes, teamRes] = await Promise.all(
-      [
-        apiFetchAuthed(request, `/api/sites/${id}`),
-        apiFetchAuthed(request, `/api/sites/${id}/deployments`),
-        apiFetchAuthed(request, `/api/sites/${id}/domains`),
-        apiFetchAuthed(request, `/api/sites/${id}/database`),
-        apiFetchAuthed(request, `/api/sites/${id}/envs`),
-        apiFetchAuthed(request, `/api/sites/${id}/team`),
-      ],
-    );
+    const [siteRes, depRes, domRes, dbRes, envRes, teamRes] = await Promise.all([
+      apiFetchAuthed(request, `/api/sites/${id}`),
+      apiFetchAuthed(request, `/api/sites/${id}/deployments`),
+      apiFetchAuthed(request, `/api/sites/${id}/domains`),
+      apiFetchAuthed(request, `/api/sites/${id}/database`),
+      apiFetchAuthed(request, `/api/sites/${id}/envs`),
+      apiFetchAuthed(request, `/api/sites/${id}/team`),
+    ]);
 
     if (!siteRes.ok) throw new Error("Site not found");
 
@@ -192,14 +62,18 @@ export async function loader({
     if (dbRes.ok) {
       try {
         db = await dbRes.json();
-      } catch (e) {}
+      } catch {
+        db = null;
+      }
     }
 
     let envs: EnvVar[] = [];
     if (envRes.ok) {
       try {
         envs = await envRes.json();
-      } catch (e) {}
+      } catch {
+        envs = [];
+      }
     }
 
     let team: TeamInfo = { can_write: false, members: [], invites: [] };
@@ -211,7 +85,9 @@ export async function loader({
           members: Array.isArray(payload.members) ? payload.members : [],
           invites: Array.isArray(payload.invites) ? payload.invites : [],
         };
-      } catch (e) {}
+      } catch {
+        team = { can_write: false, members: [], invites: [] };
+      }
     }
 
     const site = await siteRes.json();
@@ -219,9 +95,9 @@ export async function loader({
     const domains = await domRes.json();
 
     return {
-      site: site.data || site,
-      deployments: Array.isArray(deployments) ? deployments : [],
-      domains: Array.isArray(domains) ? domains : [],
+      site: (site.data || site) as Site,
+      deployments: Array.isArray(deployments) ? (deployments as Deployment[]) : [],
+      domains: Array.isArray(domains) ? (domains as Domain[]) : [],
       db,
       envs: Array.isArray(envs) ? envs : [],
       team,
@@ -233,14 +109,12 @@ export async function loader({
   }
 }
 
-// --- Server Action ---
-
 export async function action({
   request,
   params,
 }: {
   request: Request;
-  params: any;
+  params: { id?: string };
 }) {
   const id = String(params.id);
   const fd = await request.formData();
@@ -326,13 +200,9 @@ export async function action({
       const key = String(fd.get("key") || "").trim();
       if (!key) return null;
 
-      await apiFetchAuthed(
-        request,
-        `/api/sites/${id}/envs/${encodeURIComponent(key)}`,
-        {
-          method: "DELETE",
-        },
-      );
+      await apiFetchAuthed(request, `/api/sites/${id}/envs/${encodeURIComponent(key)}`, {
+        method: "DELETE",
+      });
       return null;
     }
 
@@ -389,172 +259,17 @@ export async function action({
   return null;
 }
 
-// --- Utils ---
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
-function normalizeStatus(status: string) {
-  const s = (status || "").toLowerCase();
-  if (s.includes("run") || s.includes("healthy") || s === "up")
-    return "RUNNING";
-  if (
-    s.includes("stop") ||
-    s.includes("down") ||
-    s.includes("exited") ||
-    s.includes("removed")
-  )
-    return "STOPPED";
-  if (
-    s.includes("fail") ||
-    s.includes("error") ||
-    s.includes("crash") ||
-    s.includes("unhealthy")
-  )
-    return "ERROR";
-  if (
-    s.includes("build") ||
-    s.includes("deploy") ||
-    s.includes("provision") ||
-    s.includes("queu") ||
-    s.includes("restarting")
-  )
-    return "BUILDING";
-  return "UNKNOWN";
-}
-
-function StatusPill({ status }: { status: string }) {
-  const normalized = normalizeStatus(status);
-
-  const config = {
-    RUNNING: {
-      bg: "bg-emerald-500/10",
-      text: "text-emerald-400",
-      border: "border-emerald-500/20",
-      label: "Running",
-    },
-    STOPPED: {
-      bg: "bg-zinc-500/10",
-      text: "text-zinc-400",
-      border: "border-zinc-500/20",
-      label: "Stopped",
-    },
-    ERROR: {
-      bg: "bg-red-500/10",
-      text: "text-red-400",
-      border: "border-red-500/20",
-      label: "Error",
-    },
-    BUILDING: {
-      bg: "bg-amber-500/10",
-      text: "text-amber-400",
-      border: "border-amber-500/20",
-      label: "Processing",
-    },
-    UNKNOWN: {
-      bg: "bg-white/5",
-      text: "text-white/50",
-      border: "border-white/10",
-      label: status || "Unknown",
-    },
-  };
-
-  const theme = config[normalized as keyof typeof config] || config.UNKNOWN;
-
-  return (
-    <span
-      className={cx(
-        "rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5",
-        theme.bg,
-        theme.text,
-        theme.border,
-      )}
-    >
-      {normalized === "BUILDING" && (
-        <Loader2 className="h-3 w-3 animate-spin" />
-      )}
-      {normalized === "RUNNING" && (
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-        </span>
-      )}
-      {theme.label}
-    </span>
-  );
-}
-
-function DeploymentStatusIcon({ status }: { status: string }) {
-  const s = status.toLowerCase();
-  if (s === "success" || s === "finished")
-    return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
-  if (s === "failed" || s === "error")
-    return <XCircle className="h-4 w-4 text-red-400" />;
-  if (s === "queued" || s === "pending")
-    return <History className="h-4 w-4 text-white/40" />;
-  return <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />;
-}
-
-function extractGithubRepoRef(input: string) {
-  const value = input.trim();
-  if (!value) return null;
-
-  const simple = value.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
-  if (simple) return `${simple[1]}/${simple[2]}`;
-
-  const https = value.match(
-    /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/?#]+)(?:[/?#].*)?$/i,
-  );
-  if (https) {
-    return `${https[1]}/${https[2].replace(/\.git$/i, "")}`;
-  }
-
-  const ssh = value.match(/^git@github\.com:([^/]+)\/([^/]+)$/i);
-  if (ssh) {
-    return `${ssh[1]}/${ssh[2].replace(/\.git$/i, "")}`;
-  }
-
-  return null;
-}
-
-function domainStatusMeta(domain: Domain) {
-  const status = String(domain.status || "").toLowerCase();
-  if (status.includes("pending")) {
-    return {
-      label: "Pending DNS",
-      className: "bg-amber-500/10 text-amber-300 border border-amber-500/20",
-    };
-  }
-  if (status.includes("error") || status.includes("fail")) {
-    return {
-      label: "Needs attention",
-      className: "bg-red-500/10 text-red-200 border border-red-500/20",
-    };
-  }
-  if (domain.ssl_enabled) {
-    return {
-      label: "Active + SSL",
-      className:
-        "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    };
-  }
-  return {
-    label: status ? status.replace(/_/g, " ") : "Configured",
-    className: "bg-white/10 text-white/70 border border-white/10",
-  };
-}
-
-// --- Main Component ---
-
-export default function SiteOverview() {
-  const { site, deployments, domains, db, envs, team, dnsTarget } =
-    useLoaderData() as LoaderData;
+export default function SiteLayoutRoute() {
+  const { site, deployments, domains, db, envs, team, dnsTarget } = useLoaderData() as LoaderData;
   const nav = useNavigation();
+  const location = useLocation();
+  const statusFetcher = useFetcher<StatusPayload>();
   const isSubmitting = nav.state === "submitting";
   const currentIntent = String(nav.formData?.get("intent") || "");
+  const [liveStatus, setLiveStatus] = React.useState<string>(site.status);
+  const canManageTeam = Boolean(team.can_write);
+  const actionPath = `/sites/${site.id}`;
 
-  // Optimistic UI for restart/deploy
   const isRestarting =
     isSubmitting &&
     (currentIntent === "restart" ||
@@ -562,51 +277,6 @@ export default function SiteOverview() {
       currentIntent === "deploy_force" ||
       currentIntent === "start");
 
-  const [tab, setTab] = React.useState<SiteTab>("overview");
-
-  // Logs Fetcher
-  const logsFetcher = useFetcher<LogsPayload>();
-  const [logLines, setLogLines] = React.useState<
-    "100" | "200" | "500" | "1000"
-  >("200");
-  const [autoRefreshLogs, setAutoRefreshLogs] = React.useState(true);
-
-  // Status Fetcher
-  const statusFetcher = useFetcher<StatusPayload>();
-  const [liveStatus, setLiveStatus] = React.useState<string>(site.status);
-
-  // Database Explorer Fetchers
-  const dbTablesFetcher = useFetcher<DbTablesPayload>();
-  const dbRowsFetcher = useFetcher<DbRowsPayload>();
-  const [tableQuery, setTableQuery] = React.useState("");
-  const [selectedTable, setSelectedTable] = React.useState<string>("");
-  const [rowLimit, setRowLimit] = React.useState<"25" | "50" | "100">("25");
-  const [rowOffset, setRowOffset] = React.useState(0);
-
-  // Derived State
-  const logsLoading =
-    logsFetcher.state === "loading" || logsFetcher.state === "submitting";
-  const logsText =
-    logsFetcher.data && logsFetcher.data.ok ? logsFetcher.data.logs : "";
-  const tablesLoading =
-    dbTablesFetcher.state === "loading" ||
-    dbTablesFetcher.state === "submitting";
-  const rowsLoading =
-    dbRowsFetcher.state === "loading" || dbRowsFetcher.state === "submitting";
-  const tableList =
-    dbTablesFetcher.data && dbTablesFetcher.data.ok
-      ? dbTablesFetcher.data.tables
-      : [];
-  const filteredTables = tableList.filter((t) =>
-    t.name.toLowerCase().includes(tableQuery.trim().toLowerCase()),
-  );
-  const rowPayload =
-    dbRowsFetcher.data && dbRowsFetcher.data.ok ? dbRowsFetcher.data : null;
-  const canManageTeam = Boolean(team.can_write);
-  const teamMembers = Array.isArray(team.members) ? team.members : [];
-  const teamInvites = Array.isArray(team.invites) ? team.invites : [];
-
-  // Update live status when data comes in
   React.useEffect(() => {
     if (statusFetcher.data?.ok) {
       setLiveStatus(statusFetcher.data.status);
@@ -615,7 +285,6 @@ export default function SiteOverview() {
 
   React.useEffect(() => {
     if (!isSubmitting) return;
-
     if (
       currentIntent === "deploy" ||
       currentIntent === "deploy_force" ||
@@ -626,1391 +295,173 @@ export default function SiteOverview() {
     }
   }, [currentIntent, isSubmitting]);
 
-  // --- Optimized Polling Effects ---
-
-  // 1. Logs Polling
   React.useEffect(() => {
-    // Only run if on logs tab and auto-refresh is on
-    if (tab !== "logs" || !autoRefreshLogs) return;
-
-    const interval = setInterval(() => {
-      // Prevent polling if hidden or if previous request is still pending
-      if (document.hidden || logsFetcher.state !== "idle") return;
-
-      logsFetcher.load(
-        `/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
-      );
-    }, 5000); // 5 seconds
-
-    // Initial load when entering tab
-    if (logsFetcher.state === "idle" && !logsFetcher.data) {
-      logsFetcher.load(
-        `/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
-      );
-    }
-
-    return () => clearInterval(interval);
-  }, [tab, autoRefreshLogs, site.id, logLines, logsFetcher.state]);
-
-  // 2. Status Polling (Global)
-  React.useEffect(() => {
-    // Initial Load
     if (statusFetcher.state === "idle" && !statusFetcher.data) {
       statusFetcher.load(`/sites/${site.id}/status`);
     }
 
-    // Faster polling if we think we are building/restarting
     const pollInterval =
-      liveStatus === "PROVISIONING" || liveStatus === "BUILDING" || isRestarting
-        ? 3000
-        : 10000;
+      liveStatus === "PROVISIONING" || liveStatus === "BUILDING" || isRestarting ? 3000 : 10000;
 
-    const interval = setInterval(() => {
-      // Prevent polling if hidden or request pending
+    const interval = window.setInterval(() => {
       if (document.hidden || statusFetcher.state !== "idle") return;
-
       statusFetcher.load(`/sites/${site.id}/status`);
     }, pollInterval);
 
-    return () => clearInterval(interval);
-  }, [site.id, liveStatus, isRestarting]);
+    return () => window.clearInterval(interval);
+  }, [site.id, liveStatus, isRestarting, statusFetcher]);
 
-  React.useEffect(() => {
-    if (tab !== "database" || !db) return;
-    if (dbTablesFetcher.state !== "idle") return;
-    if (!dbTablesFetcher.data) {
-      dbTablesFetcher.load(`/sites/${site.id}/database/tables`);
-    }
-  }, [tab, db, site.id, dbTablesFetcher.state, dbTablesFetcher.data]);
-
-  React.useEffect(() => {
-    if (!dbTablesFetcher.data || !dbTablesFetcher.data.ok) return;
-    if (selectedTable) return;
-    const first = dbTablesFetcher.data.tables[0]?.name;
-    if (first) {
-      setSelectedTable(first);
-      setRowOffset(0);
-    }
-  }, [dbTablesFetcher.data, selectedTable]);
-
-  React.useEffect(() => {
-    if (tab !== "database") return;
-    if (!selectedTable) return;
-    dbRowsFetcher.load(
-      `/sites/${site.id}/database/tables/${encodeURIComponent(selectedTable)}?limit=${rowLimit}&offset=${rowOffset}`,
-    );
-  }, [tab, site.id, selectedTable, rowLimit, rowOffset]);
-
-  // Helpers
-  async function copyToClipboard(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      /* fallback ignored */
-    }
-  }
-
-  const connString = db
-    ? `${db.engine}://${db.username}:${db.password || ""}@${db.host}/${db.db_name}`
-    : "";
+  const displayStatus = isRestarting ? "PROVISIONING" : liveStatus;
   const repoRef = site.repo_url ? extractGithubRepoRef(site.repo_url) : null;
   const repoHref = repoRef ? `https://github.com/${repoRef}` : null;
   const primaryDomain = (site.primaryDomain || domains[0]?.domain || "").trim();
   const liveSiteUrl = primaryDomain
-    ? primaryDomain.startsWith("http://") ||
-      primaryDomain.startsWith("https://")
+    ? primaryDomain.startsWith("http://") || primaryDomain.startsWith("https://")
       ? primaryDomain
       : `https://${primaryDomain}`
     : "";
-  const wpAdminUrl = liveSiteUrl
-    ? `${liveSiteUrl.replace(/\/$/, "")}/wp-admin`
-    : "";
+  const wpAdminUrl =
+    site.type === "wordpress" && liveSiteUrl ? `${liveSiteUrl.replace(/\/$/, "")}/wp-admin` : "";
 
-  function refreshDatabaseExplorer() {
-    if (!db) return;
-    dbTablesFetcher.load(`/sites/${site.id}/database/tables`);
-    if (selectedTable) {
-      dbRowsFetcher.load(
-        `/sites/${site.id}/database/tables/${encodeURIComponent(selectedTable)}?limit=${rowLimit}&offset=${rowOffset}`,
-      );
-    }
-  }
-
-  // Decide what status to show: optimistic (restarting) -> fetched (live) -> initial (site.status)
-  const displayStatus = isRestarting ? "PROVISIONING" : liveStatus;
+  const context: SiteRouteContext = {
+    site,
+    deployments,
+    domains,
+    db,
+    envs,
+    team,
+    dnsTarget,
+    displayStatus,
+    canManageTeam,
+    currentIntent,
+    isSubmitting,
+    actionPath,
+  };
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
-      {/* --- HEADER --- */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-2">
-          <div className="flex items-center gap-3">
-            <h1 className="truncate text-2xl font-bold tracking-tight text-white">
-              {site.name}
-            </h1>
-            <StatusPill status={displayStatus} />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 text-sm text-white/50">
-            <div className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1">
-              <Boxes className="h-3.5 w-3.5" />
-              <span className="uppercase text-xs font-semibold tracking-wider">
-                {site.type}
-              </span>
+    <div className="pb-10">
+      <section className="-mx-4 sticky top-14 z-20 mb-6 border-b border-[var(--line)] bg-[color:color-mix(in_srgb,var(--background)_88%,transparent)] px-4 py-4 backdrop-blur sm:-mx-5 sm:px-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 space-y-2.5">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="truncate text-xl font-semibold tracking-tight text-[var(--foreground)]">
+                {site.name}
+              </h2>
+              <StatusBadge status={displayStatus} />
             </div>
 
-            {site.repo_url && (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]">
+              <span className="inline-flex items-center gap-2">
+                <Boxes className="h-4 w-4" />
+                <span className="uppercase tracking-[0.18em] text-[11px]">{site.type}</span>
+              </span>
+              {primaryDomain ? (
+                <a
+                  href={liveSiteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 hover:text-[var(--foreground)]"
+                >
+                  <Globe className="h-4 w-4" />
+                  {primaryDomain}
+                </a>
+              ) : null}
+              {site.repo_url ? (
+                <a
+                  href={repoHref || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 hover:text-[var(--foreground)]"
+                >
+                  <Terminal className="h-4 w-4" />
+                  <span>{repoRef || site.repo_url}</span>
+                  <span className="text-[var(--text-soft)]">({site.repo_branch || "main"})</span>
+                </a>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 xl:justify-end">
+            {wpAdminUrl ? (
               <a
-                href={repoHref || undefined}
+                href={wpAdminUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 hover:text-white transition-colors"
+                className="inline-flex min-h-9 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:border-[var(--line-strong)]"
               >
-                <Terminal className="h-3.5 w-3.5" />
-                <span>{repoRef || site.repo_url}</span>
-                <span className="opacity-50">
-                  ({site.repo_branch || "main"})
-                </span>
+                <ExternalLink className="h-4 w-4" />
+                WP Admin
               </a>
-            )}
-          </div>
-        </div>
+            ) : null}
 
-        <div className="flex flex-wrap gap-2">
-          {liveSiteUrl && (
-            <a
-              href={liveSiteUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white/80 transition-all hover:bg-white/[0.1] hover:text-white active:scale-[0.98]"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Open Site
-            </a>
-          )}
-          {wpAdminUrl && (
-            <a
-              href={wpAdminUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-md border border-blue-500/20 bg-blue-500/10 px-4 py-2.5 text-sm font-semibold text-blue-100 transition-all hover:bg-blue-500/20 active:scale-[0.98]"
-            >
-              <ExternalLink className="h-4 w-4" />
-              WP Admin
-            </a>
-          )}
-          {canManageTeam ? (
-            <>
-              {normalizeStatus(displayStatus) === "STOPPED" ? (
-                <Form method="post">
-                  <input type="hidden" name="intent" value="start" />
-                  <button
-                    disabled={isSubmitting}
-                    className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition-all hover:bg-emerald-500/20 active:scale-[0.98] disabled:opacity-50"
-                  >
-                    <Play
-                      className={cx(
-                        "h-4 w-4",
-                        isSubmitting &&
-                          currentIntent === "start" &&
-                          "animate-pulse",
-                      )}
-                    />
-                    Start
-                  </button>
-                </Form>
-              ) : (
-                <Form method="post">
-                  <input type="hidden" name="intent" value="stop" />
-                  <button
-                    disabled={isSubmitting}
-                    className="inline-flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition-all hover:bg-red-500/20 active:scale-[0.98] disabled:opacity-50"
-                  >
-                    <Square
-                      className={cx(
-                        "h-4 w-4",
-                        isSubmitting &&
-                          currentIntent === "stop" &&
-                          "animate-pulse",
-                      )}
-                    />
-                    Stop
-                  </button>
-                </Form>
-              )}
-
-              <Form method="post">
-                <input type="hidden" name="intent" value="deploy" />
-                <button
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-lg shadow-white/5 transition-all hover:bg-white/90 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Rocket className="h-4 w-4" />
-                  )}
-                  Publish
-                </button>
-              </Form>
-
-              <Form method="post">
-                <input type="hidden" name="intent" value="deploy_force" />
-                <button
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-500/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
-                >
-                  {isSubmitting && currentIntent === "deploy_force" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Rocket className="h-4 w-4" />
-                  )}
-                  Rebuild
-                </button>
-              </Form>
-
-              <Form method="post">
-                <input type="hidden" name="intent" value="restart" />
-                <button
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-white/[0.1] active:scale-[0.98] disabled:opacity-50"
-                >
-                  <RefreshCw
-                    className={cx("h-4 w-4", isSubmitting && "animate-spin")}
-                  />
-                </button>
-              </Form>
-            </>
-          ) : (
-            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/55">
-              View only
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* --- TABS --- */}
-      <Tabs
-        value={tab}
-        onValueChange={(value) => setTab(value as SiteTab)}
-        className="w-full"
-      >
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="overview">
-            <Boxes className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="deployments">
-            <History className="h-4 w-4" />
-            Deployments
-          </TabsTrigger>
-          {canManageTeam ? (
-            <TabsTrigger value="logs">
-              <Terminal className="h-4 w-4" />
-              Logs
-            </TabsTrigger>
-          ) : null}
-          <TabsTrigger value="domains">
-            <Globe className="h-4 w-4" />
-            Domains
-          </TabsTrigger>
-          {canManageTeam ? (
-            <TabsTrigger value="database">
-              <Database className="h-4 w-4" />
-              Database
-            </TabsTrigger>
-          ) : null}
-          <TabsTrigger value="settings">
-            <Settings className="h-4 w-4" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {/* --- CONTENT: OVERVIEW --- */}
-      {tab === "overview" && (
-        <motion.div
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-1 gap-4 lg:grid-cols-3"
-        >
-          <Card title="Quick Actions">
-            {canManageTeam ? (
-              <div className="space-y-1">
-                <Form method="post">
-                  <input type="hidden" name="intent" value="deploy" />
-                  <ActionRow
-                    label="Publish changes"
-                    icon={<Rocket className="h-4 w-4 text-emerald-400" />}
-                  />
-                </Form>
-                <Form method="post">
-                  <input type="hidden" name="intent" value="deploy_force" />
-                  <ActionRow
-                    label="Rebuild and publish"
-                    icon={<Rocket className="h-4 w-4 text-amber-300" />}
-                  />
-                </Form>
-                <Form method="post">
-                  <input type="hidden" name="intent" value="restart" />
-                  <ActionRow
-                    label="Restart site"
-                    icon={<RefreshCw className="h-4 w-4 text-amber-400" />}
-                  />
-                </Form>
-                <ActionRow
-                  label="Open activity log"
-                  icon={<Terminal className="h-4 w-4 text-blue-400" />}
-                  onClick={() => setTab("logs")}
-                />
-              </div>
-            ) : (
-              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-white/50">
-                Editing actions are available to editors and workspace owners.
-              </div>
-            )}
-          </Card>
-
-          <Card
-            title="Latest update"
-            subtitle={
-              deployments[0]
-                ? new Date(deployments[0].created_at!).toLocaleString()
-                : "No history"
-            }
-          >
-            {deployments[0] ? (
-              <div className="rounded-xl bg-white/5 p-4 border border-white/5">
-                <div className="flex items-center gap-3 mb-2">
-                  <DeploymentStatusIcon status={deployments[0].status} />
-                  <span className="font-semibold text-white capitalize">
-                    {deployments[0].status.replace("_", " ")}
-                  </span>
-                </div>
-                <div className="text-sm text-white/60 line-clamp-2 font-mono">
-                  {deployments[0].commit_message || "Published from the dashboard"}
-                </div>
-                <div className="mt-3 text-xs text-white/40 flex justify-between">
-                  <span>
-                    {deployments[0].commit_hash?.substring(0, 7) || "---"}
-                  </span>
-                  <span>{deployments[0].triggered_by || "User"}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-white/40 italic py-4 text-center">
-                No updates yet.
-              </div>
-            )}
-            <button
-              onClick={() => setTab("deployments")}
-              className="mt-4 w-full text-center text-xs font-semibold text-white/60 hover:text-white uppercase tracking-wider"
-            >
-              View History
-            </button>
-          </Card>
-
-          <Card title="Details">
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-white/40 uppercase font-bold tracking-wider">
-                    Primary Domain
-                  </div>
-                  <div className="text-sm text-white font-medium mt-0.5">
-                    {domains.length > 0 ? (
-                      <a
-                        href={`https://${domains[0].domain}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:underline flex items-center gap-1"
-                      >
-                        {domains[0].domain}{" "}
-                        <ExternalLink className="h-3 w-3 opacity-50" />
-                      </a>
-                    ) : (
-                      "Not connected"
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-white/40 uppercase font-bold tracking-wider">
-                    Internal Host
-                  </div>
-                  <div className="text-sm text-white font-medium mt-0.5 font-mono text-xs">
-                    {site.id.split("-")[0]}-app
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* --- CONTENT: DEPLOYMENTS --- */}
-      {tab === "deployments" && (
-        <Card title="Update history">
-          <div className="space-y-2">
-            {deployments.length ? (
-              deployments.map((d) => (
-                <div
-                  key={d.id}
-                  className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] p-4 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 rounded-lg bg-black/40 border border-white/5">
-                      <DeploymentStatusIcon status={d.status} />
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-white group-hover:text-emerald-300 transition-colors">
-                        {d.commit_message || "Published from the dashboard"}
-                      </div>
-                      <div className="text-xs text-white/40 mt-0.5 flex gap-2">
-                        <span>{d.commit_hash?.substring(0, 7) || "---"}</span>
-                        <span>&middot;</span>
-                        <span>
-                          {new Date(d.created_at || "").toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold uppercase tracking-wider text-white/30">
-                      {d.status.replace("_", " ")}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-12 text-white/30">
-                No updates yet.
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* --- CONTENT: LOGS --- */}
-      {tab === "logs" && (
-        <Card title="Activity log" subtitle="Recent service output">
-          <div className="flex items-center justify-between gap-4 mb-4 bg-black/20 p-2 rounded-xl border border-white/5">
-            <div className="flex items-center gap-2 px-2">
-              <span className="relative flex h-2 w-2">
-                <span
-                  className={cx(
-                    "absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping",
-                    logsLoading ? "bg-emerald-400" : "bg-transparent",
-                  )}
-                ></span>
-                <span
-                  className={cx(
-                    "relative inline-flex rounded-full h-2 w-2",
-                    logsLoading ? "bg-emerald-500" : "bg-white/20",
-                  )}
-                ></span>
-              </span>
-              <span className="text-xs font-mono text-white/60">
-                {logsLoading ? "Fetching..." : "Idle"}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={logLines}
-                onChange={(e) =>
-                  setLogLines(e.target.value as "100" | "200" | "500" | "1000")
-                }
-                className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white/70 outline-none hover:text-white"
-              >
-                <option value="100">100 lines</option>
-                <option value="200">200 lines</option>
-                <option value="500">500 lines</option>
-                <option value="1000">1000 lines</option>
-              </select>
-              <button
-                onClick={() =>
-                  logsFetcher.load(
-                    `/sites/${site.id}/logs?lines=${encodeURIComponent(logLines)}`,
-                  )
-                }
-                className="p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-colors"
-              >
-                <RefreshCw
-                  className={cx("h-4 w-4", logsLoading && "animate-spin")}
-                />
-              </button>
-              <button
-                onClick={() => copyToClipboard(logsText)}
-                className="p-2 hover:bg-white/10 rounded-lg text-white/70 hover:text-white transition-colors"
-              >
-                <Copy className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="h-[500px] w-full rounded-xl border border-white/10 bg-[#0d1117] p-4 font-mono text-xs leading-relaxed text-white/80 overflow-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-            {logsFetcher.data && !logsFetcher.data.ok ? (
-              <div className="text-red-400 p-2 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" /> {logsFetcher.data.error}
-              </div>
-            ) : (
-              <pre className="whitespace-pre-wrap break-all">
-                {logsText || "Waiting for logs..."}
-              </pre>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* --- CONTENT: DOMAINS --- */}
-      {tab === "domains" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card title="Domains">
-              {domains.length > 0 ? (
-                <div className="space-y-3">
-                  {domains.map((d) => {
-                    const meta = domainStatusMeta(d);
-                    return (
-                      <div
-                        key={d.id}
-                        className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Globe className="h-4 w-4 text-white/40" />
-                          <div>
-                            <div className="text-sm font-medium text-white">
-                              {d.domain}
-                            </div>
-                            {d.status ? (
-                              <div className="mt-1 text-[11px] uppercase tracking-wider text-white/35">
-                                {d.status.replace(/_/g, " ")}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-md font-medium ${meta.className}`}
-                          >
-                            {meta.label}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-white/30 border-dashed border border-white/10 rounded-2xl">
-                  No domains connected yet.
-                </div>
-              )}
-            </Card>
-          </div>
-
-          <div>
-            <Card title="Connect domain">
-              {/* Beta Disclaimer */}
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 mb-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-amber-400">
-                      DNS note
-                    </h4>
-                    <p className="text-xs text-amber-200/80 leading-relaxed">
-                      Domain setup is still being refined. If traffic does not
-                      resolve after DNS has propagated, contact your workspace
-                      administrator for help.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* DNS Instructions */}
-              <div className="rounded-xl bg-white/5 border border-white/5 p-4 mb-6">
-                <div className="text-xs uppercase font-bold text-white/40 tracking-wider mb-2 flex items-center gap-1.5">
-                  <Info className="h-3 w-3" />
-                  DNS target
-                </div>
-                <div className="flex items-center justify-between bg-black/40 rounded-lg p-3 border border-white/10 shadow-inner">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      {dnsTarget.recordType}
-                    </span>
-                    <code className="font-mono text-sm text-white tracking-wide">
-                      {dnsTarget.value}
-                    </code>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(dnsTarget.value)}
-                    className="p-1.5 hover:bg-white/10 rounded-md text-white/40 hover:text-white transition-colors"
-                    title="Copy DNS target"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <p className="mt-3 text-xs leading-5 text-white/45">
-                  {dnsTarget.isConfigured
-                    ? "Use this target when pointing your domain to this site."
-                    : "Use the panel host as the DNS target for this site."}
-                </p>
-              </div>
-
-              <Form method="post" className="space-y-3">
-                <input type="hidden" name="intent" value="addDomain" />
-                <div>
-                  <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1">
-                    Domain Name
-                  </label>
-                  <input
-                    name="fqdn"
-                    placeholder="app.example.com"
-                    className="w-full mt-1 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-white/30 transition-colors"
-                  />
-                </div>
-                <button
-                  disabled={isSubmitting}
-                  className="w-full py-3 bg-white text-black font-bold text-sm rounded-xl hover:bg-white/90 transition-colors flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  Add domain
-                </button>
-              </Form>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* --- CONTENT: DATABASE --- */}
-      {tab === "database" && (
-        <div className="space-y-6">
-          <Card
-            title="Database details"
-            subtitle="Credentials for this site"
-          >
-            {db ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <KV k="Database Engine" v={db.engine.toUpperCase()} />
-                  <KV k="Host" v={`${db.host}:${db.port}`} />
-                  <KV k="Database Name" v={db.db_name} />
-                </div>
-                <div className="space-y-4">
-                  <KV k="Username" v={db.username} />
-                  <div className="relative group">
-                    <KV
-                      k="Password"
-                      v={db.password ? "************" : "No Password"}
-                    />
-                    <button
-                      onClick={() => copyToClipboard(db.password || "")}
-                      className="absolute top-2 right-2 p-1.5 bg-white/10 rounded-lg hover:bg-white/20 transition opacity-0 group-hover:opacity-100"
-                    >
-                      <Copy className="h-3 w-3 text-white" />
-                    </button>
-                  </div>
-                  <div className="pt-2">
-                    <div className="text-xs uppercase font-bold text-white/40 tracking-wider mb-1 ml-1">
-                      Connection String
-                    </div>
-                    <div className="flex gap-2">
-                      <code className="flex-1 bg-black/40 border border-white/10 rounded-lg p-3 text-[10px] font-mono text-white/70 overflow-x-auto whitespace-nowrap">
-                        {connString}
-                      </code>
-                      <button
-                        onClick={() => copyToClipboard(connString)}
-                        className="bg-white/5 border border-white/10 px-3 rounded-lg hover:bg-white/10 text-white/70"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="py-12 text-center">
-                <Database className="h-10 w-10 text-white/20 mx-auto mb-3" />
-                <h3 className="text-white font-medium">
-                  Database not ready
-                </h3>
-                <p className="text-white/40 text-sm max-w-xs mx-auto mt-1">
-                  {site.type === "wordpress"
-                    ? "The database is still being prepared."
-                    : "This site type does not include a managed database by default."}
-                </p>
-              </div>
-            )}
-          </Card>
-
-          {db && (
-            <Card
-              title="Database browser"
-              subtitle="Browse tables and rows"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
-                  <span className="size-1.5 rounded-full bg-emerald-400" />
-                  Ready to connect
-                </div>
-                <button
-                  type="button"
-                  onClick={refreshDatabaseExplorer}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-                >
-                  <RefreshCw
-                    className={cx(
-                      "h-3.5 w-3.5",
-                      (tablesLoading || rowsLoading) && "animate-spin",
-                    )}
-                  />
-                  Refresh
-                </button>
-              </div>
-
-              {dbTablesFetcher.data && !dbTablesFetcher.data.ok && (
-                <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
-                  {dbTablesFetcher.data.error}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-                <div className="lg:col-span-1 rounded-xl border border-white/10 bg-black/20 p-3">
-                  <div className="mb-3">
-                    <input
-                      value={tableQuery}
-                      onChange={(e) => setTableQuery(e.target.value)}
-                      placeholder="Search tables"
-                      className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none placeholder:text-white/30"
-                    />
-                  </div>
-
-                  <div className="max-h-[420px] space-y-1 overflow-auto pr-1">
-                    {tablesLoading && tableList.length === 0 && (
-                      <div className="py-6 text-center text-xs text-white/40">
-                        Loading tables...
-                      </div>
-                    )}
-                    {!tablesLoading && filteredTables.length === 0 && (
-                      <div className="py-6 text-center text-xs text-white/40">
-                        No tables found.
-                      </div>
-                    )}
-                    {filteredTables.map((table) => (
-                      <button
-                        key={table.name}
-                        type="button"
-                        onClick={() => {
-                          setSelectedTable(table.name);
-                          setRowOffset(0);
-                        }}
-                        className={cx(
-                          "w-full rounded-lg border px-3 py-2 text-left transition-colors",
-                          selectedTable === table.name
-                            ? "border-white/30 bg-white/10 text-white"
-                            : "border-white/5 bg-white/[0.02] text-white/70 hover:bg-white/5 hover:text-white",
-                        )}
-                      >
-                        <div className="truncate text-xs font-semibold">
-                          {table.name}
-                        </div>
-                        <div className="text-[10px] text-white/35">
-                          Rows:{" "}
-                          {table.approxRows == null ? "n/a" : table.approxRows}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="lg:col-span-3 rounded-xl border border-white/10 bg-black/20 p-3">
-                  {!selectedTable && (
-                    <div className="py-16 text-center text-sm text-white/40">
-                      Select a table to view rows.
-                    </div>
-                  )}
-
-                  {selectedTable && (
-                    <>
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-white">
-                          Table:{" "}
-                          <span className="font-mono">{selectedTable}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={rowLimit}
-                            onChange={(e) => {
-                              setRowLimit(
-                                e.target.value as "25" | "50" | "100",
-                              );
-                              setRowOffset(0);
-                            }}
-                            className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white outline-none"
-                          >
-                            <option value="25">25 rows</option>
-                            <option value="50">50 rows</option>
-                            <option value="100">100 rows</option>
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRowOffset(
-                                Math.max(0, rowOffset - Number(rowLimit)),
-                              )
-                            }
-                            disabled={rowOffset === 0 || rowsLoading}
-                            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 disabled:opacity-40"
-                          >
-                            Prev
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRowOffset(
-                                rowPayload && rowPayload.nextOffset != null
-                                  ? rowPayload.nextOffset
-                                  : rowOffset,
-                              )
-                            }
-                            disabled={!rowPayload?.hasMore || rowsLoading}
-                            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 disabled:opacity-40"
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </div>
-
-                      {dbRowsFetcher.data && !dbRowsFetcher.data.ok && (
-                        <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
-                          {dbRowsFetcher.data.error}
-                        </div>
-                      )}
-
-                      <div className="overflow-auto rounded-lg border border-white/10">
-                        {rowsLoading && !rowPayload ? (
-                          <div className="py-12 text-center text-sm text-white/40">
-                            Loading rows...
-                          </div>
-                        ) : rowPayload ? (
-                          rowPayload.rows.length > 0 ? (
-                            <table className="min-w-full text-xs">
-                              <thead className="bg-white/5">
-                                <tr>
-                                  {rowPayload.columns.map((col) => (
-                                    <th
-                                      key={col}
-                                      className="border-b border-white/10 px-3 py-2 text-left font-semibold text-white/70"
-                                    >
-                                      {col}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rowPayload.rows.map((row, idx) => (
-                                  <tr
-                                    key={`${rowPayload.table}-${idx}`}
-                                    className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.03]"
-                                  >
-                                    {rowPayload.columns.map((col) => (
-                                      <td
-                                        key={`${idx}-${col}`}
-                                        className="px-3 py-2 align-top text-white/80"
-                                      >
-                                        <span className="block max-w-[280px] break-words font-mono">
-                                          {row[col] == null
-                                            ? "NULL"
-                                            : String(row[col])}
-                                        </span>
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          ) : (
-                            <div className="py-12 text-center text-sm text-white/40">
-                              No rows in this table.
-                            </div>
-                          )
-                        ) : (
-                          <div className="py-12 text-center text-sm text-white/40">
-                            Select a table to view data.
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {/* --- CONTENT: SETTINGS --- */}
-      {tab === "settings" && (
-        <div className="space-y-6">
-          {/* Create Environment Variable */}
-          <Card
-            title="Configuration"
-            subtitle="Manage secure keys and settings for this site"
-          >
             {canManageTeam ? (
               <>
-                <Form
-                  method="post"
-                  className="mb-6 rounded-xl border border-white/5 bg-white/5 p-4"
-                >
-                  <input type="hidden" name="intent" value="createEnv" />
-                  <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                    <div className="flex-1 w-full">
-                      <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
-                        Key
-                      </label>
-                      <input
-                        name="key"
-                        placeholder="API_KEY"
-                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30 font-mono"
-                      />
-                    </div>
-                    <div className="flex-1 w-full">
-                      <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
-                        Value
-                      </label>
-                      <Textarea
-                        name="value"
-                        placeholder="secret_value_123"
-                        rows={2}
-                        className="min-h-11 rounded-md bg-[var(--surface-elevated)] font-mono"
-                      />
-                    </div>
+                {normalizeStatus(displayStatus) === "STOPPED" ? (
+                  <Form method="post" action={actionPath}>
+                    <input type="hidden" name="intent" value="start" />
                     <button
                       disabled={isSubmitting}
-                      className="flex w-full items-center justify-center gap-2 rounded-md bg-white px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-white/90 md:w-auto"
+                      className="inline-flex min-h-9 items-center gap-2 border border-[var(--success)] bg-[var(--success-soft)] px-3 text-xs font-medium text-[var(--success)]"
                     >
-                      {isSubmitting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Plus className="h-4 w-4" />
-                      )}
-                      Add
+                      <Play className="h-4 w-4" />
+                      Start
                     </button>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/70">
-                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                      <input
-                        type="checkbox"
-                        name="is_literal"
-                        defaultChecked
-                        className="accent-white"
-                      />
-                      Literal
-                    </label>
-                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                      <input
-                        type="checkbox"
-                        name="is_preview"
-                        className="accent-white"
-                      />
-                      Preview
-                    </label>
-                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                      <input
-                        type="checkbox"
-                        name="is_multiline"
-                        className="accent-white"
-                      />
-                      Multiline
-                    </label>
-                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                      <input
-                        type="checkbox"
-                        name="is_shown_once"
-                        className="accent-white"
-                      />
-                      Shown once
-                    </label>
-                    <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5">
-                      <input
-                        type="checkbox"
-                        name="is_buildtime"
-                        className="accent-white"
-                      />
-                      Build-time
-                    </label>
-                  </div>
-                </Form>
-
-                {envs.length > 0 ? (
-                  <div className="space-y-2">
-                    {envs.map((env, i) => (
-                      <EnvRow key={i} env={env} />
-                    ))}
-                  </div>
+                  </Form>
                 ) : (
-                  <div className="text-center py-8 text-white/30 italic">
-                    No configuration added yet.
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-white/50">
-                Configuration is only visible to editors and workspace owners.
-              </div>
-            )}
-          </Card>
-
-          <Card
-            title="Team"
-            subtitle="Control who can view or edit this site"
-          >
-            {canManageTeam ? (
-              <Form
-                method="post"
-                className="mb-6 rounded-xl border border-white/5 bg-white/5 p-4"
-              >
-                <input type="hidden" name="intent" value="addTeamMember" />
-                <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                  <div className="flex-1 w-full">
-                    <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
-                      Member Email
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="user@example.com"
-                      className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30"
-                      required
-                    />
-                  </div>
-                  <div className="w-full md:w-40">
-                    <label className="text-xs uppercase font-bold text-white/40 tracking-wider ml-1 mb-1 block">
-                      Role
-                    </label>
-                    <select
-                      name="role"
-                      defaultValue="viewer"
-                      className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+                  <Form method="post" action={actionPath}>
+                    <input type="hidden" name="intent" value="stop" />
+                    <button
+                      disabled={isSubmitting}
+                      className="inline-flex min-h-9 items-center gap-2 border border-[var(--danger)] bg-[var(--danger-soft)] px-3 text-xs font-medium text-[var(--danger)]"
                     >
-                      <option value="viewer">Viewer</option>
-                      <option value="editor">Editor</option>
-                    </select>
-                  </div>
-                  <button
-                    disabled={isSubmitting}
-                    className="w-full md:w-auto px-4 py-2.5 bg-white text-black font-bold text-sm rounded-lg hover:bg-white/90 transition-colors flex items-center justify-center gap-2"
-                  >
-                    {isSubmitting && currentIntent === "addTeamMember" ? (
+                      <Square className="h-4 w-4" />
+                      Stop
+                    </button>
+                  </Form>
+                )}
+
+                <Form method="post" action={actionPath}>
+                  <input type="hidden" name="intent" value="deploy" />
+                  <button className="inline-flex min-h-9 items-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
+                    {isSubmitting && currentIntent === "deploy" ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Plus className="h-4 w-4" />
+                      <Rocket className="h-4 w-4" />
                     )}
-                    Add member
+                    Publish
                   </button>
-                </div>
-              </Form>
-            ) : (
-              <div className="mb-6 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-                You currently have view-only access to team settings.
-              </div>
-            )}
+                </Form>
 
-            <div className="space-y-4">
-              <div>
-                <div className="mb-2 text-xs uppercase font-bold tracking-wider text-white/40">
-                  Members
-                </div>
-                {teamMembers.length > 0 ? (
-                  <div className="space-y-2">
-                    {teamMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold text-white/90">
-                            {member.name || member.email}
-                          </div>
-                          <div className="truncate text-xs text-white/50">
-                            {member.email}
-                          </div>
-                        </div>
-                        <span className="rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/70">
-                          {member.role}
-                        </span>
-                        {canManageTeam ? (
-                          <Form
-                            method="post"
-                            onSubmit={(e) => {
-                              if (
-                                !confirm("Remove this member from the site?")
-                              ) {
-                                e.preventDefault();
-                              }
-                            }}
-                          >
-                            <input
-                              type="hidden"
-                              name="intent"
-                              value="removeTeamMember"
-                            />
-                            <input
-                              type="hidden"
-                              name="member_id"
-                              value={member.id}
-                            />
-                            <button
-                              type="submit"
-                              className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/20 hover:text-red-400"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </Form>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/50">
-                    No members added yet.
-                  </div>
-                )}
-              </div>
+                <Form method="post" action={actionPath}>
+                  <input type="hidden" name="intent" value="deploy_force" />
+                  <button className="inline-flex min-h-9 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-xs font-medium text-[var(--foreground)]">
+                    {isSubmitting && currentIntent === "deploy_force" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    Rebuild
+                  </button>
+                </Form>
 
-              <div>
-                <div className="mb-2 text-xs uppercase font-bold tracking-wider text-white/40">
-                  Pending access
-                </div>
-                {teamInvites.length > 0 ? (
-                  <div className="space-y-2">
-                    {teamInvites.map((invite) => (
-                      <div
-                        key={invite.id}
-                        className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold text-white/90">
-                            {invite.email}
-                          </div>
-                          <div className="text-xs text-white/50">
-                            Role: {invite.role}
-                          </div>
-                        </div>
-                        <span className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                          {invite.status}
-                        </span>
-                        {canManageTeam ? (
-                          <Form
-                            method="post"
-                            onSubmit={(e) => {
-                              if (!confirm("Revoke this invite?")) {
-                                e.preventDefault();
-                              }
-                            }}
-                          >
-                            <input
-                              type="hidden"
-                              name="intent"
-                              value="revokeTeamInvite"
-                            />
-                            <input
-                              type="hidden"
-                              name="invite_id"
-                              value={invite.id}
-                            />
-                            <button
-                              type="submit"
-                              className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/20 hover:text-red-400"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </Form>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/50">
-                    No pending invitations.
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          <Card title="Deletion">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-white font-medium">Delete site</h4>
-                <p className="text-sm text-white/40">
-                  Permanently remove this site and all its data.
-                </p>
-              </div>
-              <button
-                disabled
-                className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-sm font-bold opacity-50 cursor-not-allowed"
-              >
-                Coming soon
-              </button>
-            </div>
-          </Card>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// --- Subcomponents ---
-
-function Card({ title, subtitle, children }: any) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="panel-surface rounded-md border border-white/10 p-6"
-    >
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-white">{title}</h3>
-        {subtitle ? <p className="mt-1 text-sm text-white/44">{subtitle}</p> : null}
-      </div>
-      {children}
-    </motion.div>
-  );
-}
-
-function KV({ k, v }: any) {
-  return (
-    <div>
-      <div className="text-xs uppercase font-bold text-white/30 tracking-wider mb-1 ml-1">
-        {k}
-      </div>
-      <div className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white font-mono truncate">
-        {v}
-      </div>
-    </div>
-  );
-}
-
-function ActionRow({ label, icon, onClick }: any) {
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="group flex w-full items-center justify-between rounded-md p-3 text-left transition-colors hover:bg-white/[0.05]"
-      >
-        <div className="flex items-center gap-3">
-          <div className="rounded-md border border-white/10 bg-white/[0.05] p-2 text-white/70 transition-colors group-hover:text-white">
-            {icon}
+                <Form method="post" action={actionPath}>
+                  <input type="hidden" name="intent" value="restart" />
+                  <button className="inline-flex min-h-9 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-xs font-medium text-[var(--foreground)]">
+                    {isSubmitting && currentIntent === "restart" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    Restart
+                  </button>
+                </Form>
+              </>
+            ) : null}
           </div>
-          <span className="text-sm font-medium text-white/80 group-hover:text-white">
-            {label}
-          </span>
         </div>
-        <ArrowRight className="h-4 w-4 text-white/20 group-hover:text-white/60 transition-colors" />
-      </button>
-    );
-  }
-  return (
-    <button
-      type="submit"
-      className="group flex w-full items-center justify-between rounded-md p-3 text-left transition-colors hover:bg-white/[0.05]"
-    >
-      <div className="flex items-center gap-3">
-        <div className="rounded-md border border-white/10 bg-white/[0.05] p-2 text-white/70 transition-colors group-hover:text-white">
-          {icon}
-        </div>
-        <span className="text-sm font-medium text-white/80 group-hover:text-white">
-          {label}
-        </span>
-      </div>
-      <ArrowRight className="h-4 w-4 text-white/20 group-hover:text-white/60 transition-colors" />
-    </button>
-  );
-}
+      </section>
 
-function EnvRow({ env }: { env: EnvVar }) {
-  const [show, setShow] = React.useState(false);
-
-  return (
-    <div className="group flex items-center gap-3 rounded-md border border-white/10 bg-white/[0.04] p-3">
-      <div className="flex-1 font-mono text-sm font-medium text-emerald-300">
-        {env.key}
-      </div>
-      <div className="flex-[2] min-w-0">
-        <div className="relative truncate font-mono text-sm text-white/70">
-          {show ? env.value : "****************"}
-        </div>
-        <div className="mt-1 flex flex-wrap gap-1">
-          {env.is_literal !== false && (
-            <span className="rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-white/50">
-              literal
-            </span>
-          )}
-          {env.is_preview && (
-            <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-blue-300">
-              preview
-            </span>
-          )}
-          {env.is_multiline && (
-            <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-amber-300">
-              multiline
-            </span>
-          )}
-          {env.is_shown_once && (
-            <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300">
-              shown-once
-            </span>
-          )}
-          {(env.is_buildtime || env.is_build_time) && (
-            <span className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-cyan-200">
-              build-time
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setShow(!show)}
-          className="rounded-md p-2 text-white/40 transition hover:bg-white/10 hover:text-white"
-        >
-          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={() => navigator.clipboard.writeText(env.value)}
-          className="rounded-lg p-2 text-white/40 transition hover:bg-white/10 hover:text-white"
-          title="Copy value"
-        >
-          <Copy className="h-4 w-4" />
-        </button>
-        <Form
-          method="post"
-          onSubmit={(e) => {
-            if (!confirm("Delete this variable?")) e.preventDefault();
-          }}
-        >
-          <input type="hidden" name="intent" value="deleteEnv" />
-          <input type="hidden" name="key" value={env.key} />
-          <button
-            type="submit"
-            className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/20 hover:text-red-400"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </Form>
-      </div>
+      <Outlet context={context} key={location.pathname} />
     </div>
   );
 }

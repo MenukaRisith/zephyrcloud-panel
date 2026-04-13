@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import { PANEL_DESCRIPTION, PANEL_NAME } from "./lib/brand";
+import { themeInitScript } from "./lib/theme";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -20,7 +21,7 @@ export const links: Route.LinksFunction = () => [
   },
   {
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Sora:wght@400;500;600;700;800&display=swap",
+    href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700;800&display=swap",
   },
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   { rel: "shortcut icon", href: "/favicon.ico" },
@@ -34,14 +35,18 @@ export const meta: Route.MetaFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -71,11 +76,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl px-6 py-16 text-white">
+    <main className="mx-auto min-h-screen max-w-4xl px-6 py-16 text-[var(--foreground)]">
       <h1 className="text-3xl font-semibold">{message}</h1>
-      <p className="mt-3 text-sm text-white/70">{details}</p>
+      <p className="mt-3 text-sm text-[var(--text-muted)]">{details}</p>
       {stack && (
-        <pre className="mt-6 w-full overflow-x-auto rounded-md border border-white/10 bg-black/30 p-4 text-xs text-white/75">
+        <pre className="mt-6 w-full overflow-x-auto border border-[var(--line)] bg-[var(--surface)] p-4 text-xs text-[var(--text-muted)]">
           <code>{stack}</code>
         </pre>
       )}

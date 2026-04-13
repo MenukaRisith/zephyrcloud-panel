@@ -1,43 +1,75 @@
 export const softCardClass =
-  "panel-surface rounded-md border border-[var(--line)] bg-[var(--surface)] text-[var(--foreground)] shadow-[0_30px_90px_-54px_rgba(0,0,0,0.82)]";
+  "border border-[var(--line)] bg-[var(--surface)] text-[var(--foreground)]";
+
+export const softAccentCardClass =
+  "border border-[var(--accent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface)_88%,var(--accent-soft)),var(--surface))] text-[var(--foreground)]";
 
 export const softInsetClass =
-  "rounded-md border border-[var(--line)] bg-[var(--surface-muted)] text-[var(--foreground)]";
+  "border border-[var(--line)] bg-[var(--surface-muted)] text-[var(--foreground)]";
+
+export const panelClass = softCardClass;
+
+export const darkPanelClass =
+  "border border-[var(--line-dark)] bg-[var(--surface-shell)] text-[var(--foreground)]";
 
 export const shellPanelClass =
-  "panel-surface rounded-md border border-[var(--line-dark)] bg-[var(--surface-dark)] text-white shadow-[0_36px_110px_-62px_rgba(0,0,0,0.88)]";
+  "border-r border-[var(--line-dark)] bg-[var(--surface-shell)] text-[var(--foreground)]";
 
 export const shellInsetClass =
-  "rounded-md border border-[var(--line-dark)] bg-[var(--surface-dark-muted)] text-white";
+  "border border-[var(--line)] bg-[var(--surface-shell-raised)] text-[var(--foreground)]";
+
+export const navRowClass =
+  "flex min-h-10 items-center gap-2.5 border-l-2 border-transparent px-3 py-1.5 text-xs font-medium transition-colors";
+
+export const sectionHeaderClass =
+  "flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]";
+
+export const statusBadgeClass =
+  "inline-flex items-center gap-1.5 border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]";
+
+export const elevatedSurfaceClass =
+  "border border-[var(--line)] bg-[var(--surface-elevated)]";
+
+export const dangerSurfaceClass =
+  "border border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]";
+
+export const toolbarRowClass =
+  "flex min-h-10 items-center gap-2.5 border border-[var(--line)] bg-[var(--surface-muted)] px-3";
 
 export const primaryCtaClass =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--accent)] bg-[var(--accent)] px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors active:scale-[0.98] hover:border-[var(--accent-hover)] hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ink)]";
+  "inline-flex min-h-8 items-center justify-center gap-1.5 border border-[var(--accent)] bg-[var(--accent)] px-3 py-1.5 text-center text-xs font-light text-[var(--accent-foreground)] transition-colors hover:border-[var(--accent-hover)] hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]";
 
 export const secondaryCtaClass =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-white/14 bg-white/[0.04] px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors active:scale-[0.98] hover:border-white/24 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]";
+  "inline-flex min-h-8 items-center justify-center gap-1.5 border border-[var(--line)] bg-transparent px-3 py-1.5 text-center text-xs font-light text-[var(--foreground)] transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]";
 
 export const darkPrimaryCtaClass =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-white bg-white px-5 py-2.5 text-center text-sm font-semibold text-[var(--ink)] transition-colors active:scale-[0.98] hover:border-white/88 hover:bg-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ink)]";
+  "inline-flex min-h-8 items-center justify-center gap-1.5 border border-[var(--accent)] bg-[var(--accent)] px-3 py-1.5 text-center text-xs font-light text-[var(--accent-foreground)] transition-colors hover:border-[var(--accent-hover)] hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-shell)]";
 
 export const darkSecondaryCtaClass =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-white/16 bg-white/[0.03] px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors active:scale-[0.98] hover:border-white/28 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ink)]";
+  "inline-flex min-h-8 items-center justify-center gap-1.5 border border-[var(--line)] bg-transparent px-3 py-1.5 text-center text-xs font-light text-[var(--foreground)] transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--surface-shell-raised)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-shell)]";
 
 export const inputClass =
-  "min-w-0 rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-white/36 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+  "w-full min-w-0 border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
 export const inputOnDarkClass =
-  "min-w-0 rounded-md border border-white/12 bg-[var(--surface-elevated)] px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-white/36 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+  "w-full min-w-0 border border-[var(--line)] bg-[var(--surface-shell-raised)] px-3 py-2 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--text-soft)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
 export const selectOnDarkClass =
-  "min-w-0 rounded-md border border-white/12 bg-[var(--surface-elevated)] px-4 py-2.5 text-sm text-white outline-none transition focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] [&>option]:bg-[var(--surface-dark)] [&>option]:text-white";
+  "w-full min-w-0 border border-[var(--line)] bg-[var(--surface-shell-raised)] px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] [&>option]:bg-[var(--surface-shell)] [&>option]:text-[var(--foreground)]";
 
 export const badgeClass =
-  "inline-flex items-center gap-1 rounded-md border border-white/12 bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-white/76";
+  "inline-flex items-center gap-1 border border-[var(--line)] bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-medium text-[var(--foreground)]";
 
 export const lightBadgeClass =
-  "inline-flex items-center gap-1 rounded-md border border-white/12 bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-medium text-white";
+  "inline-flex items-center gap-1 border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]";
 
 export const eyebrowClass =
-  "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]";
+  "text-[0.64rem] font-semibold uppercase tracking-[0.2em] text-[var(--text-soft)]";
 
 export const mutedTextClass = "text-[var(--text-muted)]";
+
+export const adminStickyHeaderClass =
+  "sticky top-0 z-20 border-b border-[var(--line)] bg-[color:color-mix(in_srgb,var(--background)_88%,transparent)] pb-3 pt-4 backdrop-blur";
+
+export const adminContentWrapClass =
+  "min-h-0 flex-1 overflow-y-auto bg-[var(--surface-muted)]";

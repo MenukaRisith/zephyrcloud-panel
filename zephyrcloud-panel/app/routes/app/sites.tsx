@@ -8,7 +8,6 @@ import {
   useNavigation,
   useSearchParams,
 } from "react-router";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowRight,
@@ -16,14 +15,42 @@ import {
   Code2,
   Copy,
   ExternalLink,
+  GitBranch,
   Github,
   Globe,
   KeyRound,
   Loader2,
-  Plus,
   Rocket,
   Server,
+  ShieldCheck,
+  Type,
+  X,
 } from "lucide-react";
+
+type MotionLikeProps<T extends HTMLElement> = React.HTMLAttributes<T> & {
+  animate?: unknown;
+  exit?: unknown;
+  initial?: unknown;
+  transition?: unknown;
+  whileHover?: unknown;
+  whileTap?: unknown;
+};
+
+function MotionDiv({
+  animate,
+  exit,
+  initial,
+  transition,
+  whileHover,
+  whileTap,
+  ...props
+}: MotionLikeProps<HTMLDivElement>) {
+  return <div {...props} />;
+}
+
+function AnimatePresenceShim({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
 
 type SiteStatus = "RUNNING" | "STOPPED" | "BUILDING" | "ERROR" | "PROVISIONING";
 type SiteType = "wordpress" | "node" | "static" | "php" | "python";
@@ -34,12 +61,19 @@ type RepoAccessMode =
   | "connected_account"
   | "github_app"
   | "deploy_key";
+type CreateSiteStep =
+  | "type"
+  | "details"
+  | "access"
+  | "repository"
+  | "deploy-key"
+  | "review";
 
 type Site = {
   id: string;
   name: string;
   type: SiteType;
-  status: SiteStatus;
+  status: string;
   primaryDomain?: string | null;
   createdAt?: string;
 };
@@ -418,6 +452,23 @@ function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function normalizeSiteStatus(status: string): SiteStatus | "UNKNOWN" {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("run") || normalized.includes("healthy") || normalized === "up") {
+    return "RUNNING";
+  }
+  if (normalized.includes("build") || normalized.includes("provision") || normalized.includes("queue")) {
+    return "BUILDING";
+  }
+  if (normalized.includes("fail") || normalized.includes("error") || normalized.includes("crash")) {
+    return "ERROR";
+  }
+  if (normalized.includes("stop") || normalized.includes("down") || normalized.includes("exit")) {
+    return "STOPPED";
+  }
+  return "UNKNOWN";
+}
+
 function typeMeta(type: SiteType) {
   switch (type) {
     case "wordpress":
@@ -496,6 +547,11 @@ export default function SitesPage() {
     }
   }, [searchParams]);
 
+  React.useEffect(() => {
+    if (!createOpen) return;
+    document.getElementById("main-content")?.scrollIntoView({ block: "start" });
+  }, [createOpen]);
+
   const isSubmitting = nav.state === "submitting";
 
   const filtered = sites.filter((site) => {
@@ -508,38 +564,16 @@ export default function SitesPage() {
   });
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
-            Websites
-          </div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-            Sites
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-white/55">
-            Manage your websites, domains, and publishing status from one place.
-          </p>
-        </div>
-
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-2 rounded-md bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[var(--accent-hover)]"
-        >
-          <Plus className="h-4 w-4" />
-          New Site
-        </button>
-      </div>
-
+    <div className="relative min-h-[calc(100vh-7rem)] space-y-4 pb-16 lg:pb-0">
       {githubStatus === "connected" ? (
-        <div className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
+        <div className="rounded-md border border-[var(--success)] bg-[var(--success-soft)] px-4 py-3 text-xs text-[var(--success)]">
           <div className="font-semibold">GitHub connected</div>
           <p className="mt-1 opacity-85">
             Eligible private repositories are now available during site setup.
           </p>
         </div>
       ) : githubStatus === "error" || githubStatus === "invalid-state" ? (
-        <div className="rounded-md border border-red-400/20 bg-red-400/10 px-5 py-4 text-sm text-red-100">
+        <div className="rounded-md border border-red-400/20 bg-red-400/10 px-4 py-3 text-xs text-red-100">
           <div className="font-semibold">GitHub connection failed</div>
           <p className="mt-1 opacity-85">
             {githubMessage || "GitHub could not be connected right now."}
@@ -548,19 +582,19 @@ export default function SitesPage() {
       ) : null}
 
       <div className="flex items-center gap-3">
-        <div className="w-full rounded-md border border-white/10 bg-white/[0.04] px-4 py-3">
+        <div className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by site or domain"
-            className="w-full bg-transparent text-sm text-white/82 outline-none placeholder:text-white/32"
+            className="w-full bg-transparent text-xs text-[var(--text-muted)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {filtered.length === 0 && (
-          <div className="col-span-full py-12 text-center text-sm text-white/30">
+          <div className="col-span-full py-12 text-center text-sm text-[var(--text-muted)]">
             No websites yet. Create your first site to get started.
           </div>
         )}
@@ -568,43 +602,45 @@ export default function SitesPage() {
         {filtered.map((site, index) => {
           const meta = typeMeta(site.type);
           return (
-            <motion.div
+            <MotionDiv
               key={site.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="group panel-surface rounded-md border border-white/10 p-6 transition-colors hover:bg-white/[0.06]"
+              className="group border border-[var(--line)] bg-[var(--surface)] p-4 transition-colors hover:bg-[var(--surface-muted)]"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="grid size-12 place-items-center rounded-md border border-[var(--accent)] bg-[var(--accent-soft)] text-white">
-                    {meta.icon}
-                  </div>
-                  <div>
-                    <div className="text-base font-semibold text-white">
-                      {site.name}
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="min-w-0">
+                    <div className="inline-flex max-w-full items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                      <span className="text-[var(--text-soft)]">{meta.icon}</span>
+                      <span className="truncate">{site.name}</span>
                     </div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-white/40">
+                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
                       {meta.label}
                     </div>
                   </div>
                 </div>
                 <Link
                   to={`/sites/${site.id}`}
-                  className="grid size-10 place-items-center rounded-md border border-white/10 bg-white/[0.05] text-white/60 transition-all hover:bg-white/[0.1] hover:text-white"
+                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 text-[11px] font-normal text-[var(--text-muted)] transition-all hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
                 >
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  Open
                 </Link>
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-2.5">
                 <StatusPill status={site.status} />
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-medium text-white/62">
-                  <Globe className="h-3 w-3" />
-                  {site.primaryDomain || "No custom domain"}
+                <span
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]"
+                  title={site.primaryDomain || "No custom domain"}
+                >
+                  <Globe className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{site.primaryDomain || "No custom domain"}</span>
                 </span>
               </div>
-            </motion.div>
+            </MotionDiv>
           );
         })}
       </div>
@@ -672,6 +708,9 @@ function CreateSiteModal({
     null,
   );
   const [deployKeyCopied, setDeployKeyCopied] = React.useState(false);
+  const [currentStep, setCurrentStep] =
+    React.useState<CreateSiteStep>("type");
+  const [stepNotice, setStepNotice] = React.useState<string | null>(null);
   const canUseConnectedGithub = githubConnection.configured;
   const isConnectedGithubReady =
     githubConnection.configured && githubConnection.connected;
@@ -864,6 +903,35 @@ function CreateSiteModal({
     }
   }, [repoAccessMode]);
 
+  React.useEffect(() => {
+    if (
+      createType === "wordpress" &&
+      (currentStep === "access" ||
+        currentStep === "repository" ||
+        currentStep === "deploy-key")
+    ) {
+      setCurrentStep("review");
+    }
+  }, [createType, currentStep]);
+
+  React.useEffect(() => {
+    if (repoAccessMode !== "deploy_key" && currentStep === "deploy-key") {
+      setCurrentStep("repository");
+    }
+  }, [currentStep, repoAccessMode]);
+
+  React.useEffect(() => {
+    setStepNotice(null);
+  }, [
+    createType,
+    currentStep,
+    deployKey,
+    repoAccessMode,
+    repoInput,
+    selectedGithubApp,
+    siteName,
+  ]);
+
   const repoParts = extractGithubRepoParts(repoInput);
   const repoSettingsUrl = repoParts
     ? `https://github.com/${repoParts.owner}/${repoParts.repo}/settings/keys`
@@ -1014,32 +1082,219 @@ function CreateSiteModal({
     },
   ];
 
+  const wizardSteps: CreateSiteStep[] =
+    createType === "wordpress"
+      ? ["type", "details", "review"]
+      : repoAccessMode === "deploy_key"
+        ? ["type", "details", "access", "repository", "deploy-key", "review"]
+        : ["type", "details", "access", "repository", "review"];
+  const activeStep = wizardSteps.includes(currentStep) ? currentStep : "review";
+  const activeStepIndex = wizardSteps.indexOf(activeStep);
+  const selectedAccessOption = accessOptions.find(
+    (option) => option.value === repoAccessMode,
+  );
+  const selectedGithubAppName =
+    githubApps.find((app) => app.uuid === selectedGithubApp)?.name ||
+    "Shared GitHub connection";
+
+  function stepMeta(step: CreateSiteStep) {
+    switch (step) {
+      case "type":
+        return { label: "Type", icon: <Boxes className="h-4 w-4" /> };
+      case "details":
+        return { label: "Name", icon: <Type className="h-4 w-4" /> };
+      case "access":
+        return { label: "Access", icon: <ShieldCheck className="h-4 w-4" /> };
+      case "repository":
+        return { label: "Repo", icon: <GitBranch className="h-4 w-4" /> };
+      case "deploy-key":
+        return { label: "Key", icon: <KeyRound className="h-4 w-4" /> };
+      case "review":
+        return { label: "Review", icon: <Rocket className="h-4 w-4" /> };
+      default:
+        return { label: "Step", icon: <Boxes className="h-4 w-4" /> };
+    }
+  }
+
+  function validateStep(step: CreateSiteStep): string | null {
+    if (step === "details" && !siteName.trim()) {
+      return "Enter a site name before continuing.";
+    }
+
+    if (step === "access" && createType !== "wordpress") {
+      if (repoAccessMode === "connected_account") {
+        if (!githubConnection.configured) {
+          return "GitHub sign-in is not available for this workspace yet.";
+        }
+        if (!githubConnection.connected) {
+          return "Connect GitHub or choose another repository access method.";
+        }
+      }
+
+      if (repoAccessMode === "github_app") {
+        if (!canUsePrivateGithubApps) {
+          return "Shared GitHub connections are available to administrators only.";
+        }
+        if (!selectedGithubApp) {
+          return "Select a GitHub App connection before continuing.";
+        }
+      }
+    }
+
+    if (step === "repository" && createType !== "wordpress") {
+      if (!repoInput.trim()) {
+        return "Enter the GitHub repository before continuing.";
+      }
+    }
+
+    if (step === "deploy-key" && createType !== "wordpress") {
+      if (repoAccessMode === "deploy_key" && !deployKey?.uuid) {
+        return "Generate the deploy key and add it to GitHub before continuing.";
+      }
+    }
+
+    if (step === "review") {
+      return (
+        validateStep("details") ||
+        validateStep("access") ||
+        validateStep("repository") ||
+        validateStep("deploy-key")
+      );
+    }
+
+    return null;
+  }
+
+  function goToNextStep() {
+    const validationError = validateStep(activeStep);
+    if (validationError) {
+      setStepNotice(validationError);
+      return;
+    }
+
+    const nextStep = wizardSteps[activeStepIndex + 1];
+    if (nextStep) {
+      setCurrentStep(nextStep);
+    }
+  }
+
+  function goToPreviousStep() {
+    const previousStep = wizardSteps[activeStepIndex - 1];
+    if (previousStep) {
+      setCurrentStep(previousStep);
+    }
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (activeStep !== "review") {
+      event.preventDefault();
+      goToNextStep();
+      return;
+    }
+
+    const validationError = validateStep("review");
+    if (!validationError) return;
+
+    event.preventDefault();
+    setStepNotice(validationError);
+    if (!siteName.trim()) {
+      setCurrentStep("details");
+      return;
+    }
+    if (createType !== "wordpress") {
+      if (validateStep("access")) {
+        setCurrentStep("access");
+        return;
+      }
+      if (validateStep("repository")) {
+        setCurrentStep("repository");
+        return;
+      }
+      setCurrentStep("deploy-key");
+    }
+  }
+
   return (
-    <AnimatePresence>
+    <AnimatePresenceShim>
       {open && (
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-black/45 p-3 backdrop-blur-md sm:p-4"
           onClick={onClose}
         >
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="panel-surface relative my-10 w-full max-w-2xl rounded-md border border-white/10 bg-[var(--surface-dark)] p-8 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold tracking-tight text-white">
-                Create Site
-              </h2>
+        <MotionDiv
+          initial={{ opacity: 0, y: 20, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="relative my-4 w-full max-w-3xl overflow-hidden border border-[var(--line)] bg-[var(--surface-shell)]"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-site-title"
+        >
+            <div className="border-b border-[var(--line)] p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <h2
+                  id="create-site-title"
+                  className="text-xl font-bold tracking-tight text-[var(--foreground)]"
+                >
+                  Create Site
+                </h2>
+                <p className="max-w-xl text-xs leading-5 text-[var(--text-muted)]">
+                  Complete one step at a time without leaving the dashboard.
+                </p>
+              </div>
               <button
+                type="button"
                 onClick={onClose}
-                className="text-sm font-medium text-white/30 transition-colors hover:text-white"
+                className="inline-flex size-9 items-center justify-center border border-[var(--line)] bg-[var(--surface-shell-raised)] text-[var(--text-muted)] transition-colors hover:border-[var(--line-strong)] hover:text-[var(--foreground)]"
+                aria-label="Close site setup"
               >
-                Close
+                <X className="h-4 w-4" />
               </button>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+              {wizardSteps.map((step, index) => {
+                const isActive = step === activeStep;
+                const isComplete = index < activeStepIndex;
+                const meta = stepMeta(step);
+                return (
+                  <button
+                    key={step}
+                    type="button"
+                    onClick={() => {
+                      if (index <= activeStepIndex) {
+                        setCurrentStep(step);
+                      }
+                    }}
+                    disabled={index > activeStepIndex}
+                    className={cx(
+                      "flex min-h-11 items-center gap-2 border px-3 text-left text-xs transition-colors",
+                      isActive
+                        ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
+                        : isComplete
+                          ? "border-[var(--line-strong)] bg-[var(--surface)] text-[var(--foreground)]"
+                          : "border-[var(--line)] bg-[var(--surface-shell-raised)] text-[var(--text-muted)] opacity-70",
+                    )}
+                  >
+                    <span
+                      className={cx(
+                        "flex size-8 shrink-0 items-center justify-center border",
+                        isActive || isComplete
+                          ? "border-[var(--accent)] text-[var(--foreground)]"
+                          : "border-[var(--line-strong)] text-[var(--text-muted)]",
+                      )}
+                    >
+                      {meta.icon}
+                    </span>
+                    <span>{meta.label}</span>
+                  </button>
+                );
+              })}
+            </div>
             </div>
 
             {actionData?.ok === false && (
@@ -1049,20 +1304,53 @@ function CreateSiteModal({
               </div>
             )}
 
-            <Form method="post" className="mt-8 space-y-6">
+            <Form
+              method="post"
+              className="flex max-h-[calc(100vh-13rem)] flex-col"
+              onSubmit={handleSubmit}
+            >
               <input type="hidden" name="type" value={createType} />
+              <input type="hidden" name="name" value={siteName} />
               {createType !== "wordpress" && (
-                <input
-                  type="hidden"
-                  name="repo_access"
-                  value={repoAccessMode}
-                />
+                <>
+                  <input
+                    type="hidden"
+                    name="repo_access"
+                    value={repoAccessMode}
+                  />
+                  <input type="hidden" name="repo_url" value={repoInput} />
+                  <input type="hidden" name="repo_branch" value={repoBranch} />
+                  <input
+                    type="hidden"
+                    name="github_app_id"
+                    value={selectedGithubApp}
+                  />
+                  <input
+                    type="hidden"
+                    name="private_key_uuid"
+                    value={deployKey?.uuid ?? ""}
+                  />
+                </>
               )}
 
+              <div className="aeon-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+              {stepNotice && (
+                <div className="flex items-center gap-3 rounded-md border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>{stepNotice}</span>
+                </div>
+              )}
+
+              {activeStep === "type" && (
               <div className="space-y-3">
-                <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
-                  Site Type
-                </label>
+                <div className="space-y-1">
+                  <label className="ml-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    Site Type
+                  </label>
+                  <p className="ml-1 text-xs text-[var(--text-muted)]">
+                    Pick the runtime that matches what you want to deploy.
+                  </p>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {createOptions.map((option) => {
                     const active = createType === option.type;
@@ -1072,94 +1360,71 @@ function CreateSiteModal({
                         type="button"
                         onClick={() => setCreateType(option.type)}
                         className={cx(
-                          "rounded-md border p-5 text-left transition-all",
+                          "border p-4 text-left transition-all",
                           active
-                            ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_0_0_1px_rgba(47,107,255,0.2)]"
-                            : "border-white/10 bg-white/[0.03] hover:border-white/18 hover:bg-white/[0.05]",
+                            ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                            : "border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line)] hover:bg-[var(--surface-muted)]",
                         )}
                       >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={cx(
-                              "grid size-10 place-items-center rounded-md border",
-                              active
-                                ? "border-[var(--accent)] bg-[var(--accent)] text-white"
-                                : "border-white/10 bg-white/[0.05] text-white/70",
-                            )}
-                          >
+                        <div className="flex size-10 items-center justify-center border border-current/20 bg-[var(--surface)]">
+                          <span className={cx(active ? "text-[var(--accent)]" : "text-[var(--text-soft)]")}>
                             {option.icon}
+                          </span>
+                        </div>
+                        <div className="mt-5 space-y-1.5">
+                          <div className="text-sm font-bold text-[var(--foreground)]">
+                            {option.title}
                           </div>
-                          <div>
-                            <div className="text-sm font-bold text-white">
-                              {option.title}
-                            </div>
-                            <p className="text-xs text-white/45">
-                              {option.description}
-                            </p>
-                          </div>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {option.description}
+                          </p>
                         </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
+              )}
 
-              <div className="space-y-2">
-                <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
+              {activeStep === "details" && (
+                <div className="space-y-4">
+              <label className="block space-y-2">
+                <span className="ml-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   Site Name
-                </label>
+                </span>
                 <input
-                  name="name"
-                  required
                   value={siteName}
                   onChange={(event) => setSiteName(event.target.value)}
                   placeholder={selectedTypeMeta.placeholder}
-                  className="w-full rounded-md border border-white/10 bg-[var(--surface-elevated)] px-5 py-4 text-white outline-none transition-all placeholder:text-white/24 focus:ring-2 ring-white/10"
+                  className="w-full rounded-md border border-[var(--line)] bg-[var(--surface-elevated)] px-3 py-2.5 text-xs text-[var(--foreground)] outline-none transition-all placeholder:text-[var(--text-muted)] focus:ring-2 ring-white/10"
                 />
-              </div>
+              </label>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/50">
+              <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs leading-5 text-[var(--text-muted)]">
                 Workspace limits apply before launch, including site count,
                 CPU, memory, and people access.
               </div>
-
-              {createType === "wordpress" ? (
-                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-10 place-items-center rounded-2xl bg-white text-black">
-                      <Code2 className="h-5 w-5" />
-                    </div>
-                  <div>
-                    <div className="text-sm font-bold text-white">
-                      WordPress site
-                    </div>
-                    <p className="text-xs text-white/45">
-                      Your website and database will be prepared automatically.
-                    </p>
-                  </div>
                 </div>
-              </div>
-              ) : (
-                <div className="space-y-5 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+              )}
+
+              {activeStep === "access" && createType !== "wordpress" && (
+                <div className="space-y-4 border border-[var(--line)] bg-[var(--surface)] p-4">
                   <div className="flex items-center gap-3">
-                    <div className="grid size-10 place-items-center rounded-2xl bg-white text-black">
-                      <Github className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-white">
-                        Repository source
+                    <Github className="h-5 w-5 text-[var(--text-soft)]" />
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold text-[var(--foreground)]">
+                        Repository access
                       </div>
-                      <p className="text-xs text-white/45">
-                        Use a public repository, connect GitHub for private access,
-                        or add a manual repository key.
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Choose how ZephyrCloud will reach your repository.
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
+                    <div className="ml-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                       Repository access
-                    </label>
+                    </div>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {accessOptions.map((option) => {
                         const active = repoAccessMode === option.value;
@@ -1177,20 +1442,22 @@ function CreateSiteModal({
                               setDeployKeyState("idle");
                             }}
                             className={cx(
-                              "rounded-2xl border p-4 text-left transition-all",
+                              "border p-4 text-left transition-all",
                               active
-                                ? "border-white/25 bg-white/[0.07]"
+                                ? "border-[var(--accent)] bg-[var(--accent-soft)]"
                                 : option.disabled
-                                  ? "cursor-not-allowed border-white/5 bg-white/[0.015] text-white/35 opacity-60"
-                                  : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]",
+                                  ? "cursor-not-allowed border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)] opacity-60"
+                                  : "border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line)] hover:bg-[var(--surface-muted)]",
                             )}
                           >
-                            <div className="text-sm font-bold text-white">
-                              {option.title}
+                            <div className="space-y-1.5">
+                              <div className="text-sm font-bold text-[var(--foreground)]">
+                                {option.title}
+                              </div>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                {option.description}
+                              </p>
                             </div>
-                            <p className="mt-1 text-xs text-white/45">
-                              {option.description}
-                            </p>
                           </button>
                         );
                       })}
@@ -1198,9 +1465,9 @@ function CreateSiteModal({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
+                    <div className="ml-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                       Connection method
-                    </label>
+                    </div>
                     {repoAccessMode === "github_app" &&
                     canUsePrivateGithubApps ? (
                       <>
@@ -1210,23 +1477,23 @@ function CreateSiteModal({
                           onChange={(event) =>
                             setSelectedGithubApp(event.target.value)
                           }
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all focus:ring-2 ring-white/10"
+                          className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-xs text-[var(--foreground)] outline-none transition-all focus:ring-2 ring-white/10"
                         >
-                          <option value="" className="bg-[#080B12] text-white">
+                          <option value="" className="bg-[var(--surface)] text-[var(--foreground)]">
                             No shared GitHub connection selected
                           </option>
                           {githubApps.map((app) => (
                             <option
                               key={app.uuid}
                               value={app.uuid}
-                              className="bg-[#080B12] text-white"
+                              className="bg-[var(--surface)] text-[var(--foreground)]"
                             >
                               {app.name}
                             </option>
                           ))}
                         </select>
                         {githubAppsState === "loading" && (
-                          <p className="text-xs text-white/45">
+                          <p className="text-xs text-[var(--text-muted)]">
                             Loading available GitHub connections...
                           </p>
                         )}
@@ -1237,31 +1504,31 @@ function CreateSiteModal({
                         )}
                       </>
                     ) : repoAccessMode === "github_app" ? (
-                      <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                      <div className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-100">
                         Shared GitHub connections are available to administrators only.
                       </div>
                     ) : repoAccessMode === "connected_account" ? (
                       !githubConnection.configured ? (
-                        <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+                        <div className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2.5 text-xs text-red-100">
                           GitHub sign-in is not available for this workspace yet.
                         </div>
                       ) : !githubConnection.connected ? (
-                        <div className="flex flex-col gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm text-amber-100 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-3 rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-3 text-xs text-amber-100 md:flex-row md:items-center md:justify-between">
                           <div>
                             Connect GitHub once to choose from eligible private repositories.
                           </div>
                           <a
                             href="/api/github/oauth/start?returnTo=/sites?new=1"
-                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
+                            className="inline-flex items-center justify-center gap-2 rounded-md bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-muted)]"
                           >
                             <Github className="h-4 w-4" />
                             Connect GitHub
                           </a>
                         </div>
                       ) : (
-                        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                        <div className="rounded-md border border-[var(--success)] bg-[var(--success-soft)] px-3 py-2.5 text-xs text-[var(--success)]">
                           Connected as{" "}
-                          <span className="font-semibold text-white">
+                          <span className="font-semibold text-[var(--foreground)]">
                             @
                             {githubConnection.login ||
                               githubConnection.name ||
@@ -1271,20 +1538,36 @@ function CreateSiteModal({
                         </div>
                       )
                     ) : repoAccessMode === "deploy_key" ? (
-                      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                      <div className="rounded-md border border-[var(--success)] bg-[var(--success-soft)] px-3 py-2.5 text-xs text-[var(--success)]">
                         Use a repository deploy key if you prefer not to connect GitHub.
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
+                      <div className="rounded-md border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2.5 text-xs text-[var(--text-muted)]">
                         Public repositories do not need any additional connection.
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {activeStep === "repository" && createType !== "wordpress" && (
+                <div className="space-y-4 border border-[var(--line)] bg-[var(--surface)] p-4">
+                  <div className="flex items-center gap-3">
+                    <Github className="h-5 w-5 text-[var(--text-soft)]" />
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold text-[var(--foreground)]">
+                        Repository details
+                      </div>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Enter the repository and branch for this site.
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="space-y-2">
-                    <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
+                    <div className="ml-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                       Repository
-                    </label>
+                    </div>
                     <input
                       name="repo_url"
                       required
@@ -1311,7 +1594,7 @@ function CreateSiteModal({
                           ? "owner/repo, https://github.com/owner/repo, or git@github.com:owner/repo.git"
                           : "owner/repo or https://github.com/owner/repo"
                       }
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all placeholder:text-white/20 focus:ring-2 ring-white/10"
+                      className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-xs text-[var(--foreground)] outline-none transition-all placeholder:text-[var(--text-muted)] focus:ring-2 ring-white/10"
                     />
                     <datalist id="node-repository-options">
                       {repoOptions.map((repo) => (
@@ -1321,7 +1604,7 @@ function CreateSiteModal({
                       ))}
                     </datalist>
                     {repoOptionsState === "loading" && (
-                      <p className="text-xs text-white/45">
+                      <p className="text-xs text-[var(--text-muted)]">
                         {repoAccessMode === "connected_account"
                           ? "Loading repositories from GitHub..."
                           : "Loading repositories from the selected connection..."}
@@ -1333,7 +1616,7 @@ function CreateSiteModal({
                       </p>
                     )}
                     {!repoOptionsError && repoOptions.length > 0 && (
-                      <p className="text-xs text-white/45">
+                      <p className="text-xs text-[var(--text-muted)]">
                         {repoAccessMode === "connected_account"
                           ? "Start typing to choose a repository from your connected account."
                           : "Start typing to choose one of the available repositories."}
@@ -1348,23 +1631,23 @@ function CreateSiteModal({
                         </p>
                       )}
                     {repoAccessMode === "deploy_key" && (
-                      <p className="text-xs text-white/45">
+                      <p className="text-xs text-[var(--text-muted)]">
                         GitHub URLs are normalized automatically when the key is generated.
                       </p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <label className="ml-1 text-sm font-bold uppercase tracking-wider text-white/60">
+                    <div className="ml-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                       Branch
-                    </label>
+                    </div>
                     <input
                       name="repo_branch"
                       list="node-branch-options"
                       value={repoBranch}
                       onChange={(event) => setRepoBranch(event.target.value)}
                       placeholder="main"
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none transition-all placeholder:text-white/20 focus:ring-2 ring-white/10"
+                      className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-xs text-[var(--foreground)] outline-none transition-all placeholder:text-[var(--text-muted)] focus:ring-2 ring-white/10"
                     />
                     <datalist id="node-branch-options">
                       {branchOptions.map((branch) => (
@@ -1374,7 +1657,7 @@ function CreateSiteModal({
                       ))}
                     </datalist>
                     {branchOptionsState === "loading" && (
-                      <p className="text-xs text-white/45">
+                      <p className="text-xs text-[var(--text-muted)]">
                         {repoAccessMode === "connected_account"
                           ? "Loading branches from your connected GitHub account..."
                           : "Loading branches for this repository..."}
@@ -1385,25 +1668,23 @@ function CreateSiteModal({
                         {branchOptionsError}
                       </p>
                     )}
-                    <p className="text-xs text-white/45">
+                    <p className="text-xs text-[var(--text-muted)]">
                       {selectedTypeMeta.repoHelp}
                     </p>
                   </div>
+                </div>
+              )}
 
-                  {repoAccessMode === "deploy_key" && (
-                    <div className="space-y-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                      <input
-                        type="hidden"
-                        name="private_key_uuid"
-                        value={deployKey?.uuid ?? ""}
-                      />
-
+              {activeStep === "deploy-key" &&
+                createType !== "wordpress" &&
+                repoAccessMode === "deploy_key" && (
+                  <div className="space-y-4 border border-[var(--line)] bg-[var(--surface)] p-4">
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
-                          <div className="text-sm font-bold text-white">
+                          <div className="text-sm font-bold text-[var(--foreground)]">
                             Repository deploy key
                           </div>
-                          <p className="text-xs text-white/45">
+                          <p className="text-xs text-[var(--text-muted)]">
                             Generate a read-only key, add it to GitHub, then create the site.
                           </p>
                         </div>
@@ -1411,7 +1692,7 @@ function CreateSiteModal({
                           type="button"
                           onClick={() => void generateDeployKey()}
                           disabled={deployKeyState === "loading"}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {deployKeyState === "loading" ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1423,30 +1704,37 @@ function CreateSiteModal({
                       </div>
 
                       {deployKeyError && (
-                        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                        <div className="border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                           {deployKeyError}
                         </div>
                       )}
 
                       {deployKey && (
                         <div className="space-y-3">
-                          <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
-                            1. Add this public key to the repository as a read-only deploy key.
-                            <br />
-                            2. Confirm the correct branch is selected.
-                            <br />
-                            3. Create the site.
+                          <div className="border border-[var(--success)] bg-[var(--success-soft)] px-4 py-3 text-xs text-[var(--success)]">
+                            <div className="flex items-center gap-2">
+                              <KeyRound className="h-4 w-4" />
+                              Add this public key to the repository as a read-only deploy key.
+                            </div>
+                            <div className="mt-2 flex items-center gap-2">
+                              <GitBranch className="h-4 w-4" />
+                              Confirm the correct branch is selected.
+                            </div>
+                            <div className="mt-2 flex items-center gap-2">
+                              <Rocket className="h-4 w-4" />
+                              Create the site once GitHub accepts the key.
+                            </div>
                           </div>
 
                           <div className="space-y-2">
-                            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-white/40">
+                            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                               Public key
                             </label>
                             <textarea
                               readOnly
                               value={deployKey.public_key}
                               rows={4}
-                              className="w-full rounded-2xl border border-white/10 bg-[#05070d] px-4 py-3 font-mono text-xs text-white/85 outline-none"
+                              className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--text-muted)] outline-none"
                             />
                           </div>
 
@@ -1454,7 +1742,7 @@ function CreateSiteModal({
                             <button
                               type="button"
                               onClick={() => void copyDeployKey()}
-                              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                              className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
                             >
                               <Copy className="h-4 w-4" />
                               {deployKeyCopied ? "Copied" : "Copy key"}
@@ -1464,7 +1752,7 @@ function CreateSiteModal({
                                 href={repoSettingsUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                                className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
                               >
                                 <ExternalLink className="h-4 w-4" />
                                 Open GitHub settings
@@ -1473,9 +1761,9 @@ function CreateSiteModal({
                           </div>
 
                           {deployKey.fingerprint && (
-                            <p className="text-xs text-white/45">
+                            <p className="text-xs text-[var(--text-muted)]">
                               Fingerprint:{" "}
-                              <span className="font-mono text-white/70">
+                              <span className="font-mono text-[var(--text-muted)]">
                                 {deployKey.fingerprint}
                               </span>
                             </p>
@@ -1483,41 +1771,182 @@ function CreateSiteModal({
                         </div>
                       )}
                     </div>
+                )}
+
+              {activeStep === "review" && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="ml-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                      Review
+                    </div>
+                    <p className="ml-1 text-xs text-[var(--text-muted)]">
+                      Confirm the setup before the site is created.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="border border-[var(--line)] bg-[var(--surface)] p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                        Site type
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                        {selectedTypeMeta.title}
+                      </div>
+                    </div>
+                    <div className="border border-[var(--line)] bg-[var(--surface)] p-4">
+                      <div className="text-xs uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                        Site name
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                        {siteName.trim() || "Not set"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {createType === "wordpress" ? (
+                    <div className="space-y-3 border border-[var(--line)] bg-[var(--surface)] p-4">
+                      <div className="flex items-center gap-3">
+                        <Code2 className="h-5 w-5 text-[var(--text-soft)]" />
+                        <div className="space-y-1">
+                          <div className="text-sm font-bold text-[var(--foreground)]">
+                            Managed WordPress
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            Your website and database will be prepared automatically.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 border border-[var(--line)] bg-[var(--surface)] p-4">
+                      <div className="flex items-center gap-3">
+                        <Github className="h-5 w-5 text-[var(--text-soft)]" />
+                        <div className="space-y-1">
+                          <div className="text-sm font-bold text-[var(--foreground)]">
+                            Repository source
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {selectedAccessOption?.title || "Repository access"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid gap-3 text-xs sm:grid-cols-2">
+                        <div>
+                          <div className="uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                            Repository
+                          </div>
+                          <div className="mt-1 break-words font-semibold text-[var(--foreground)]">
+                            {repoInput.trim() || "Not set"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                            Branch
+                          </div>
+                          <div className="mt-1 font-semibold text-[var(--foreground)]">
+                            {repoBranch.trim() || "main"}
+                          </div>
+                        </div>
+                        {repoAccessMode === "github_app" ? (
+                          <div>
+                            <div className="uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                              GitHub App
+                            </div>
+                            <div className="mt-1 font-semibold text-[var(--foreground)]">
+                              {selectedGithubApp ? selectedGithubAppName : "Not selected"}
+                            </div>
+                          </div>
+                        ) : null}
+                        {repoAccessMode === "connected_account" ? (
+                          <div>
+                            <div className="uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                              GitHub account
+                            </div>
+                            <div className="mt-1 font-semibold text-[var(--foreground)]">
+                              {githubConnection.connected
+                                ? `@${githubConnection.login || githubConnection.name || "github-user"}`
+                                : "Not connected"}
+                            </div>
+                          </div>
+                        ) : null}
+                        {repoAccessMode === "deploy_key" ? (
+                          <div>
+                            <div className="uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                              Deploy key
+                            </div>
+                            <div className="mt-1 font-semibold text-[var(--foreground)]">
+                              {deployKey?.fingerprint || deployKey?.uuid || "Not generated"}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
+              </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex w-full items-center justify-center gap-3 rounded-[24px] bg-white py-5 text-base font-black text-black transition-all hover:scale-[1.02] active:scale-[0.98] disabled:pointer-events-none disabled:grayscale disabled:opacity-30"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+              <div className="flex flex-col-reverse gap-3 border-t border-[var(--line)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <button
+                  type="button"
+                  onClick={goToPreviousStep}
+                  disabled={activeStepIndex === 0 || isSubmitting}
+                  className="inline-flex min-h-10 items-center justify-center border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Back
+                </button>
+
+                {activeStep === "review" ? (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-bold text-[var(--accent-foreground)] transition-colors hover:border-[var(--accent-hover)] hover:bg-[var(--accent-hover)] disabled:pointer-events-none disabled:opacity-30"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Rocket className="h-5 w-5" />
+                    )}
+                    {selectedTypeMeta.submitLabel}
+                  </button>
                 ) : (
-                  <Rocket className="h-5 w-5" />
+                  <button
+                    type="button"
+                    onClick={goToNextStep}
+                    disabled={isSubmitting}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-bold text-[var(--foreground)] transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--surface-muted)] disabled:pointer-events-none disabled:opacity-30"
+                  >
+                    Continue
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
                 )}
-                {selectedTypeMeta.submitLabel}
-              </button>
+              </div>
             </Form>
-          </motion.div>
-        </motion.div>
+          </MotionDiv>
+        </MotionDiv>
       )}
-    </AnimatePresence>
+    </AnimatePresenceShim>
   );
 }
 
-function StatusPill({ status }: { status: SiteStatus }) {
+function StatusPill({ status }: { status: string }) {
+  const normalized = normalizeSiteStatus(status);
   const cfg =
     (
       {
-        RUNNING: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+        RUNNING: "border-[var(--success)] bg-[var(--success-soft)] text-[var(--success)]",
         STOPPED: "bg-gray-500/10 text-gray-400 border-gray-500/20",
         ERROR: "bg-red-500/10 text-red-100 border-red-500/20",
         BUILDING: "bg-amber-500/10 text-amber-400 border-amber-500/20",
         PROVISIONING: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+        UNKNOWN: "bg-[var(--surface)] text-[var(--text-muted)] border-[var(--line)]",
       } as const
-    )[status] || "bg-white/5 text-white/50 border-white/10";
+    )[normalized];
+  const label = (normalized === "UNKNOWN" ? status || "Unknown" : normalized)
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 
   return (
     <span
@@ -1526,8 +1955,8 @@ function StatusPill({ status }: { status: SiteStatus }) {
         cfg,
       )}
     >
-      {status === "BUILDING" && <Loader2 className="h-3 w-3 animate-spin" />}
-      {status}
+      {normalized === "BUILDING" && <Loader2 className="h-3 w-3 animate-spin" />}
+      {label}
     </span>
   );
 }
