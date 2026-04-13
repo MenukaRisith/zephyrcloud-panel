@@ -349,17 +349,17 @@ export class CoolifyService {
         '/api/v1/databases',
       );
       if (!Array.isArray(databases)) return [];
-      return databases
-        .map((db) => {
-          const uuid = this.toStringValue(db?.uuid);
-          if (!uuid) return null;
-          return {
-            uuid,
-            name: this.toStringValue(db?.name) ?? uuid,
-            status: this.toStringValue(db?.status) ?? undefined,
-          };
-        })
-        .filter((db): db is CoolifyDatabaseSummary => db !== null);
+      const results: CoolifyDatabaseSummary[] = [];
+      for (const db of databases) {
+        const uuid = this.toStringValue(db?.uuid);
+        if (!uuid) continue;
+        results.push({
+          uuid,
+          name: this.toStringValue(db?.name) ?? uuid,
+          status: this.toStringValue(db?.status) ?? undefined,
+        });
+      }
+      return results;
     } catch (error: unknown) {
       this.logger.error(`[getDatabases] Failed: ${this.formatError(error)}`);
       return [];
