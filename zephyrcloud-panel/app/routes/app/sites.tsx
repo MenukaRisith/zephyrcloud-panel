@@ -6,6 +6,7 @@ import {
   useActionData,
   useLoaderData,
   useNavigation,
+  useRevalidator,
   useSearchParams,
 } from "react-router";
 import {
@@ -457,8 +458,24 @@ function normalizeSiteStatus(status: string): SiteStatus | "UNKNOWN" {
   if (normalized.includes("run") || normalized.includes("healthy") || normalized === "up") {
     return "RUNNING";
   }
-  if (normalized.includes("build") || normalized.includes("provision") || normalized.includes("queue")) {
+  if (
+    normalized.includes("build") ||
+    normalized.includes("deploy") ||
+    normalized.includes("queue") ||
+    normalized.includes("progress") ||
+    normalized.includes("pull")
+  ) {
     return "BUILDING";
+  }
+  if (
+    normalized.includes("provision") ||
+    normalized.includes("restart") ||
+    normalized.includes("prepar") ||
+    normalized.includes("starting") ||
+    normalized.includes("pending") ||
+    normalized.includes("creat")
+  ) {
+    return "PROVISIONING";
   }
   if (normalized.includes("fail") || normalized.includes("error") || normalized.includes("crash")) {
     return "ERROR";
@@ -532,6 +549,7 @@ function createTypeMeta(type: SupportedCreateType) {
 export default function SitesPage() {
   const { sites, user, githubConnection } = useLoaderData() as LoaderData;
   const nav = useNavigation();
+  const revalidator = useRevalidator();
   const [searchParams] = useSearchParams();
   const actionData = useActionData() as ActionData | undefined;
 
@@ -551,6 +569,21 @@ export default function SitesPage() {
     if (!createOpen) return;
     document.getElementById("main-content")?.scrollIntoView({ block: "start" });
   }, [createOpen]);
+
+  const hasActiveTransitions = sites.some((site) => {
+    const normalized = normalizeSiteStatus(site.status);
+    return normalized === "BUILDING" || normalized === "PROVISIONING";
+  });
+
+  React.useEffect(() => {
+    const pollInterval = hasActiveTransitions ? 3000 : 10000;
+    const interval = window.setInterval(() => {
+      if (document.hidden || revalidator.state !== "idle") return;
+      revalidator.revalidate();
+    }, pollInterval);
+
+    return () => window.clearInterval(interval);
+  }, [hasActiveTransitions, revalidator]);
 
   const isSubmitting = nav.state === "submitting";
 
@@ -1955,7 +1988,9 @@ function StatusPill({ status }: { status: string }) {
         cfg,
       )}
     >
-      {normalized === "BUILDING" && <Loader2 className="h-3 w-3 animate-spin" />}
+      {(normalized === "BUILDING" || normalized === "PROVISIONING") && (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      )}
       {label}
     </span>
   );

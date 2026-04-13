@@ -91,6 +91,14 @@ export type StatusPayload =
   | { ok: true; status: string; source?: string; updatedAt?: string; raw?: unknown }
   | { ok: false; error: string };
 
+export type NormalizedSiteStatus =
+  | "RUNNING"
+  | "STOPPED"
+  | "BUILDING"
+  | "PROVISIONING"
+  | "ERROR"
+  | "UNKNOWN";
+
 export type LogsPayload =
   | {
       ok: true;
@@ -150,7 +158,7 @@ export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-export function normalizeStatus(status: string) {
+export function normalizeStatus(status: string): NormalizedSiteStatus {
   const normalized = (status || "").toLowerCase();
   if (normalized.includes("run") || normalized.includes("healthy") || normalized === "up") {
     return "RUNNING";
@@ -174,11 +182,21 @@ export function normalizeStatus(status: string) {
   if (
     normalized.includes("build") ||
     normalized.includes("deploy") ||
-    normalized.includes("provision") ||
     normalized.includes("queu") ||
-    normalized.includes("restart")
+    normalized.includes("progress") ||
+    normalized.includes("pull")
   ) {
     return "BUILDING";
+  }
+  if (
+    normalized.includes("provision") ||
+    normalized.includes("restart") ||
+    normalized.includes("prepar") ||
+    normalized.includes("starting") ||
+    normalized.includes("pending") ||
+    normalized.includes("creat")
+  ) {
+    return "PROVISIONING";
   }
   return "UNKNOWN";
 }
@@ -190,6 +208,9 @@ export function statusClass(status: string) {
   }
   if (normalized === "BUILDING") {
     return "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]";
+  }
+  if (normalized === "PROVISIONING") {
+    return "border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]";
   }
   if (normalized === "ERROR") {
     return "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]";
@@ -209,12 +230,16 @@ export function StatusBadge({ status }: { status: string }) {
         statusClass(status),
       )}
     >
-      {normalized === "BUILDING" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+      {normalized === "BUILDING" || normalized === "PROVISIONING" ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : null}
       {normalized === "RUNNING" ? <span className="h-2 w-2 bg-current" aria-hidden="true" /> : null}
       {normalized === "STOPPED"
         ? "Stopped"
         : normalized === "BUILDING"
-          ? "Processing"
+          ? "Building"
+          : normalized === "PROVISIONING"
+            ? "Provisioning"
           : normalized === "ERROR"
             ? "Error"
             : normalized === "RUNNING"

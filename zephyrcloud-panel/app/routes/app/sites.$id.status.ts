@@ -55,15 +55,24 @@ function normalizeRuntimeStatus(rawStatus: string) {
   if (
     status.includes("build") ||
     status.includes("deploy") ||
-    status.includes("provision") ||
     status.includes("queue") ||
-    status.includes("restart") ||
+    status.includes("progress") ||
     status.includes("pull")
   ) {
     return "BUILDING";
   }
+  if (
+    status.includes("provision") ||
+    status.includes("restart") ||
+    status.includes("prepar") ||
+    status.includes("starting") ||
+    status.includes("pending") ||
+    status.includes("creat")
+  ) {
+    return "PROVISIONING";
+  }
 
-  return rawStatus.trim().toUpperCase();
+  return "UNKNOWN";
 }
 
 function normalizeDeploymentStatus(rawStatus: string) {
@@ -180,9 +189,10 @@ export async function loader({
         : "coolify";
 
     if (
-      status === "BUILDING" ||
-      status === "PROVISIONING" ||
-      status === "UNKNOWN"
+      (source !== "coolify" || status === "UNKNOWN") &&
+      (status === "BUILDING" ||
+        status === "PROVISIONING" ||
+        status === "UNKNOWN")
     ) {
       try {
         const deploymentsRes = await apiFetchAuthed(
@@ -210,7 +220,7 @@ export async function loader({
           }
         }
       } catch {
-        // Ignore deployment reconciliation errors and return the raw runtime status.
+        // Ignore deployment reconciliation errors and return the runtime status.
       }
     }
 

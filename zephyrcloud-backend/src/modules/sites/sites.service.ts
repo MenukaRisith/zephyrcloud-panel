@@ -404,19 +404,30 @@ export class SitesService {
       s.includes('removed')
     )
       return 'stopped';
-    if (s.includes('error') || s.includes('failed') || s.includes('unhealthy'))
+    if (
+      s.includes('error') ||
+      s.includes('failed') ||
+      s.includes('unhealthy') ||
+      s.includes('crash')
+    )
       return 'error';
-    // Catch 'restarting', 'preparing', 'queued', 'in_progress'
     if (
       s.includes('build') ||
       s.includes('deploy') ||
       s.includes('progress') ||
       s.includes('queued') ||
-      s.includes('restarting') ||
-      s.includes('preparing')
-    ) {
+      s.includes('pull')
+    )
+      return 'building';
+    if (
+      s.includes('provision') ||
+      s.includes('restart') ||
+      s.includes('prepar') ||
+      s.includes('starting') ||
+      s.includes('pending') ||
+      s.includes('creat')
+    )
       return 'provisioning';
-    }
 
     return 'provisioning';
   }
