@@ -638,14 +638,7 @@ export class CoolifyService {
         `/api/v1/applications/${uuid}`,
       );
       if (!this.isRecord(resource)) return [];
-      const fqdn =
-        this.toStringValue(resource.coolify_fqdn) ??
-        this.toStringValue(resource.fqdn) ??
-        '';
-      return fqdn
-        .split(',')
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0);
+      return this.extractDomains(resource);
     } catch {
       return [];
     }
@@ -688,23 +681,18 @@ export class CoolifyService {
         );
         return;
       }
-      const currentFqdn = this.toStringValue(resource.fqdn) ?? '';
-
-      const domains = currentFqdn
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter((s: string) => s.length > 0);
+      const domains = this.extractDomains(resource);
       if (domains.includes(domainUrl)) {
         return;
       }
 
       domains.push(domainUrl);
-      const newFqdn = domains.join(',');
+      const newDomains = domains.join(',');
 
-      this.logger.log(`[addDomain] Updating FQDN for ${uuid} to: ${newFqdn}`);
+      this.logger.log(`[addDomain] Updating domains for ${uuid} to: ${newDomains}`);
 
       try {
-        await this.client.patch(endpoint, { fqdn: newFqdn });
+        await this.client.patch(endpoint, { domains: newDomains });
         return;
       } catch (patchError: unknown) {
         if (this.getHttpStatus(patchError) !== 422) {
@@ -719,7 +707,7 @@ export class CoolifyService {
         this.logger.log(
           `[addDomain] Docker Image detected. Setting FQDN via Environment Variable.`,
         );
-        await this.setEnv(uuid, 'FQDN', newFqdn);
+        await this.setEnv(uuid, 'FQDN', newDomains);
         await this.deployResource('application', uuid);
         return;
       }
@@ -727,7 +715,7 @@ export class CoolifyService {
       this.logger.warn(
         `[addDomain] PATCH not supported (422). Falling back to FQDN env var.`,
       );
-      await this.setEnv(uuid, 'FQDN', newFqdn);
+      await this.setEnv(uuid, 'FQDN', newDomains);
       await this.deployResource('application', uuid);
     } catch (error: unknown) {
       const message = this.formatError(error);
@@ -1391,6 +1379,26 @@ export class CoolifyService {
 
   private isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
+  }
+
+  private extractDomains(resource: Record<string, unknown>): string[] {
+    const domainsValue = resource.domains;
+    if (Array.isArray(domainsValue)) {
+      return domainsValue
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter((value) => value.length > 0);
+    }
+
+    const fromString =
+      this.toStringValue(domainsValue) ??
+      this.toStringValue(resource.coolify_fqdn) ??
+      this.toStringValue(resource.fqdn) ??
+      '';
+
+    return fromString
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
   }
 
   private buildQueryString(params: Record<string, boolean>): string {
