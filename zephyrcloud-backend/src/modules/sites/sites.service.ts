@@ -497,15 +497,6 @@ export class SitesService {
       .toLowerCase()
       .trim();
 
-    if (s.includes('running') || s.includes('healthy') || s === 'up')
-      return 'running';
-    if (
-      s.includes('stopped') ||
-      s.includes('down') ||
-      s.includes('exited') ||
-      s.includes('removed')
-    )
-      return 'stopped';
     if (
       s.includes('error') ||
       s.includes('failed') ||
@@ -513,6 +504,17 @@ export class SitesService {
       s.includes('crash')
     )
       return 'error';
+    if (
+      s.includes('stopped') ||
+      s.includes('down') ||
+      s.includes('exited') ||
+      s.includes('removed') ||
+      s.includes('inactive') ||
+      s.includes('not running') ||
+      s.includes('not_running') ||
+      s.includes('dead')
+    )
+      return 'stopped';
     if (
       s.includes('build') ||
       s.includes('deploy') ||
@@ -530,6 +532,8 @@ export class SitesService {
       s.includes('creat')
     )
       return 'provisioning';
+    if (s.includes('running') || s.includes('healthy') || s === 'up')
+      return 'running';
 
     return 'provisioning';
   }

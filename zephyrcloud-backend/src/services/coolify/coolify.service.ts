@@ -536,12 +536,10 @@ export class CoolifyService {
         return { found: false };
       }
 
-      // Coolify V4 typically returns status at top level
-      const status = String(
-        this.toStringValue(resource.status) ??
-          this.toStringValue(resource.state) ??
-          '',
-      ).trim();
+      const statusValue = this.toStringValue(resource.status) ?? '';
+      const stateValue = this.toStringValue(resource.state) ?? '';
+      const combined = [stateValue, statusValue].filter(Boolean).join(' ');
+      const status = String(combined).trim();
       return { found: true, status, raw: resource };
     } catch {
       return { found: false };
