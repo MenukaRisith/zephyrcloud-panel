@@ -145,6 +145,13 @@ type TenantPolicyPayload = {
   max_team_members_per_site: number | null;
 };
 
+type CoolifyCleanupOptions = {
+  name_prefixes?: string[];
+  name_contains?: string[];
+  dry_run?: boolean;
+  delete_projects?: boolean;
+};
+
 @Injectable()
 export class SitesService {
   private readonly logger = new Logger(SitesService.name);
@@ -385,6 +392,105 @@ export class SitesService {
     return {
       deleted_sites: sitesResult.count,
       deleted_domains: domainsResult.count,
+    };
+  }
+
+  private matchesCleanupName(name: string, options: CoolifyCleanupOptions): boolean {
+    const normalized = name.toLowerCase().trim();
+    const prefixes = (options.name_prefixes ?? [])
+      .map((value) => value.toLowerCase().trim())
+      .filter(Boolean);
+    const contains = (options.name_contains ?? [])
+      .map((value) => value.toLowerCase().trim())
+      .filter(Boolean);
+
+    if (!prefixes.length && !contains.length) {
+      return false;
+    }
+
+    if (prefixes.some((prefix) => normalized.startsWith(prefix))) return true;
+    if (contains.some((token) => normalized.includes(token))) return true;
+    return false;
+  }
+
+  public async cleanupCoolifyResources(
+    user: JwtPayload,
+    options: CoolifyCleanupOptions,
+  ) {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Only admins can clean Coolify resources.');
+    }
+
+    const hasFilters =
+      (options.name_prefixes?.length ?? 0) > 0 ||
+      (options.name_contains?.length ?? 0) > 0;
+    if (!hasFilters) {
+      throw new BadRequestException(
+        'Provide name_prefixes or name_contains for cleanup.',
+      );
+    }
+
+    const [apps, databases, projects] = await Promise.all([
+      this.coolify.getApplications(),
+      this.coolify.getDatabases(),
+      options.delete_projects ? this.coolify.getProjects() : Promise.resolve([]),
+    ]);
+
+    const matchedApps = apps.filter((app) =>
+      this.matchesCleanupName(app.name, options),
+    );
+    const matchedDatabases = databases.filter((db) =>
+      this.matchesCleanupName(db.name, options),
+    );
+    const matchedProjects = projects.filter((project) =>
+      this.matchesCleanupName(project.name, options),
+    );
+
+    if (options.dry_run) {
+      return {
+        dry_run: true,
+        applications: matchedApps,
+        databases: matchedDatabases,
+        projects: matchedProjects,
+      };
+    }
+
+    const appResults = await Promise.allSettled(
+      matchedApps.map((app) =>
+        this.coolify.deleteApplication(app.uuid, {
+          delete_configurations: true,
+          delete_volumes: true,
+          docker_cleanup: true,
+          delete_connected_networks: true,
+        }),
+      ),
+    );
+    const dbResults = await Promise.allSettled(
+      matchedDatabases.map((db) => this.coolify.deleteDatabase(db.uuid)),
+    );
+    const projectResults = await Promise.allSettled(
+      matchedProjects.map((project) => this.coolify.deleteProject(project.uuid)),
+    );
+
+    const summarize = (results: PromiseSettledResult<unknown>[]) => ({
+      deleted: results.filter((r) => r.status === 'fulfilled').length,
+      failed: results.filter((r) => r.status === 'rejected').length,
+    });
+
+    return {
+      dry_run: false,
+      applications: {
+        matched: matchedApps.length,
+        ...summarize(appResults),
+      },
+      databases: {
+        matched: matchedDatabases.length,
+        ...summarize(dbResults),
+      },
+      projects: {
+        matched: matchedProjects.length,
+        ...summarize(projectResults),
+      },
     };
   }
 

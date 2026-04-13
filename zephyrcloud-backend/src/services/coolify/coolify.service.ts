@@ -147,6 +147,17 @@ export type CoolifyApplicationSummary = {
   base_directory?: string;
 };
 
+export type CoolifyDatabaseSummary = {
+  uuid: string;
+  name: string;
+  status?: string;
+};
+
+export type CoolifyProjectSummary = {
+  uuid: string;
+  name: string;
+};
+
 type CoolifyDatabaseResource = CoolifyDatabase & {
   destination?: CoolifyDestinationLike & {
     server?: {
@@ -332,6 +343,51 @@ export class CoolifyService {
     }
   }
 
+  async getDatabases(): Promise<CoolifyDatabaseSummary[]> {
+    try {
+      const databases = await this.client.get<CoolifyDatabase[]>(
+        '/api/v1/databases',
+      );
+      if (!Array.isArray(databases)) return [];
+      return databases
+        .map((db) => {
+          const uuid = this.toStringValue(db?.uuid);
+          if (!uuid) return null;
+          return {
+            uuid,
+            name: this.toStringValue(db?.name) ?? uuid,
+            status: this.toStringValue(db?.status) ?? undefined,
+          };
+        })
+        .filter((db): db is CoolifyDatabaseSummary => db !== null);
+    } catch (error: unknown) {
+      this.logger.error(`[getDatabases] Failed: ${this.formatError(error)}`);
+      return [];
+    }
+  }
+
+  async getProjects(): Promise<CoolifyProjectSummary[]> {
+    try {
+      const projects = await this.client.get<CoolifyProject[]>(
+        '/api/v1/projects',
+      );
+      if (!Array.isArray(projects)) return [];
+      return projects
+        .map((project) => {
+          const uuid = this.toStringValue(project?.uuid);
+          if (!uuid) return null;
+          return {
+            uuid,
+            name: this.toStringValue(project?.name) ?? uuid,
+          };
+        })
+        .filter((project): project is CoolifyProjectSummary => project !== null);
+    } catch (error: unknown) {
+      this.logger.error(`[getProjects] Failed: ${this.formatError(error)}`);
+      return [];
+    }
+  }
+
   async createEnv(resourceUuid: string, data: CoolifyEnvInput) {
     const payload = this.stripUndefined({
       key: data.key,
@@ -423,6 +479,35 @@ export class CoolifyService {
 
   async deletePrivateKey(keyUuid: string): Promise<void> {
     await this.client.delete(`/api/v1/security/keys/${keyUuid}`);
+  }
+
+  async deleteApplication(
+    uuid: string,
+    options?: {
+      delete_configurations?: boolean;
+      delete_volumes?: boolean;
+      docker_cleanup?: boolean;
+      delete_connected_networks?: boolean;
+    },
+  ): Promise<void> {
+    if (!uuid) throw new Error('Application UUID missing');
+    const query = this.buildQueryString({
+      delete_configurations: options?.delete_configurations ?? true,
+      delete_volumes: options?.delete_volumes ?? true,
+      docker_cleanup: options?.docker_cleanup ?? true,
+      delete_connected_networks: options?.delete_connected_networks ?? true,
+    });
+    await this.client.delete(`/api/v1/applications/${uuid}${query}`);
+  }
+
+  async deleteDatabase(uuid: string): Promise<void> {
+    if (!uuid) throw new Error('Database UUID missing');
+    await this.client.delete(`/api/v1/databases/${uuid}`);
+  }
+
+  async deleteProject(uuid: string): Promise<void> {
+    if (!uuid) throw new Error('Project UUID missing');
+    await this.client.delete(`/api/v1/projects/${uuid}`);
   }
 
   // --- GitHub Helpers ---
@@ -1284,6 +1369,13 @@ export class CoolifyService {
 
   private isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
+  }
+
+  private buildQueryString(params: Record<string, boolean>): string {
+    const entries = Object.entries(params).map(
+      ([key, value]) => `${encodeURIComponent(key)}=${value ? 'true' : 'false'}`,
+    );
+    return entries.length ? `?${entries.join('&')}` : '';
   }
 
   private toStringValue(value: unknown): string | undefined {

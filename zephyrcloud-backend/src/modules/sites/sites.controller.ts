@@ -89,6 +89,20 @@ export class SitesController {
     return this.sites.deleteSitesByName(user, trimmed);
   }
 
+  @Post('admin/coolify/cleanup')
+  public async cleanupCoolify(
+    @CurrentUser() user: JwtPayload,
+    @Body()
+    body: {
+      name_prefixes?: string[];
+      name_contains?: string[];
+      dry_run?: boolean;
+      delete_projects?: boolean;
+    },
+  ) {
+    return this.sites.cleanupCoolifyResources(user, body ?? {});
+  }
+
   @Post()
   public async create(
     @CurrentUser() user: JwtPayload,
