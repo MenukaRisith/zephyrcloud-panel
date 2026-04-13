@@ -96,7 +96,20 @@ export class CloudflareDnsService {
     });
 
     if (!data.success || !data.result?.id) {
-      throw new Error(this.formatError(data.errors, 'Failed to create DNS record in Cloudflare.'));
+      if (this.isAuthError(data.errors)) {
+        const verified = await this.verifyToken();
+        if (verified) {
+          throw new Error(
+            'Cloudflare token is valid but lacks DNS edit permissions for this zone.',
+          );
+        }
+      }
+      throw new Error(
+        this.formatError(
+          data.errors,
+          'Failed to create DNS record in Cloudflare.',
+        ),
+      );
     }
 
     this.logger.log(
@@ -147,5 +160,24 @@ export class CloudflareDnsService {
   ): string {
     const message = errors?.map((entry) => entry.message).find(Boolean);
     return message ? String(message) : fallback;
+  }
+
+  private isAuthError(errors: Array<{ message?: string; code?: number }> | undefined): boolean {
+    return Boolean(errors?.some((error) => error.code === 10000));
+  }
+
+  private async verifyToken(): Promise<boolean> {
+    const token = this.getEnv('CLOUDFLARE_API_TOKEN');
+    if (!token) return false;
+    try {
+      const { data } = await this.client.get<
+        CloudflareEnvelope<{ status: string }>
+      >('/user/tokens/verify', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return Boolean(data?.success);
+    } catch {
+      return false;
+    }
   }
 }
