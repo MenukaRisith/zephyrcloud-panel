@@ -24,29 +24,49 @@ export class CloudflareDnsService {
   private readonly zoneId: string;
 
   public constructor(private readonly config: ConfigService) {
-    const token = (this.config.get<string>('CLOUDFLARE_API_TOKEN') ?? '').trim();
     this.zoneId = (this.config.get<string>('CLOUDFLARE_ZONE_ID') ?? '').trim();
 
     this.client = axios.create({
       baseURL: 'https://api.cloudflare.com/client/v4',
       timeout: 15_000,
       headers: {
-        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
   }
 
   public ensureConfig(): void {
-    const token = (
-      this.config.get<string>('CLOUDFLARE_API_TOKEN') ?? ''
-    ).trim();
-    if (!token) {
-      throw new Error('CLOUDFLARE_API_TOKEN is missing in .env');
+    const token = (this.config.get<string>('CLOUDFLARE_API_TOKEN') ?? '').trim();
+    const apiKey = (this.config.get<string>('CLOUDFLARE_API_KEY') ?? '').trim();
+    const email = (this.config.get<string>('CLOUDFLARE_EMAIL') ?? '').trim();
+    const hasToken = Boolean(token);
+    const hasKeyAuth = Boolean(apiKey && email);
+    if (!hasToken && !hasKeyAuth) {
+      throw new Error(
+        'CLOUDFLARE_API_TOKEN or (CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL) is required.',
+      );
     }
     if (!this.zoneId) {
       throw new Error('CLOUDFLARE_ZONE_ID is missing in .env');
     }
+  }
+
+  private buildAuthHeaders(): Record<string, string> {
+    const token = (this.config.get<string>('CLOUDFLARE_API_TOKEN') ?? '').trim();
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+
+    const apiKey = (this.config.get<string>('CLOUDFLARE_API_KEY') ?? '').trim();
+    const email = (this.config.get<string>('CLOUDFLARE_EMAIL') ?? '').trim();
+    if (apiKey && email) {
+      return {
+        'X-Auth-Email': email,
+        'X-Auth-Key': apiKey,
+      };
+    }
+
+    return {};
   }
 
   public async createSiteHostnameRecord(
@@ -65,7 +85,9 @@ export class CloudflareDnsService {
 
     const { data } = await this.client.post<
       CloudflareEnvelope<CloudflareRecordResponse>
-    >(`/zones/${this.zoneId}/dns_records`, payload);
+    >(`/zones/${this.zoneId}/dns_records`, payload, {
+      headers: this.buildAuthHeaders(),
+    });
 
     if (!data.success || !data.result?.id) {
       throw new Error(this.formatError(data.errors, 'Failed to create DNS record in Cloudflare.'));
@@ -83,7 +105,9 @@ export class CloudflareDnsService {
 
     const { data } = await this.client.get<
       CloudflareEnvelope<CloudflareRecordResponse>
-    >(`/zones/${this.zoneId}/dns_records/${recordId}`);
+    >(`/zones/${this.zoneId}/dns_records/${recordId}`, {
+      headers: this.buildAuthHeaders(),
+    });
 
     if (!data.success || !data.result) {
       throw new Error(
@@ -99,6 +123,7 @@ export class CloudflareDnsService {
 
     const { data } = await this.client.delete<CloudflareEnvelope<{ id: string }>>(
       `/zones/${this.zoneId}/dns_records/${recordId}`,
+      { headers: this.buildAuthHeaders() },
     );
 
     if (!data.success) {
