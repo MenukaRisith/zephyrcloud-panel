@@ -1,0 +1,5 @@
+[phases.install]
+cmd = "npm install --omit=dev --no-audit --no-fund"
+
+[phases.build]
+cmd = "npm run build"
