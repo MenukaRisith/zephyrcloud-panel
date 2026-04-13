@@ -703,6 +703,15 @@ export class CoolifyService {
 
       this.logger.log(`[addDomain] Updating FQDN for ${uuid} to: ${newFqdn}`);
 
+      try {
+        await this.client.patch(endpoint, { fqdn: newFqdn });
+        return;
+      } catch (patchError: unknown) {
+        if (this.getHttpStatus(patchError) !== 422) {
+          throw patchError;
+        }
+      }
+
       const buildPack = this.toStringValue(resource.build_pack);
       const isDockerImage = buildPack === 'dockerimage' || !buildPack;
 
@@ -712,21 +721,14 @@ export class CoolifyService {
         );
         await this.setEnv(uuid, 'FQDN', newFqdn);
         await this.deployResource('application', uuid);
-      } else {
-        try {
-          await this.client.patch(endpoint, { fqdn: newFqdn });
-        } catch (patchError: unknown) {
-          if (this.getHttpStatus(patchError) === 422) {
-            this.logger.warn(
-              `[addDomain] PATCH not supported (422). Falling back to FQDN env var.`,
-            );
-            await this.setEnv(uuid, 'FQDN', newFqdn);
-            await this.deployResource('application', uuid);
-          } else {
-            throw patchError;
-          }
-        }
+        return;
       }
+
+      this.logger.warn(
+        `[addDomain] PATCH not supported (422). Falling back to FQDN env var.`,
+      );
+      await this.setEnv(uuid, 'FQDN', newFqdn);
+      await this.deployResource('application', uuid);
     } catch (error: unknown) {
       const message = this.formatError(error);
       this.logger.error(`[addDomain] Failed to sync to Coolify: ${message}`);
