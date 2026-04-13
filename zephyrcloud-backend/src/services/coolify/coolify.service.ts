@@ -806,7 +806,6 @@ export class CoolifyService {
       install_command: config.install_command,
       build_command: config.build_command,
       start_command: config.start_command,
-      is_auto_deploy_enabled: config.auto_deploy ?? false,
     });
 
     let appUuid = '';
