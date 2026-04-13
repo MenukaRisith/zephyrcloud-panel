@@ -549,7 +549,13 @@ export class SitesService {
       return site;
     }
 
-    const normalized = this.normalizeCoolifyStatus(live.status);
+    let normalized = this.normalizeCoolifyStatus(live.status);
+    if (normalized === 'running') {
+      const override = await this.getDeploymentOverrideStatus(site);
+      if (override) {
+        normalized = override;
+      }
+    }
     if (normalized === site.status) {
       return site;
     }
@@ -1046,7 +1052,13 @@ export class SitesService {
       };
     }
 
-    const normalized = this.normalizeCoolifyStatus(live.status);
+    let normalized = this.normalizeCoolifyStatus(live.status);
+    if (normalized === 'running') {
+      const override = await this.getDeploymentOverrideStatus(site);
+      if (override) {
+        normalized = override;
+      }
+    }
 
     if (normalized !== site.status) {
       await this.prisma.site.update({
@@ -1069,6 +1081,28 @@ export class SitesService {
     if (site.coolify_resource_type === 'service') return 'service';
     if (site.coolify_resource_type === 'database') return 'database';
     return site.type === 'wordpress' ? 'application' : 'application';
+  }
+
+  private async getDeploymentOverrideStatus(
+    site: SitePayload,
+  ): Promise<Site['status'] | null> {
+    if (!site.coolify_resource_id) return null;
+    const deployments = await this.coolify.getDeployments(
+      site.coolify_resource_id,
+      this.getResourceType(site),
+    );
+    if (!deployments.length) return null;
+
+    const latest = deployments[0];
+    const mapped = this.mapCoolifyDeploymentStatus(latest.status);
+    if (mapped === 'queued' || mapped === 'in_progress' || mapped === 'building') {
+      return 'building';
+    }
+    if (mapped === 'failed') {
+      return 'error';
+    }
+
+    return null;
   }
 
   // --- Deploy / Restart / Logs ---
