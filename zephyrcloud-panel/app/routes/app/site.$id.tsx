@@ -2,6 +2,7 @@ import * as React from "react";
 import {
   Form,
   Outlet,
+  redirect,
   useFetcher,
   useLoaderData,
   useLocation,
@@ -205,6 +206,13 @@ export async function action({
         },
       );
       return null;
+    }
+
+    if (intent === "deleteSite") {
+      await apiFetchAuthed(request, `/api/sites/${id}`, {
+        method: "DELETE",
+      });
+      return redirect("/sites");
     }
 
     if (intent === "createEnv") {

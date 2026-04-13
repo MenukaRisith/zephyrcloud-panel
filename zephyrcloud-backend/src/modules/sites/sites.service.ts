@@ -384,6 +384,32 @@ export class SitesService {
     };
   }
 
+  public async deleteSite(user: JwtPayload, id: string) {
+    const siteId = toBigIntStrict(id);
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+
+    const cloudflareRecordId = site.cloudflare_dns_record_id;
+    const [domainsResult, sitesResult] = await this.prisma.$transaction([
+      this.prisma.domain.deleteMany({ where: { site_id: siteId } }),
+      this.prisma.site.deleteMany({ where: { id: siteId } }),
+    ]);
+
+    if (cloudflareRecordId) {
+      await this.cloudflare.deleteRecord(cloudflareRecordId).catch((error) => {
+        this.logger.warn(
+          `[deleteSite] Failed to remove Cloudflare DNS record ${cloudflareRecordId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }
+
+    return {
+      deleted_sites: sitesResult.count,
+      deleted_domains: domainsResult.count,
+    };
+  }
+
   // -------------------------
   // Git Helpers
   // -------------------------

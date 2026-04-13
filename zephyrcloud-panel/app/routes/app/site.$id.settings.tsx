@@ -270,15 +270,31 @@ export default function SiteSettingsPage() {
             <div>
               <div className="text-sm font-semibold text-[var(--danger)]">Delete site</div>
               <p className="mt-2 text-xs leading-5 text-[var(--danger)]">
-                Permanently remove this site and all of its data. This remains disabled until the backend flow is available.
+                Permanently remove this site and its domains. This cannot be undone.
               </p>
             </div>
-            <button
-              disabled
-              className="inline-flex min-h-9 items-center justify-center border border-[var(--danger)] bg-[var(--danger)] px-3 text-xs font-medium text-white opacity-50"
+            <Form
+              method="post"
+              action={actionPath}
+              onSubmit={(event) => {
+                if (!confirm("Delete this site permanently?")) {
+                  event.preventDefault();
+                }
+              }}
             >
-              Coming soon
-            </button>
+              <input type="hidden" name="intent" value="deleteSite" />
+              <button
+                disabled={!canManageTeam || isSubmitting}
+                className="inline-flex min-h-9 items-center justify-center border border-[var(--danger)] bg-[var(--danger)] px-3 text-xs font-medium text-white disabled:opacity-50"
+              >
+                {isSubmitting && currentIntent === "deleteSite" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Delete
+              </button>
+            </Form>
           </div>
         </SiteSectionCard>
       ) : null}

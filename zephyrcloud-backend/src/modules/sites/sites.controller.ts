@@ -194,6 +194,11 @@ export class SitesController {
     return this.sites.stopSite(user, id);
   }
 
+  @Delete(':id')
+  public deleteSite(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.sites.deleteSite(user, id);
+  }
+
   @Get(':id/logs')
   public logs(
     @CurrentUser() user: JwtPayload,
