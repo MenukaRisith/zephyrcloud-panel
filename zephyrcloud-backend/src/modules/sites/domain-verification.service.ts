@@ -1,4 +1,4 @@
-import * as dns from 'node:dns/promises';
+import dns from 'node:dns';
 
 import { Injectable } from '@nestjs/common';
 import { parse } from 'tldts';
@@ -18,6 +18,22 @@ export type VerificationResult = {
 
 @Injectable()
 export class DomainVerificationService {
+  private readonly resolver: dns.promises.Resolver;
+
+  public constructor() {
+    this.resolver = new dns.promises.Resolver();
+    const servers = (process.env.DOMAIN_DNS_RESOLVERS ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const fallback = ['1.1.1.1', '8.8.8.8'];
+    try {
+      this.resolver.setServers(servers.length ? servers : fallback);
+    } catch {
+      // If setServers fails, fall back to system resolver.
+    }
+  }
+
   public isApex(domain: string): boolean {
     const parsed = parse(domain);
     if (!parsed.domain) return false;
@@ -133,7 +149,7 @@ export class DomainVerificationService {
 
     for (let depth = 0; depth < 10; depth += 1) {
       try {
-        const records = await dns.resolveCname(current);
+        const records = await this.resolver.resolveCname(current);
         const next = this.normalizeHost(records[0] ?? '');
         if (!next) break;
         chain.push(next);
@@ -148,8 +164,8 @@ export class DomainVerificationService {
 
   private async resolveAddresses(host: string): Promise<string[]> {
     const [v4, v6] = await Promise.allSettled([
-      dns.resolve4(host),
-      dns.resolve6(host),
+      this.resolver.resolve4(host),
+      this.resolver.resolve6(host),
     ]);
 
     const addresses = new Set<string>();
