@@ -445,7 +445,9 @@ export class SitesService {
   }
 
   private normalizeGitRepositoryForCoolify(input: string): string | null {
-    return this.extractGithubRepositoryRef(input);
+    const repoRef = this.extractGithubRepositoryRef(input);
+    if (!repoRef) return null;
+    return `https://github.com/${repoRef}.git`;
   }
 
   private normalizePrivateGitRepositoryForCoolify(
