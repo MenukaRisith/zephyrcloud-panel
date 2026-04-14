@@ -937,48 +937,6 @@ export default function SitesPage() {
         </div>
       ) : null}
 
-      {workspaceUsage ? (
-        <section className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Workspace usage
-              </div>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                {workspaceUsage.plan.replaceAll("_", " ")} pool shared across all sites.
-              </p>
-            </div>
-            <span className="inline-flex items-center border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]">
-              {workspaceUsage.usage.sites_used} of {workspaceUsage.limits.max_sites} sites in use
-            </span>
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <UsageMetricCard
-              label="Sites"
-              used={`${workspaceUsage.usage.sites_used}`}
-              remaining={`${workspaceUsage.usage.sites_remaining} left`}
-              total={`${workspaceUsage.limits.max_sites} total`}
-              percentage={workspaceUsage.usage.site_percentage}
-            />
-            <UsageMetricCard
-              label="CPU pool"
-              used={formatCpu(workspaceUsage.usage.cpu_used)}
-              remaining={`${formatCpu(workspaceUsage.usage.cpu_remaining)} left`}
-              total={`${formatCpu(workspaceUsage.limits.max_cpu_total)} total`}
-              percentage={workspaceUsage.usage.cpu_percentage}
-            />
-            <UsageMetricCard
-              label="Memory pool"
-              used={formatMemoryMb(workspaceUsage.usage.memory_mb_used)}
-              remaining={`${formatMemoryMb(workspaceUsage.usage.memory_mb_remaining)} left`}
-              total={`${formatMemoryMb(workspaceUsage.limits.max_memory_mb_total)} total`}
-              percentage={workspaceUsage.usage.memory_percentage}
-            />
-          </div>
-        </section>
-      ) : null}
-
       <div className="flex items-center gap-3">
         <div className="w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5">
           <input

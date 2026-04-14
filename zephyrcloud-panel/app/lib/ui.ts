@@ -37,13 +37,13 @@ export const toolbarRowClass =
   "flex min-h-10 items-center gap-2.5 border border-[var(--line)] bg-[var(--surface-muted)] px-3";
 
 export const primaryCtaClass =
-  "inline-flex min-h-8 items-center justify-center gap-1.5 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 py-1.5 text-center text-xs font-light text-[var(--accent-foreground)] transition-colors hover:border-[var(--accent-border)] hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]";
+  "inline-flex min-h-8 items-center justify-center gap-1.5 border border-[color:color-mix(in_srgb,var(--accent-border)_50%,transparent)] bg-[var(--accent)] px-3 py-1.5 text-center text-xs font-light text-[var(--accent-foreground)] transition-colors hover:border-[color:color-mix(in_srgb,var(--accent-border)_50%,transparent)] hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]";
 
 export const secondaryCtaClass =
   "inline-flex min-h-8 items-center justify-center gap-1.5 border border-[var(--line)] bg-transparent px-3 py-1.5 text-center text-xs font-light text-[var(--foreground)] transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]";
 
 export const darkPrimaryCtaClass =
-  "inline-flex min-h-8 items-center justify-center gap-1.5 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 py-1.5 text-center text-xs font-light text-[var(--accent-foreground)] transition-colors hover:border-[var(--accent-border)] hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-shell)]";
+  "inline-flex min-h-8 items-center justify-center gap-1.5 border border-[color:color-mix(in_srgb,var(--accent-border)_50%,transparent)] bg-[var(--accent)] px-3 py-1.5 text-center text-xs font-light text-[var(--accent-foreground)] transition-colors hover:border-[color:color-mix(in_srgb,var(--accent-border)_50%,transparent)] hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-shell)]";
 
 export const darkSecondaryCtaClass =
   "inline-flex min-h-8 items-center justify-center gap-1.5 border border-[var(--line)] bg-transparent px-3 py-1.5 text-center text-xs font-light text-[var(--foreground)] transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--surface-shell-raised)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-shell)]";
