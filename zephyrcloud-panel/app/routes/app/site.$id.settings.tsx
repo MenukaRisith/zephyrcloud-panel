@@ -72,7 +72,7 @@ export default function SiteSettingsPage() {
                   <div className="self-end">
                     <button
                       disabled={!canManageTeam || isSubmitting}
-                      className="inline-flex min-h-9 items-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)] disabled:opacity-60"
+                      className="inline-flex min-h-9 items-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)] disabled:opacity-60"
                     >
                       {isSubmitting && currentIntent === "updateBuildSettings" ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -114,7 +114,7 @@ export default function SiteSettingsPage() {
                     />
                   </div>
                   <div className="self-end">
-                    <button className="inline-flex min-h-9 items-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
+                    <button className="inline-flex min-h-9 items-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
                       {isSubmitting && currentIntent === "createEnv" ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
@@ -202,7 +202,7 @@ export default function SiteSettingsPage() {
                     </select>
                   </div>
                   <div className="self-end">
-                    <button className="inline-flex min-h-9 items-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
+                    <button className="inline-flex min-h-9 items-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
                       {isSubmitting && currentIntent === "addTeamMember" ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (

@@ -21,7 +21,7 @@ export default function SiteOverviewPage() {
     : "";
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr_1fr]">
+    <div className="space-y-6">
       <SiteSectionCard title="Quick actions" subtitle="Common publishing and operational tasks.">
         {canManageTeam ? (
           <div className="space-y-3">
@@ -47,7 +47,11 @@ export default function SiteOverviewPage() {
 
       <SiteSectionCard
         title="Latest deployment"
-        subtitle={latestDeployment?.created_at ? new Date(latestDeployment.created_at).toLocaleString() : "No history yet"}
+        subtitle={
+          latestDeployment?.created_at
+            ? new Date(latestDeployment.created_at).toLocaleString()
+            : "No history yet"
+        }
       >
         {latestDeployment ? (
           <div className="space-y-3">
@@ -69,7 +73,7 @@ export default function SiteOverviewPage() {
       </SiteSectionCard>
 
       <SiteSectionCard title="Details" subtitle="Core connection and service context.">
-        <div className="grid gap-3">
+        <div className="grid gap-3 md:grid-cols-2">
           <div className="border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
             <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[var(--text-soft)]">
               <Globe className="h-3.5 w-3.5" />

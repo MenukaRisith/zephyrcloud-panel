@@ -24,6 +24,7 @@
   --line-strong: #2b3951;
   --line-dark: #151d2b;
   --accent: #123cff;
+  --accent-border: #9db0ff;
   --accent-hover: #082dcc;
   --accent-soft: rgba(18, 60, 255, 0.12);
   --success: #40c98b;
@@ -72,6 +73,7 @@ html[data-theme="light"] {
   --line-strong: #b4c5da;
   --line-dark: #d2ddeb;
   --accent: #123cff;
+  --accent-border: #7d95ff;
   --accent-hover: #082dcc;
   --accent-soft: rgba(18, 60, 255, 0.1);
   --success: #2563eb;

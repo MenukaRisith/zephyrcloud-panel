@@ -13,7 +13,6 @@ import {
   AlertCircle,
   ArrowRight,
   Boxes,
-  Code2,
   Copy,
   ExternalLink,
   GitBranch,
@@ -21,8 +20,8 @@ import {
   Globe,
   KeyRound,
   Loader2,
+  Plus,
   Rocket,
-  Server,
   ShieldCheck,
   Type,
   X,
@@ -121,6 +120,85 @@ type GithubConnectionStatus = {
   avatar_url?: string | null;
   scopes: string[];
 };
+
+type PlatformLogoProps = {
+  type: SupportedCreateType | SiteType;
+  className?: string;
+};
+
+function PlatformLogo({ type, className }: PlatformLogoProps) {
+  switch (type) {
+    case "wordpress":
+      return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="#3858E9" />
+          <path
+            fill="#FFFFFF"
+            d="M7.5 7.2h2.1l1.3 7.2 1.8-4.9h1.1l1.8 4.9 1.3-7.2h2.1l-2.2 9.6h-1.8L13.4 12l-1.8 4.8H9.8L7.5 7.2Z"
+          />
+        </svg>
+      );
+    case "node":
+      return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+          <path
+            fill="#5FA04E"
+            d="M12 2.9 19.6 7.2v9.6L12 21.1 4.4 16.8V7.2L12 2.9Z"
+          />
+          <path
+            fill="#FFFFFF"
+            d="M8.8 8h1.8l3.2 4.7V8h1.4v8h-1.7l-3.3-4.8V16H8.8V8Z"
+          />
+        </svg>
+      );
+    case "php":
+      return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+          <ellipse cx="12" cy="12" rx="9.5" ry="6.5" fill="#777BB4" />
+          <text
+            x="12"
+            y="13.7"
+            fill="#FFFFFF"
+            fontFamily="ui-sans-serif, system-ui, sans-serif"
+            fontSize="5"
+            fontWeight="700"
+            textAnchor="middle"
+          >
+            PHP
+          </text>
+        </svg>
+      );
+    case "python":
+      return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+          <path
+            fill="#3776AB"
+            d="M12.2 3c-4.1 0-3.9 1.8-3.9 1.8v2.6h5.1v.9H6.1C4 8.3 3 10 3 12.1c0 2.1 1.8 3.8 3.8 3.8h2.3V13c0-1.7 1.4-3.1 3.1-3.1h5.1c1.6 0 2.9-1.3 2.9-2.9V4.8S19.9 3 15.8 3h-3.6Zm-1.2 1.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"
+          />
+          <path
+            fill="#FFD43B"
+            d="M11.8 21c4.1 0 3.9-1.8 3.9-1.8v-2.6h-5.1v-.9h7.3c2.1 0 3.1-1.7 3.1-3.8 0-2.1-1.8-3.8-3.8-3.8h-2.3V11c0 1.7-1.4 3.1-3.1 3.1H6.7c-1.6 0-2.9 1.3-2.9 2.9v2.2S4.1 21 8.2 21h3.6Zm1.2-1.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"
+          />
+        </svg>
+      );
+    case "static":
+      return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+          <path
+            fill="#E34F26"
+            d="M5 3h14l-1.2 15.2L12 21l-5.8-2.8L5 3Z"
+          />
+          <path fill="#EF652A" d="M12 4.2v15.4l4.6-2.2 1-13.2H12Z" />
+          <path
+            fill="#FFFFFF"
+            d="M8.1 6.8H12v1.8h-2l.1 1.9H12v1.8H8.5L8.1 6.8Zm3.9 0h3.8l-.2 1.8h-2l.1 1.9h1.8l-.4 4.3-3.1.9v-1.9l1.4-.4.1-1.1H12v-1.8h3.3l.1-1.9H12V6.8Z"
+          />
+        </svg>
+      );
+    default:
+      return <Boxes className={className} />;
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -489,17 +567,17 @@ function normalizeSiteStatus(status: string): SiteStatus | "UNKNOWN" {
 function typeMeta(type: SiteType) {
   switch (type) {
     case "wordpress":
-      return { label: "WordPress", icon: <Code2 className="h-4 w-4" /> };
+      return { label: "WordPress", icon: <PlatformLogo type="wordpress" className="h-5 w-5" /> };
     case "node":
-      return { label: "Node.js", icon: <Github className="h-4 w-4" /> };
+      return { label: "Node.js", icon: <PlatformLogo type="node" className="h-5 w-5" /> };
     case "php":
-      return { label: "PHP", icon: <Code2 className="h-4 w-4" /> };
+      return { label: "PHP", icon: <PlatformLogo type="php" className="h-5 w-5" /> };
     case "python":
-      return { label: "Python", icon: <Code2 className="h-4 w-4" /> };
+      return { label: "Python", icon: <PlatformLogo type="python" className="h-5 w-5" /> };
     case "static":
-      return { label: "Static", icon: <Globe className="h-4 w-4" /> };
+      return { label: "Static", icon: <PlatformLogo type="static" className="h-5 w-5" /> };
     default:
-      return { label: type, icon: <Boxes className="h-4 w-4" /> };
+      return { label: type, icon: <Boxes className="h-5 w-5" /> };
   }
 }
 
@@ -623,6 +701,14 @@ export default function SitesPage() {
             className="w-full bg-transparent text-xs text-[var(--text-muted)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="inline-flex min-h-10 shrink-0 items-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-4 text-xs font-medium text-[var(--accent-foreground)] transition-colors hover:border-[var(--accent-border)] hover:bg-[var(--accent-hover)]"
+        >
+          <Plus className="h-4 w-4" />
+          Add site
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -640,39 +726,39 @@ export default function SitesPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="group border border-[var(--line)] bg-[var(--surface)] p-4 transition-colors hover:bg-[var(--surface-muted)]"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-4">
-                  <div className="min-w-0">
-                    <div className="inline-flex max-w-full items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-                      <span className="text-[var(--text-soft)]">{meta.icon}</span>
-                      <span className="truncate">{site.name}</span>
-                    </div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                      {meta.label}
+              <Link
+                to={`/sites/${site.id}`}
+                className="group block border border-[var(--line)] bg-[var(--surface)] p-4 transition-colors hover:bg-[var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="min-w-0">
+                      <div className="inline-flex max-w-full items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                        <span className="text-[var(--text-soft)]">{meta.icon}</span>
+                        <span className="truncate">{site.name}</span>
+                      </div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        {meta.label}
+                      </div>
                     </div>
                   </div>
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center border border-[var(--line)] bg-[var(--surface)] text-[var(--text-muted)] transition-colors group-hover:text-[var(--foreground)]">
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
                 </div>
-                <Link
-                  to={`/sites/${site.id}`}
-                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 text-[11px] font-normal text-[var(--text-muted)] transition-all hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
-                >
-                  <ArrowRight className="h-3.5 w-3.5" />
-                  Open
-                </Link>
-              </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2.5">
-                <StatusPill status={site.status} />
-                <span
-                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]"
-                  title={site.primaryDomain || "No custom domain"}
-                >
-                  <Globe className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{site.primaryDomain || "No custom domain"}</span>
-                </span>
-              </div>
+                <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                  <StatusPill status={site.status} />
+                  <span
+                    className="inline-flex min-w-0 max-w-full items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]"
+                    title={site.primaryDomain || "No custom domain"}
+                  >
+                    <Globe className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{site.primaryDomain || "No custom domain"}</span>
+                  </span>
+                </div>
+              </Link>
             </MotionDiv>
           );
         })}
@@ -1052,31 +1138,31 @@ function CreateSiteModal({
       type: "wordpress",
       title: "WordPress",
       description: "Launch a managed WordPress website with its own database.",
-      icon: <Code2 className="h-5 w-5" />,
+      icon: <PlatformLogo type="wordpress" className="h-7 w-7" />,
     },
     {
       type: "node",
       title: "Node.js",
       description: "Publish a Node.js application from a GitHub repository.",
-      icon: <Server className="h-5 w-5" />,
+      icon: <PlatformLogo type="node" className="h-7 w-7" />,
     },
     {
       type: "static",
       title: "Static",
       description: "Publish a static website or SPA from a GitHub repository.",
-      icon: <Globe className="h-5 w-5" />,
+      icon: <PlatformLogo type="static" className="h-7 w-7" />,
     },
     {
       type: "php",
       title: "PHP",
       description: "Publish a PHP application from a GitHub repository.",
-      icon: <Code2 className="h-5 w-5" />,
+      icon: <PlatformLogo type="php" className="h-7 w-7" />,
     },
     {
       type: "python",
       title: "Python",
       description: "Publish a Python application from a GitHub repository.",
-      icon: <Code2 className="h-5 w-5" />,
+      icon: <PlatformLogo type="python" className="h-7 w-7" />,
     },
   ];
 
@@ -1289,7 +1375,10 @@ function CreateSiteModal({
               </button>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+            <div
+              className="mt-5 grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${wizardSteps.length}, minmax(0, 1fr))` }}
+            >
               {wizardSteps.map((step, index) => {
                 const isActive = step === activeStep;
                 const isComplete = index < activeStepIndex;
@@ -1305,7 +1394,7 @@ function CreateSiteModal({
                     }}
                     disabled={index > activeStepIndex}
                     className={cx(
-                      "flex min-h-11 items-center gap-2 border px-3 text-left text-xs transition-colors",
+                      "flex min-h-11 w-full items-center gap-2 border pl-5 pr-3 text-left text-xs transition-colors",
                       isActive
                         ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
                         : isComplete
@@ -1315,10 +1404,8 @@ function CreateSiteModal({
                   >
                     <span
                       className={cx(
-                        "flex size-8 shrink-0 items-center justify-center border",
-                        isActive || isComplete
-                          ? "border-[var(--accent)] text-[var(--foreground)]"
-                          : "border-[var(--line-strong)] text-[var(--text-muted)]",
+                        "flex shrink-0 items-center justify-center",
+                        isActive || isComplete ? "text-[var(--foreground)]" : "text-[var(--text-muted)]",
                       )}
                     >
                       {meta.icon}
@@ -1399,7 +1486,7 @@ function CreateSiteModal({
                             : "border-[var(--line)] bg-[var(--surface)] hover:border-[var(--line)] hover:bg-[var(--surface-muted)]",
                         )}
                       >
-                        <div className="flex size-10 items-center justify-center border border-current/20 bg-[var(--surface)]">
+                        <div className="flex size-12 items-center justify-center border border-current/20 bg-[var(--surface)]">
                           <span className={cx(active ? "text-[var(--accent)]" : "text-[var(--text-soft)]")}>
                             {option.icon}
                           </span>
@@ -1839,7 +1926,7 @@ function CreateSiteModal({
                   {createType === "wordpress" ? (
                     <div className="space-y-3 border border-[var(--line)] bg-[var(--surface)] p-4">
                       <div className="flex items-center gap-3">
-                        <Code2 className="h-5 w-5 text-[var(--text-soft)]" />
+                        <PlatformLogo type="wordpress" className="h-6 w-6" />
                         <div className="space-y-1">
                           <div className="text-sm font-bold text-[var(--foreground)]">
                             Managed WordPress
@@ -1933,7 +2020,7 @@ function CreateSiteModal({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-bold text-[var(--accent-foreground)] transition-colors hover:border-[var(--accent-hover)] hover:bg-[var(--accent-hover)] disabled:pointer-events-none disabled:opacity-30"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-4 text-sm font-bold text-[var(--accent-foreground)] transition-colors hover:border-[var(--accent-border)] hover:bg-[var(--accent-hover)] disabled:pointer-events-none disabled:opacity-30"
                   >
                     {isSubmitting ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -1984,7 +2071,7 @@ function StatusPill({ status }: { status: string }) {
   return (
     <span
       className={cx(
-        "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest",
+        "flex items-center gap-1.5 rounded-none border px-3 py-1 text-[10px] font-black uppercase tracking-widest",
         cfg,
       )}
     >

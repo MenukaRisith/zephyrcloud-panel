@@ -1906,7 +1906,7 @@ function AdminPlatformTab({
               </p>
             </div>
             <span
-              className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] ${statusTone(app.status)}`}
+              className={`rounded-none border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] ${statusTone(app.status)}`}
             >
               {app.status || "unknown"}
             </span>
@@ -2391,7 +2391,7 @@ function EnvRow({
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)]">
+    <span className="rounded-none border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)]">
       {children}
     </span>
   );

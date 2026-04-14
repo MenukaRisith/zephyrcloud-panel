@@ -144,7 +144,7 @@ export default function SiteDomainsPage() {
                 className="mt-2 w-full border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2.5 text-xs text-[var(--foreground)]"
               />
             </div>
-            <button className="inline-flex min-h-9 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
+            <button className="inline-flex min-h-9 w-full items-center justify-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Add domain
             </button>

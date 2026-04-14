@@ -483,7 +483,7 @@ export default function SiteLayoutRoute() {
 
                 <Form method="post" action={actionPath}>
                   <input type="hidden" name="intent" value="deploy" />
-                  <button className="inline-flex min-h-9 items-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
+                  <button className="inline-flex min-h-9 items-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
                     {isSubmitting && currentIntent === "deploy" ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
