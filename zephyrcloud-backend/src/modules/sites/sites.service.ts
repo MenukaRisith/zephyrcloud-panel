@@ -2003,31 +2003,34 @@ export class SitesService {
     const siteId = toBigIntStrict(id, 'siteId');
     const site = await this.getOwnedSiteOrThrow(siteId, user);
     const refreshedAt = new Date().toISOString();
+    const unavailable = (reason: string): SiteMetricsPayload => ({
+      site_id: site.id.toString(),
+      refreshed_at: refreshedAt,
+      availability: {
+        enabled: false,
+        reason,
+      },
+      limits: {
+        cpu_limit: site.cpu_limit,
+        memory_mb: site.memory_mb,
+      },
+      current: {
+        cpu_percent: null,
+        cpu_limit_percentage: null,
+        memory_used_mb: null,
+        memory_percentage: null,
+      },
+      history: { cpu: [], memory: [] },
+    });
 
     if (
       !site.coolify_resource_id ||
       (site.coolify_resource_type &&
         site.coolify_resource_type !== 'application')
     ) {
-      return {
-        site_id: site.id.toString(),
-        refreshed_at: refreshedAt,
-        availability: {
-          enabled: false,
-          reason: 'Live metrics are only available for provisioned applications.',
-        },
-        limits: {
-          cpu_limit: site.cpu_limit,
-          memory_mb: site.memory_mb,
-        },
-        current: {
-          cpu_percent: null,
-          cpu_limit_percentage: null,
-          memory_used_mb: null,
-          memory_percentage: null,
-        },
-        history: { cpu: [], memory: [] },
-      };
+      return unavailable(
+        'Live metrics are only available for provisioned applications.',
+      );
     }
 
     let sentinelToken = (process.env.COOLIFY_SENTINEL_TOKEN ?? '').trim();
@@ -2051,9 +2054,6 @@ export class SitesService {
         if (typeof settings.is_metrics_enabled === 'boolean') {
           metricsEnabled = settings.is_metrics_enabled;
         }
-        if (!sentinelBaseUrl && typeof settings.sentinel_custom_url === 'string') {
-          sentinelBaseUrl = settings.sentinel_custom_url.trim();
-        }
         if (!sentinelToken && typeof settings.sentinel_token === 'string') {
           sentinelToken = settings.sentinel_token.trim();
         }
@@ -2063,100 +2063,69 @@ export class SitesService {
     }
 
     if (!sentinelEnabled) {
-      return {
-        site_id: site.id.toString(),
-        refreshed_at: refreshedAt,
-        availability: {
-          enabled: false,
-          reason: 'Sentinel is disabled for this Coolify server.',
-        },
-        limits: {
-          cpu_limit: site.cpu_limit,
-          memory_mb: site.memory_mb,
-        },
-        current: {
-          cpu_percent: null,
-          cpu_limit_percentage: null,
-          memory_used_mb: null,
-          memory_percentage: null,
-        },
-        history: { cpu: [], memory: [] },
-      };
+      return unavailable('Sentinel is disabled for this Coolify server.');
     }
 
     if (!metricsEnabled) {
-      return {
-        site_id: site.id.toString(),
-        refreshed_at: refreshedAt,
-        availability: {
-          enabled: false,
-          reason: 'Container metrics are disabled for this Coolify server.',
-        },
-        limits: {
-          cpu_limit: site.cpu_limit,
-          memory_mb: site.memory_mb,
-        },
-        current: {
-          cpu_percent: null,
-          cpu_limit_percentage: null,
-          memory_used_mb: null,
-          memory_percentage: null,
-        },
-        history: { cpu: [], memory: [] },
-      };
+      return unavailable('Container metrics are disabled for this Coolify server.');
     }
 
-    if (!sentinelToken || !sentinelBaseUrl) {
-      return {
-        site_id: site.id.toString(),
-        refreshed_at: refreshedAt,
-        availability: {
-          enabled: false,
-          reason:
-            'Live metrics need COOLIFY_SENTINEL_BASE_URL and COOLIFY_SENTINEL_TOKEN configured on the backend.',
-        },
-        limits: {
-          cpu_limit: site.cpu_limit,
-          memory_mb: site.memory_mb,
-        },
-        current: {
-          cpu_percent: null,
-          cpu_limit_percentage: null,
-          memory_used_mb: null,
-          memory_percentage: null,
-        },
-        history: { cpu: [], memory: [] },
-      };
+    if (!sentinelBaseUrl) {
+      return unavailable(
+        'Live metrics need COOLIFY_SENTINEL_BASE_URL configured on the backend. Coolify server settings do not expose a direct metrics API URL.',
+      );
+    }
+
+    if (!sentinelToken) {
+      return unavailable(
+        'Live metrics need COOLIFY_SENTINEL_TOKEN configured on the backend.',
+      );
     }
 
     const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const to = refreshedAt;
     const containerId = site.coolify_resource_id;
+    const metricsBaseUrl = sentinelBaseUrl.replace(/\/+$/, '');
 
     try {
       const [cpuHistoryRaw, memoryHistoryRaw] = await Promise.all([
         fetch(
-          `${sentinelBaseUrl.replace(/\/+$/, '')}/api/container/${containerId}/cpu/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+          `${metricsBaseUrl}/api/container/${containerId}/cpu/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
           {
             headers: {
               Authorization: `Bearer ${sentinelToken}`,
               Accept: 'application/json',
             },
+            signal: AbortSignal.timeout(8000),
           },
         ),
         fetch(
-          `${sentinelBaseUrl.replace(/\/+$/, '')}/api/container/${containerId}/memory/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+          `${metricsBaseUrl}/api/container/${containerId}/memory/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
           {
             headers: {
               Authorization: `Bearer ${sentinelToken}`,
               Accept: 'application/json',
             },
+            signal: AbortSignal.timeout(8000),
           },
         ),
       ]);
 
       if (!cpuHistoryRaw.ok || !memoryHistoryRaw.ok) {
-        throw new Error('Sentinel request failed');
+        const firstFailure = !cpuHistoryRaw.ok ? cpuHistoryRaw : memoryHistoryRaw;
+        if (firstFailure.status === 401) {
+          return unavailable(
+            'Sentinel rejected the metrics request. Check COOLIFY_SENTINEL_TOKEN.',
+          );
+        }
+        if (firstFailure.status === 404) {
+          return unavailable(
+            'Live metrics are not available for this site yet. Sentinel has not collected container samples for it.',
+          );
+        }
+        throw new Error(
+          `Sentinel metrics request failed with HTTP ${firstFailure.status}.`,
+        );
       }
 
       const [cpuPayload, memoryPayload] = (await Promise.all([
@@ -2236,28 +2205,20 @@ export class SitesService {
         },
       };
     } catch (error) {
-      return {
-        site_id: site.id.toString(),
-        refreshed_at: refreshedAt,
-        availability: {
-          enabled: false,
-          reason:
-            error instanceof Error
-              ? error.message
-              : 'Live metrics are currently unavailable.',
-        },
-        limits: {
-          cpu_limit: site.cpu_limit,
-          memory_mb: site.memory_mb,
-        },
-        current: {
-          cpu_percent: null,
-          cpu_limit_percentage: null,
-          memory_used_mb: null,
-          memory_percentage: null,
-        },
-        history: { cpu: [], memory: [] },
-      };
+      const reason =
+        error instanceof Error &&
+        (error.message === 'fetch failed' ||
+          /network|timeout|connect|socket/i.test(error.message))
+          ? 'Live metrics are currently unreachable from the backend. Check COOLIFY_SENTINEL_BASE_URL network access.'
+          : error instanceof Error
+            ? error.message
+            : 'Live metrics are currently unavailable.';
+
+      this.logger.warn(
+        `Live metrics lookup failed for site ${site.id.toString()} (${containerId}): ${reason}`,
+      );
+
+      return unavailable(reason);
     }
   }
 
