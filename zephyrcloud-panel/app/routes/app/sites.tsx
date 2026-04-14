@@ -76,6 +76,53 @@ type Site = {
   status: string;
   primaryDomain?: string | null;
   createdAt?: string;
+  cpu_limit?: number;
+  memory_mb?: number;
+};
+
+type WorkspaceUsageSite = {
+  id: string;
+  name: string;
+  status: string;
+  created_at: string;
+  cpu_limit: number;
+  memory_mb: number;
+  cpu_percentage: number;
+  memory_percentage: number;
+};
+
+type WorkspaceUsage = {
+  tenant_id: string;
+  plan: string;
+  limits: {
+    max_sites: number;
+    max_cpu_total: number;
+    max_memory_mb_total: number;
+    max_team_members_per_site: number;
+  };
+  usage: {
+    sites_used: number;
+    sites_remaining: number;
+    cpu_used: number;
+    cpu_remaining: number;
+    memory_mb_used: number;
+    memory_mb_remaining: number;
+    site_percentage: number;
+    cpu_percentage: number;
+    memory_percentage: number;
+  };
+  sites: WorkspaceUsageSite[];
+};
+
+type WorkspaceAllocationPreview = {
+  blockedReason: string | null;
+  sites: Array<{
+    id: string;
+    name: string;
+    cpu_limit: number;
+    memory_mb: number;
+    isNew: boolean;
+  }>;
 };
 
 type LoaderData = {
@@ -84,6 +131,7 @@ type LoaderData = {
     role?: string;
   };
   githubConnection: GithubConnectionStatus;
+  workspaceUsage: WorkspaceUsage | null;
 };
 
 type ActionData = { ok: true; siteId: string } | { ok: false; error: string };
@@ -208,6 +256,14 @@ function getStringValue(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function getNumberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+async function safeJson(response: Response) {
+  return response.json().catch(() => null);
+}
+
 function parseApiError(payload: unknown, fallback: string): string {
   if (!isRecord(payload)) return fallback;
   const message = payload.message;
@@ -319,6 +375,103 @@ function parseGithubConnection(payload: unknown): GithubConnectionStatus {
   };
 }
 
+function parseSitesPayload(payload: unknown): Site[] {
+  const items = Array.isArray(payload)
+    ? payload
+    : isRecord(payload) && Array.isArray(payload.sites)
+      ? payload.sites
+      : isRecord(payload) && Array.isArray(payload.data)
+        ? payload.data
+        : [];
+
+  return items
+    .map((item) => {
+      if (!isRecord(item)) return null;
+      const id = getStringValue(item.id);
+      const name = getStringValue(item.name);
+      const type =
+        item.type === "wordpress" ||
+        item.type === "node" ||
+        item.type === "static" ||
+        item.type === "php" ||
+        item.type === "python"
+          ? item.type
+          : null;
+
+      if (!id || !name || !type) return null;
+
+      const site: Site = {
+        id,
+        name,
+        type,
+        status: getStringValue(item.status) ?? "UNKNOWN",
+        primaryDomain:
+          getStringValue(item.primaryDomain ?? item.primary_domain) ?? undefined,
+        createdAt: getStringValue(item.createdAt ?? item.created_at) ?? undefined,
+        cpu_limit: getNumberValue(item.cpu_limit) ?? undefined,
+        memory_mb: getNumberValue(item.memory_mb) ?? undefined,
+      };
+
+      return site;
+    })
+    .filter((item): item is Site => item !== null);
+}
+
+function parseWorkspaceUsage(payload: unknown): WorkspaceUsage | null {
+  if (!isRecord(payload)) return null;
+  if (!isRecord(payload.limits) || !isRecord(payload.usage)) return null;
+
+  const tenantId = getStringValue(payload.tenant_id);
+  const plan = getStringValue(payload.plan);
+  if (!tenantId || !plan) return null;
+
+  const sites = Array.isArray(payload.sites)
+    ? payload.sites
+        .map((site) => {
+          if (!isRecord(site)) return null;
+          const id = getStringValue(site.id);
+          const name = getStringValue(site.name);
+          if (!id || !name) return null;
+          return {
+            id,
+            name,
+            status: getStringValue(site.status) ?? "UNKNOWN",
+            created_at:
+              getStringValue(site.created_at) ?? new Date(0).toISOString(),
+            cpu_limit: getNumberValue(site.cpu_limit) ?? 0,
+            memory_mb: getNumberValue(site.memory_mb) ?? 0,
+            cpu_percentage: getNumberValue(site.cpu_percentage) ?? 0,
+            memory_percentage: getNumberValue(site.memory_percentage) ?? 0,
+          } satisfies WorkspaceUsageSite;
+        })
+        .filter((site): site is WorkspaceUsageSite => site !== null)
+    : [];
+
+  return {
+    tenant_id: tenantId,
+    plan,
+    limits: {
+      max_sites: getNumberValue(payload.limits.max_sites) ?? 0,
+      max_cpu_total: getNumberValue(payload.limits.max_cpu_total) ?? 0,
+      max_memory_mb_total: getNumberValue(payload.limits.max_memory_mb_total) ?? 0,
+      max_team_members_per_site:
+        getNumberValue(payload.limits.max_team_members_per_site) ?? 0,
+    },
+    usage: {
+      sites_used: getNumberValue(payload.usage.sites_used) ?? 0,
+      sites_remaining: getNumberValue(payload.usage.sites_remaining) ?? 0,
+      cpu_used: getNumberValue(payload.usage.cpu_used) ?? 0,
+      cpu_remaining: getNumberValue(payload.usage.cpu_remaining) ?? 0,
+      memory_mb_used: getNumberValue(payload.usage.memory_mb_used) ?? 0,
+      memory_mb_remaining: getNumberValue(payload.usage.memory_mb_remaining) ?? 0,
+      site_percentage: getNumberValue(payload.usage.site_percentage) ?? 0,
+      cpu_percentage: getNumberValue(payload.usage.cpu_percentage) ?? 0,
+      memory_percentage: getNumberValue(payload.usage.memory_percentage) ?? 0,
+    },
+    sites,
+  };
+}
+
 function extractGithubRepoParts(
   value: string,
 ): { owner: string; repo: string } | null {
@@ -387,19 +540,23 @@ export async function loader({
   const { user } = await requireUser(request);
 
   try {
-    const [sitesRes, githubRes] = await Promise.all([
+    const [sitesRes, githubRes, workspaceUsageRes] = await Promise.all([
       apiFetchAuthed(request, "/api/sites", { method: "GET" }),
       apiFetchAuthed(request, "/api/github/connection", { method: "GET" }),
+      apiFetchAuthed(request, "/api/sites/workspace/usage", { method: "GET" }),
     ]);
 
-    const data = await sitesRes.json();
-    const sites = Array.isArray(data) ? data : data.sites || data.data || [];
-    const githubPayload = await githubRes.json().catch(() => null);
+    const sitesPayload = await safeJson(sitesRes);
+    const githubPayload = await safeJson(githubRes);
+    const workspaceUsagePayload = workspaceUsageRes.ok
+      ? await safeJson(workspaceUsageRes)
+      : null;
 
     return {
-      sites,
+      sites: parseSitesPayload(sitesPayload),
       user: { role: user.role },
       githubConnection: parseGithubConnection(githubPayload),
+      workspaceUsage: parseWorkspaceUsage(workspaceUsagePayload),
     };
   } catch (error) {
     console.error("Loader failed", error);
@@ -411,6 +568,7 @@ export async function loader({
         connected: false,
         scopes: [],
       },
+      workspaceUsage: null,
     };
   }
 }
@@ -621,11 +779,95 @@ function createTypeMeta(type: SupportedCreateType) {
   }
 }
 
+function formatCpu(value: number) {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function formatMemoryMb(value: number) {
+  return `${Math.round(value)} MB`;
+}
+
+function formatPercent(value: number) {
+  return `${Math.max(0, Math.min(100, value)).toFixed(0)}%`;
+}
+
+function splitUsageUnits(totalUnits: number, count: number) {
+  if (count <= 0) return [] as number[];
+  const safeUnits = Math.max(0, Math.trunc(totalUnits));
+  const base = Math.floor(safeUnits / count);
+  let remainder = safeUnits % count;
+  return Array.from({ length: count }, () => {
+    const nextValue = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+    return nextValue;
+  });
+}
+
+function projectWorkspaceAllocation(
+  workspaceUsage: WorkspaceUsage,
+  nextSiteName: string,
+): WorkspaceAllocationPreview {
+  const nextSiteCount = workspaceUsage.sites.length + 1;
+
+  if (nextSiteCount > workspaceUsage.limits.max_sites) {
+    return {
+      blockedReason: `This workspace has reached its site limit (${workspaceUsage.limits.max_sites}).`,
+      sites: [],
+    };
+  }
+
+  const cpuUnits = splitUsageUnits(
+    Math.round(workspaceUsage.limits.max_cpu_total * 100),
+    nextSiteCount,
+  );
+  const memoryUnits = splitUsageUnits(
+    workspaceUsage.limits.max_memory_mb_total,
+    nextSiteCount,
+  );
+
+  if (cpuUnits.some((value) => value < 10)) {
+    return {
+      blockedReason: `Each site needs at least 0.1 CPU. This workspace pool cannot support ${nextSiteCount} sites.`,
+      sites: [],
+    };
+  }
+
+  if (memoryUnits.some((value) => value < 128)) {
+    return {
+      blockedReason: `Each site needs at least 128 MB. This workspace pool cannot support ${nextSiteCount} sites.`,
+      sites: [],
+    };
+  }
+
+  const currentSites = workspaceUsage.sites.map((site, index) => ({
+    id: site.id,
+    name: site.name,
+    cpu_limit: cpuUnits[index] / 100,
+    memory_mb: memoryUnits[index],
+    isNew: false,
+  }));
+
+  return {
+    blockedReason: null,
+    sites: [
+      ...currentSites,
+      {
+        id: "__new__",
+        name: nextSiteName.trim() || "New site",
+        cpu_limit: cpuUnits[nextSiteCount - 1] / 100,
+        memory_mb: memoryUnits[nextSiteCount - 1],
+        isNew: true,
+      },
+    ],
+  };
+}
+
 // ------------------------------
 // Main Component
 // ------------------------------
 export default function SitesPage() {
-  const { sites, user, githubConnection } = useLoaderData() as LoaderData;
+  const { sites, user, githubConnection, workspaceUsage } =
+    useLoaderData() as LoaderData;
   const nav = useNavigation();
   const revalidator = useRevalidator();
   const [searchParams] = useSearchParams();
@@ -664,6 +906,9 @@ export default function SitesPage() {
   }, [hasActiveTransitions, revalidator]);
 
   const isSubmitting = nav.state === "submitting";
+  const siteAllocationMap = new Map(
+    (workspaceUsage?.sites ?? []).map((site) => [site.id, site]),
+  );
 
   const filtered = sites.filter((site) => {
     const normalizedQuery = query.toLowerCase().trim();
@@ -690,6 +935,48 @@ export default function SitesPage() {
             {githubMessage || "GitHub could not be connected right now."}
           </p>
         </div>
+      ) : null}
+
+      {workspaceUsage ? (
+        <section className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Workspace usage
+              </div>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {workspaceUsage.plan.replaceAll("_", " ")} pool shared across all sites.
+              </p>
+            </div>
+            <span className="inline-flex items-center border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]">
+              {workspaceUsage.usage.sites_used} of {workspaceUsage.limits.max_sites} sites in use
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <UsageMetricCard
+              label="Sites"
+              used={`${workspaceUsage.usage.sites_used}`}
+              remaining={`${workspaceUsage.usage.sites_remaining} left`}
+              total={`${workspaceUsage.limits.max_sites} total`}
+              percentage={workspaceUsage.usage.site_percentage}
+            />
+            <UsageMetricCard
+              label="CPU pool"
+              used={formatCpu(workspaceUsage.usage.cpu_used)}
+              remaining={`${formatCpu(workspaceUsage.usage.cpu_remaining)} left`}
+              total={`${formatCpu(workspaceUsage.limits.max_cpu_total)} total`}
+              percentage={workspaceUsage.usage.cpu_percentage}
+            />
+            <UsageMetricCard
+              label="Memory pool"
+              used={formatMemoryMb(workspaceUsage.usage.memory_mb_used)}
+              remaining={`${formatMemoryMb(workspaceUsage.usage.memory_mb_remaining)} left`}
+              total={`${formatMemoryMb(workspaceUsage.limits.max_memory_mb_total)} total`}
+              percentage={workspaceUsage.usage.memory_percentage}
+            />
+          </div>
+        </section>
       ) : null}
 
       <div className="flex items-center gap-3">
@@ -720,6 +1007,9 @@ export default function SitesPage() {
 
         {filtered.map((site, index) => {
           const meta = typeMeta(site.type);
+          const allocation = siteAllocationMap.get(site.id);
+          const cpuLimit = allocation?.cpu_limit ?? site.cpu_limit;
+          const memoryMb = allocation?.memory_mb ?? site.memory_mb;
           return (
             <MotionDiv
               key={site.id}
@@ -757,6 +1047,16 @@ export default function SitesPage() {
                     <Globe className="h-3 w-3 shrink-0" />
                     <span className="truncate">{site.primaryDomain || "No custom domain"}</span>
                   </span>
+                  {typeof cpuLimit === "number" ? (
+                    <span className="inline-flex items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]">
+                      CPU {formatCpu(cpuLimit)}
+                    </span>
+                  ) : null}
+                  {typeof memoryMb === "number" ? (
+                    <span className="inline-flex items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]">
+                      RAM {formatMemoryMb(memoryMb)}
+                    </span>
+                  ) : null}
                 </div>
               </Link>
             </MotionDiv>
@@ -771,6 +1071,7 @@ export default function SitesPage() {
         isSubmitting={isSubmitting}
         canUsePrivateGithubApps={user.role === "admin"}
         githubConnection={githubConnection}
+        workspaceUsage={workspaceUsage}
       />
     </div>
   );
@@ -783,6 +1084,7 @@ function CreateSiteModal({
   isSubmitting,
   canUsePrivateGithubApps,
   githubConnection,
+  workspaceUsage,
 }: {
   open: boolean;
   onClose: () => void;
@@ -790,6 +1092,7 @@ function CreateSiteModal({
   isSubmitting: boolean;
   canUsePrivateGithubApps: boolean;
   githubConnection: GithubConnectionStatus;
+  workspaceUsage: WorkspaceUsage | null;
 }) {
   const [createType, setCreateType] =
     React.useState<SupportedCreateType>("wordpress");
@@ -834,6 +1137,9 @@ function CreateSiteModal({
   const isConnectedGithubReady =
     githubConnection.configured && githubConnection.connected;
   const selectedTypeMeta = createTypeMeta(createType);
+  const allocationPreview = workspaceUsage
+    ? projectWorkspaceAllocation(workspaceUsage, siteName)
+    : null;
 
   React.useEffect(() => {
     if (!canUsePrivateGithubApps) {
@@ -1273,6 +1579,9 @@ function CreateSiteModal({
     }
 
     if (step === "review") {
+      if (allocationPreview?.blockedReason) {
+        return allocationPreview.blockedReason;
+      }
       return (
         validateStep("details") ||
         validateStep("access") ||
@@ -1520,10 +1829,27 @@ function CreateSiteModal({
                 />
               </label>
 
-              <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs leading-5 text-[var(--text-muted)]">
-                Workspace limits apply before launch, including site count,
-                CPU, memory, and people access.
-              </div>
+              {workspaceUsage ? (
+                <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs leading-5 text-[var(--text-muted)]">
+                  <div>
+                    This workspace shares {formatCpu(workspaceUsage.limits.max_cpu_total)} CPU and{" "}
+                    {formatMemoryMb(workspaceUsage.limits.max_memory_mb_total)} across{" "}
+                    {workspaceUsage.limits.max_sites} site
+                    {workspaceUsage.limits.max_sites === 1 ? "" : "s"}.
+                  </div>
+                  <div className="mt-2">
+                    Currently using {formatCpu(workspaceUsage.usage.cpu_used)} CPU and{" "}
+                    {formatMemoryMb(workspaceUsage.usage.memory_mb_used)} across{" "}
+                    {workspaceUsage.usage.sites_used} site
+                    {workspaceUsage.usage.sites_used === 1 ? "" : "s"}.
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs leading-5 text-[var(--text-muted)]">
+                  Workspace limits apply before launch, including site count,
+                  CPU, memory, and people access.
+                </div>
+              )}
                 </div>
               )}
 
@@ -2002,6 +2328,53 @@ function CreateSiteModal({
                       </div>
                     </div>
                   )}
+
+                  {workspaceUsage ? (
+                    <div className="space-y-3 border border-[var(--line)] bg-[var(--surface)] p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-bold text-[var(--foreground)]">
+                            Post-create rebalance
+                          </div>
+                          <p className="mt-1 text-xs text-[var(--text-muted)]">
+                            Every site shares the workspace pool. These allocations apply right after creation.
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]">
+                          {workspaceUsage.usage.sites_used + 1} of {workspaceUsage.limits.max_sites} sites
+                        </span>
+                      </div>
+
+                      {allocationPreview?.blockedReason ? (
+                        <div className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2.5 text-xs text-red-100">
+                          {allocationPreview.blockedReason}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {allocationPreview?.sites.map((site) => (
+                            <div
+                              key={site.id}
+                              className={cx(
+                                "flex flex-wrap items-center justify-between gap-2 border px-3 py-2 text-xs",
+                                site.isNew
+                                  ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                                  : "border-[var(--line)] bg-[var(--surface-muted)]",
+                              )}
+                            >
+                              <div className="font-medium text-[var(--foreground)]">
+                                {site.name}
+                                {site.isNew ? " (new)" : ""}
+                              </div>
+                              <div className="flex flex-wrap gap-2 text-[var(--text-muted)]">
+                                <span>CPU {formatCpu(site.cpu_limit)}</span>
+                                <span>RAM {formatMemoryMb(site.memory_mb)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               )}
               </div>
@@ -2046,6 +2419,49 @@ function CreateSiteModal({
         </MotionDiv>
       )}
     </AnimatePresenceShim>
+  );
+}
+
+function UsageMetricCard({
+  label,
+  used,
+  remaining,
+  total,
+  percentage,
+}: {
+  label: string;
+  used: string;
+  remaining: string;
+  total: string;
+  percentage: number;
+}) {
+  return (
+    <div className="border border-[var(--line)] bg-[var(--surface-muted)] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+          {label}
+        </span>
+        <span className="text-[11px] font-medium text-[var(--text-muted)]">
+          {formatPercent(percentage)}
+        </span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden bg-[var(--surface)]">
+        <div
+          className="h-full bg-[var(--accent)]"
+          style={{ width: formatPercent(percentage) }}
+        />
+      </div>
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-[var(--foreground)]">{used}</div>
+          <div className="text-[11px] text-[var(--text-muted)]">used</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[11px] font-medium text-[var(--text-muted)]">{remaining}</div>
+          <div className="text-[11px] text-[var(--text-muted)]">{total}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 

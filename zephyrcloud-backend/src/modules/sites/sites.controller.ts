@@ -157,6 +157,11 @@ export class SitesController {
     return this.sites.getWorkspaceDatabase(user);
   }
 
+  @Get('workspace/usage')
+  public workspaceUsage(@CurrentUser() user: JwtPayload) {
+    return this.sites.getWorkspaceUsage(user);
+  }
+
   @Post('workspace/database')
   public createWorkspaceDatabase(
     @CurrentUser() user: JwtPayload,

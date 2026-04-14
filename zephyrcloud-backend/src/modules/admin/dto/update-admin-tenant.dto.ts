@@ -66,13 +66,13 @@ export class UpdateAdminTenantDto {
   @Transform(({ value }) => toNullableNumber(value))
   @IsNumber()
   @Min(0.1)
-  public max_cpu_per_site?: number | null;
+  public max_cpu_total?: number | null;
 
   @IsOptional()
   @Transform(({ value }) => toNullableNumber(value))
   @IsNumber()
   @Min(128)
-  public max_memory_mb_per_site?: number | null;
+  public max_memory_mb_total?: number | null;
 
   @IsOptional()
   @Transform(({ value }) => toNullableNumber(value))

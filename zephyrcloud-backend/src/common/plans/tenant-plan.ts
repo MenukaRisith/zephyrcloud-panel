@@ -2,14 +2,16 @@ import { SubscriptionPlan } from '@prisma/client';
 
 export type TenantPlanResources = {
   maxSites: number;
-  maxCpuPerSite: number;
-  maxMemoryMbPerSite: number;
+  maxCpuTotal: number;
+  maxMemoryMbTotal: number;
   maxTeamMembersPerSite: number;
 };
 
 export type TenantWithPlanOverrides = {
   plan: SubscriptionPlan;
   max_sites?: number | null;
+  max_cpu_total?: number | null;
+  max_memory_mb_total?: number | null;
   max_cpu_per_site?: number | null;
   max_memory_mb_per_site?: number | null;
   max_team_members_per_site?: number | null;
@@ -28,8 +30,8 @@ export const TENANT_PLAN_CATALOG: Record<
     description: 'Starter workspace for basic trials and internal demos.',
     resources: {
       maxSites: 1,
-      maxCpuPerSite: 1,
-      maxMemoryMbPerSite: 512,
+      maxCpuTotal: 1,
+      maxMemoryMbTotal: 512,
       maxTeamMembersPerSite: 1,
     },
   },
@@ -38,8 +40,8 @@ export const TENANT_PLAN_CATALOG: Record<
     description: 'Single-team production workloads with light collaboration.',
     resources: {
       maxSites: 3,
-      maxCpuPerSite: 2,
-      maxMemoryMbPerSite: 1024,
+      maxCpuTotal: 2,
+      maxMemoryMbTotal: 1024,
       maxTeamMembersPerSite: 3,
     },
   },
@@ -48,8 +50,8 @@ export const TENANT_PLAN_CATALOG: Record<
     description: 'Growth stage tenant with a modest project portfolio.',
     resources: {
       maxSites: 5,
-      maxCpuPerSite: 2,
-      maxMemoryMbPerSite: 2048,
+      maxCpuTotal: 2,
+      maxMemoryMbTotal: 2048,
       maxTeamMembersPerSite: 5,
     },
   },
@@ -58,8 +60,8 @@ export const TENANT_PLAN_CATALOG: Record<
     description: 'Mainline production plan for active customer teams.',
     resources: {
       maxSites: 15,
-      maxCpuPerSite: 4,
-      maxMemoryMbPerSite: 4096,
+      maxCpuTotal: 4,
+      maxMemoryMbTotal: 4096,
       maxTeamMembersPerSite: 10,
     },
   },
@@ -68,8 +70,8 @@ export const TENANT_PLAN_CATALOG: Record<
     description: 'Higher-capacity plan for larger delivery teams.',
     resources: {
       maxSites: 40,
-      maxCpuPerSite: 8,
-      maxMemoryMbPerSite: 8192,
+      maxCpuTotal: 8,
+      maxMemoryMbTotal: 8192,
       maxTeamMembersPerSite: 25,
     },
   },
@@ -78,8 +80,8 @@ export const TENANT_PLAN_CATALOG: Record<
     description: 'Enterprise-scale plan with wide operational headroom.',
     resources: {
       maxSites: 100,
-      maxCpuPerSite: 16,
-      maxMemoryMbPerSite: 16384,
+      maxCpuTotal: 16,
+      maxMemoryMbTotal: 16384,
       maxTeamMembersPerSite: 100,
     },
   },
@@ -92,13 +94,13 @@ export function resolveTenantPlanResources(
 
   return {
     maxSites: normalizePositiveInt(tenant.max_sites, defaults.maxSites),
-    maxCpuPerSite: normalizePositiveNumber(
-      tenant.max_cpu_per_site,
-      defaults.maxCpuPerSite,
+    maxCpuTotal: normalizePositiveNumber(
+      tenant.max_cpu_total ?? tenant.max_cpu_per_site,
+      defaults.maxCpuTotal,
     ),
-    maxMemoryMbPerSite: normalizePositiveInt(
-      tenant.max_memory_mb_per_site,
-      defaults.maxMemoryMbPerSite,
+    maxMemoryMbTotal: normalizePositiveInt(
+      tenant.max_memory_mb_total ?? tenant.max_memory_mb_per_site,
+      defaults.maxMemoryMbTotal,
     ),
     maxTeamMembersPerSite: normalizePositiveInt(
       tenant.max_team_members_per_site,

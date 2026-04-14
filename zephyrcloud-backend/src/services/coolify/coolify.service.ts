@@ -92,6 +92,11 @@ type UpdateApplicationCommandsInput = {
   start_command?: string | null;
 };
 
+type UpdateApplicationResourcesInput = {
+  cpuLimit: number;
+  memoryMb: number;
+};
+
 type CreatePrivateKeyInput = {
   name: string;
   description?: string;
@@ -481,6 +486,18 @@ export class CoolifyService {
         `[updateApplicationCommands] Failed to update commands for ${uuid}: ${this.formatError(error)}`,
       );
     }
+  }
+
+  async updateApplicationResources(
+    uuid: string,
+    input: UpdateApplicationResourcesInput,
+  ): Promise<void> {
+    if (!uuid) throw new Error('Resource UUID missing');
+
+    await this.client.patch(`/api/v1/applications/${uuid}`, {
+      limits_cpus: String(input.cpuLimit),
+      limits_memory: `${Math.trunc(input.memoryMb)}M`,
+    });
   }
 
   async createPrivateKey(

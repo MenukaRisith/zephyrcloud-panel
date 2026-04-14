@@ -115,8 +115,8 @@ type PlanCatalogItem = {
   description: string;
   resources: {
     max_sites: number;
-    max_cpu_per_site: number;
-    max_memory_mb_per_site: number;
+    max_cpu_total: number;
+    max_memory_mb_total: number;
     max_team_members_per_site: number;
   };
 };
@@ -137,14 +137,14 @@ type AdminTenant = {
   resources: {
     overrides: {
       max_sites: number | null;
-      max_cpu_per_site: number | null;
-      max_memory_mb_per_site: number | null;
+      max_cpu_total: number | null;
+      max_memory_mb_total: number | null;
       max_team_members_per_site: number | null;
     };
     effective: {
       max_sites: number;
-      max_cpu_per_site: number;
-      max_memory_mb_per_site: number;
+      max_cpu_total: number;
+      max_memory_mb_total: number;
       max_team_members_per_site: number;
     };
   };
@@ -273,6 +273,18 @@ function formatDate(value: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function readNumberWithFallback(
+  record: Record<string, unknown>,
+  primaryKey: string,
+  fallbackKey?: string,
+): number | null {
+  const primary = record[primaryKey];
+  if (typeof primary === "number") return primary;
+  if (!fallbackKey) return null;
+  const fallback = record[fallbackKey];
+  return typeof fallback === "number" ? fallback : null;
 }
 
 function statusTone(status?: string) {
@@ -416,14 +428,18 @@ function parseTenants(
                   typeof plan.resources.max_sites === "number"
                     ? plan.resources.max_sites
                     : 0,
-                max_cpu_per_site:
-                  typeof plan.resources.max_cpu_per_site === "number"
-                    ? plan.resources.max_cpu_per_site
-                    : 0,
-                max_memory_mb_per_site:
-                  typeof plan.resources.max_memory_mb_per_site === "number"
-                    ? plan.resources.max_memory_mb_per_site
-                    : 0,
+                max_cpu_total:
+                  readNumberWithFallback(
+                    plan.resources,
+                    "max_cpu_total",
+                    "max_cpu_per_site",
+                  ) ?? 0,
+                max_memory_mb_total:
+                  readNumberWithFallback(
+                    plan.resources,
+                    "max_memory_mb_total",
+                    "max_memory_mb_per_site",
+                  ) ?? 0,
                 max_team_members_per_site:
                   typeof plan.resources.max_team_members_per_site === "number"
                     ? plan.resources.max_team_members_per_site
@@ -431,8 +447,8 @@ function parseTenants(
               }
             : {
                 max_sites: 0,
-                max_cpu_per_site: 0,
-                max_memory_mb_per_site: 0,
+                max_cpu_total: 0,
+                max_memory_mb_total: 0,
                 max_team_members_per_site: 0,
               },
         })) as PlanCatalogItem[])
@@ -478,16 +494,18 @@ function parseTenants(
                         typeof tenant.resources.overrides.max_sites === "number"
                           ? tenant.resources.overrides.max_sites
                           : null,
-                      max_cpu_per_site:
-                        typeof tenant.resources.overrides.max_cpu_per_site ===
-                        "number"
-                          ? tenant.resources.overrides.max_cpu_per_site
-                          : null,
-                      max_memory_mb_per_site:
-                        typeof tenant.resources.overrides
-                          .max_memory_mb_per_site === "number"
-                          ? tenant.resources.overrides.max_memory_mb_per_site
-                          : null,
+                      max_cpu_total:
+                        readNumberWithFallback(
+                          tenant.resources.overrides,
+                          "max_cpu_total",
+                          "max_cpu_per_site",
+                        ),
+                      max_memory_mb_total:
+                        readNumberWithFallback(
+                          tenant.resources.overrides,
+                          "max_memory_mb_total",
+                          "max_memory_mb_per_site",
+                        ),
                       max_team_members_per_site:
                         typeof tenant.resources.overrides
                           .max_team_members_per_site === "number"
@@ -496,8 +514,8 @@ function parseTenants(
                     }
                   : {
                       max_sites: null,
-                      max_cpu_per_site: null,
-                      max_memory_mb_per_site: null,
+                      max_cpu_total: null,
+                      max_memory_mb_total: null,
                       max_team_members_per_site: null,
                     },
                 effective: isRecord(tenant.resources.effective)
@@ -506,16 +524,18 @@ function parseTenants(
                         typeof tenant.resources.effective.max_sites === "number"
                           ? tenant.resources.effective.max_sites
                           : 0,
-                      max_cpu_per_site:
-                        typeof tenant.resources.effective.max_cpu_per_site ===
-                        "number"
-                          ? tenant.resources.effective.max_cpu_per_site
-                          : 0,
-                      max_memory_mb_per_site:
-                        typeof tenant.resources.effective
-                          .max_memory_mb_per_site === "number"
-                          ? tenant.resources.effective.max_memory_mb_per_site
-                          : 0,
+                      max_cpu_total:
+                        readNumberWithFallback(
+                          tenant.resources.effective,
+                          "max_cpu_total",
+                          "max_cpu_per_site",
+                        ) ?? 0,
+                      max_memory_mb_total:
+                        readNumberWithFallback(
+                          tenant.resources.effective,
+                          "max_memory_mb_total",
+                          "max_memory_mb_per_site",
+                        ) ?? 0,
                       max_team_members_per_site:
                         typeof tenant.resources.effective
                           .max_team_members_per_site === "number"
@@ -524,22 +544,22 @@ function parseTenants(
                     }
                   : {
                       max_sites: 0,
-                      max_cpu_per_site: 0,
-                      max_memory_mb_per_site: 0,
+                      max_cpu_total: 0,
+                      max_memory_mb_total: 0,
                       max_team_members_per_site: 0,
                     },
               }
             : {
                 overrides: {
                   max_sites: null,
-                  max_cpu_per_site: null,
-                  max_memory_mb_per_site: null,
+                  max_cpu_total: null,
+                  max_memory_mb_total: null,
                   max_team_members_per_site: null,
                 },
                 effective: {
                   max_sites: 0,
-                  max_cpu_per_site: 0,
-                  max_memory_mb_per_site: 0,
+                  max_cpu_total: 0,
+                  max_memory_mb_total: 0,
                   max_team_members_per_site: 0,
                 },
               },
@@ -930,10 +950,10 @@ export async function action({
           plan: optionalStringField(formData, "plan"),
           is_active: String(formData.get("is_active") || "true") === "true",
           max_sites: nullableNumberField(formData, "max_sites"),
-          max_cpu_per_site: nullableNumberField(formData, "max_cpu_per_site"),
-          max_memory_mb_per_site: nullableNumberField(
+          max_cpu_total: nullableNumberField(formData, "max_cpu_total"),
+          max_memory_mb_total: nullableNumberField(
             formData,
-            "max_memory_mb_per_site",
+            "max_memory_mb_total",
           ),
           max_team_members_per_site: nullableNumberField(
             formData,
@@ -963,8 +983,6 @@ export async function action({
         type: String(formData.get("type") || "node"),
         repo_url: optionalStringField(formData, "repo_url"),
         repo_branch: optionalStringField(formData, "repo_branch"),
-        cpu_limit: optionalNumberField(formData, "cpu_limit"),
-        memory_mb: optionalNumberField(formData, "memory_mb"),
         auto_deploy: String(formData.get("auto_deploy") || "false") === "true",
         github_app_id: optionalStringField(formData, "github_app_id"),
         private_key_uuid: optionalStringField(formData, "private_key_uuid"),
@@ -1678,22 +1696,6 @@ function AdminSitesTab({
                 placeholder="Branch (default: main)"
                 className={fieldClassName}
               />
-              <input
-                name="cpu_limit"
-                type="number"
-                min="0.1"
-                step="0.1"
-                placeholder="CPU limit"
-                className={fieldClassName}
-              />
-              <input
-                name="memory_mb"
-                type="number"
-                min="128"
-                step="128"
-                placeholder="Memory (MB)"
-                className={fieldClassName}
-              />
               <select
                 name="auto_deploy"
                 defaultValue="false"
@@ -1727,6 +1729,10 @@ function AdminSitesTab({
               Owner options are limited to administrators and people in the
               selected workspace.
             </p>
+            <p className="text-xs text-[var(--text-muted)]">
+              CPU and memory come from the workspace pool and rebalance across
+              every site automatically.
+            </p>
             {createSiteTenant ? (
               <div className="grid gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4 text-xs text-[var(--text-muted)] md:grid-cols-4">
                 <PlanLimit
@@ -1734,12 +1740,12 @@ function AdminSitesTab({
                   value={`${createSiteTenant.usage.sites}/${createSiteTenant.resources.effective.max_sites}`}
                 />
                 <PlanLimit
-                  label="CPU limit"
-                  value={`${createSiteTenant.resources.effective.max_cpu_per_site}`}
+                  label="CPU pool"
+                  value={`${createSiteTenant.resources.effective.max_cpu_total}`}
                 />
                 <PlanLimit
-                  label="Memory cap"
-                  value={`${createSiteTenant.resources.effective.max_memory_mb_per_site} MB`}
+                  label="Memory pool"
+                  value={`${createSiteTenant.resources.effective.max_memory_mb_total} MB`}
                 />
                 <PlanLimit
                   label="Team cap"
@@ -2538,12 +2544,12 @@ function PlanCatalogCard({ plan }: { plan: PlanCatalogItem }) {
       </p>
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
         <PlanLimit
-          label="CPU / site"
-          value={`${plan.resources.max_cpu_per_site}`}
+          label="CPU pool"
+          value={`${plan.resources.max_cpu_total}`}
         />
         <PlanLimit
-          label="Memory / site"
-          value={`${plan.resources.max_memory_mb_per_site} MB`}
+          label="Memory pool"
+          value={`${plan.resources.max_memory_mb_total} MB`}
         />
         <PlanLimit
           label="Team / site"
@@ -2596,14 +2602,14 @@ function TenantRow({
           overrideValue={tenant.resources.overrides.max_sites}
         />
         <ResourceCard
-          label="CPU / site"
-          base={tenant.resources.effective.max_cpu_per_site}
-          overrideValue={tenant.resources.overrides.max_cpu_per_site}
+          label="CPU pool"
+          base={tenant.resources.effective.max_cpu_total}
+          overrideValue={tenant.resources.overrides.max_cpu_total}
         />
         <ResourceCard
-          label="Memory / site"
-          base={tenant.resources.effective.max_memory_mb_per_site}
-          overrideValue={tenant.resources.overrides.max_memory_mb_per_site}
+          label="Memory pool"
+          base={tenant.resources.effective.max_memory_mb_total}
+          overrideValue={tenant.resources.overrides.max_memory_mb_total}
           suffix="MB"
         />
         <ResourceCard
@@ -2653,23 +2659,21 @@ function TenantRow({
             className={fieldClassName}
           />
           <input
-            name="max_cpu_per_site"
+            name="max_cpu_total"
             type="number"
             min="0.1"
             step="0.1"
-            defaultValue={tenant.resources.overrides.max_cpu_per_site ?? ""}
-            placeholder={`Base: ${tenant.resources.effective.max_cpu_per_site}`}
+            defaultValue={tenant.resources.overrides.max_cpu_total ?? ""}
+            placeholder={`Base: ${tenant.resources.effective.max_cpu_total}`}
             className={fieldClassName}
           />
           <input
-            name="max_memory_mb_per_site"
+            name="max_memory_mb_total"
             type="number"
             min="128"
             step="128"
-            defaultValue={
-              tenant.resources.overrides.max_memory_mb_per_site ?? ""
-            }
-            placeholder={`Base: ${tenant.resources.effective.max_memory_mb_per_site}`}
+            defaultValue={tenant.resources.overrides.max_memory_mb_total ?? ""}
+            placeholder={`Base: ${tenant.resources.effective.max_memory_mb_total}`}
             className={fieldClassName}
           />
           <input

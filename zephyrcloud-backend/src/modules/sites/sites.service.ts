@@ -24,6 +24,14 @@ import { resolveTenantPlanResources } from '../../common/plans/tenant-plan';
 import type { JwtPayload } from '../../common/types/auth.types';
 import { GithubService } from '../github/github.service';
 import {
+  assertTenantSiteCountWithinLimit,
+  buildTenantSiteAllocations,
+  sortSitesForAllocation,
+  type TenantAllocatableSite,
+  type TenantSiteAllocation,
+  TenantResourceAllocationError,
+} from '../../common/plans/tenant-resource-allocation';
+import {
   CoolifyService,
   type CoolifyResourceType,
   type CoolifyDbDetails,
@@ -94,6 +102,15 @@ function isGithubOwnerRepo(value: string): boolean {
   return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
 }
 
+function roundCpu(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function toPercentage(value: number, total: number): number {
+  if (!Number.isFinite(total) || total <= 0) return 0;
+  return Math.round((Math.max(0, value) / total) * 10000) / 100;
+}
+
 // --- DTO / Payload Types ---
 
 type SitePayload = Site;
@@ -154,9 +171,55 @@ type TenantPolicyPayload = {
   id: bigint;
   plan: SubscriptionPlan;
   max_sites: number | null;
+  max_cpu_total: number | null;
+  max_memory_mb_total: number | null;
   max_cpu_per_site: number | null;
   max_memory_mb_per_site: number | null;
   max_team_members_per_site: number | null;
+};
+
+type TenantResourceSitePayload = {
+  id: bigint;
+  tenant_id: bigint;
+  name: string;
+  status: Site['status'];
+  created_at: Date;
+  cpu_limit: number;
+  memory_mb: number;
+  coolify_resource_id: string | null;
+  coolify_resource_type: string | null;
+};
+
+type WorkspaceUsagePayload = {
+  tenant_id: string;
+  plan: SubscriptionPlan;
+  limits: {
+    max_sites: number;
+    max_cpu_total: number;
+    max_memory_mb_total: number;
+    max_team_members_per_site: number;
+  };
+  usage: {
+    sites_used: number;
+    sites_remaining: number;
+    cpu_used: number;
+    cpu_remaining: number;
+    memory_mb_used: number;
+    memory_mb_remaining: number;
+    site_percentage: number;
+    cpu_percentage: number;
+    memory_percentage: number;
+  };
+  sites: Array<{
+    id: string;
+    name: string;
+    status: string;
+    created_at: Date;
+    cpu_limit: number;
+    memory_mb: number;
+    cpu_percentage: number;
+    memory_percentage: number;
+  }>;
 };
 
 type CoolifyCleanupOptions = {
@@ -235,6 +298,8 @@ export class SitesService {
         id: true,
         plan: true,
         max_sites: true,
+        max_cpu_total: true,
+        max_memory_mb_total: true,
         max_cpu_per_site: true,
         max_memory_mb_per_site: true,
         max_team_members_per_site: true,
@@ -248,55 +313,270 @@ export class SitesService {
     return tenant;
   }
 
-  private async enforceTenantSiteLimit(
+  private async getTenantSitesForResourcePool(
     tenantId: bigint,
-    tenantPolicy: TenantPolicyPayload,
-  ): Promise<void> {
-    const resources = resolveTenantPlanResources(tenantPolicy);
-    const siteCount = await this.prisma.site.count({
+  ): Promise<TenantResourceSitePayload[]> {
+    return this.prisma.site.findMany({
       where: { tenant_id: tenantId },
+      select: {
+        id: true,
+        tenant_id: true,
+        name: true,
+        status: true,
+        created_at: true,
+        cpu_limit: true,
+        memory_mb: true,
+        coolify_resource_id: true,
+        coolify_resource_type: true,
+      },
+      orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
     });
+  }
 
-    if (siteCount >= resources.maxSites) {
-      throw new ForbiddenException(
-        `This tenant has reached its site limit (${resources.maxSites}).`,
+  private resolveTenantSiteAllocationsOrThrow(
+    tenantPolicy: TenantPolicyPayload,
+    sites: Array<TenantAllocatableSite<bigint>>,
+  ): TenantSiteAllocation<bigint>[] {
+    try {
+      return buildTenantSiteAllocations(
+        resolveTenantPlanResources(tenantPolicy),
+        sites,
       );
+    } catch (error) {
+      if (error instanceof TenantResourceAllocationError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
     }
   }
 
-  private resolveRequestedSiteResources(
-    tenantPolicy: TenantPolicyPayload,
-    dto: CreateSiteDto,
-  ): { cpuLimit: number; memoryMb: number } {
+  public async projectNewSiteResourceAllocation(
+    tenantId: bigint,
+  ): Promise<{ cpuLimit: number; memoryMb: number }> {
+    const [tenantPolicy, existingSites] = await Promise.all([
+      this.getTenantPolicyOrThrow(tenantId),
+      this.getTenantSitesForResourcePool(tenantId),
+    ]);
     const resources = resolveTenantPlanResources(tenantPolicy);
-    const requestedCpu =
-      typeof dto.cpu_limit === 'number' && Number.isFinite(dto.cpu_limit)
-        ? dto.cpu_limit
-        : Math.min(1, resources.maxCpuPerSite);
-    const requestedMemory =
-      typeof dto.memory_mb === 'number' && Number.isFinite(dto.memory_mb)
-        ? dto.memory_mb
-        : Math.min(512, resources.maxMemoryMbPerSite);
-
-    if (requestedCpu <= 0 || requestedCpu > resources.maxCpuPerSite) {
-      throw new BadRequestException(
-        `CPU must be between 0.1 and ${resources.maxCpuPerSite} for this tenant.`,
-      );
+    try {
+      assertTenantSiteCountWithinLimit(resources, existingSites.length + 1);
+    } catch (error) {
+      if (error instanceof TenantResourceAllocationError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
     }
+    const placeholderId = BigInt(-(existingSites.length + 1));
+    const allocations = this.resolveTenantSiteAllocationsOrThrow(tenantPolicy, [
+      ...existingSites.map((site) => ({
+        id: site.id,
+        createdAt: site.created_at,
+      })),
+      {
+        id: placeholderId,
+        createdAt: new Date(),
+      },
+    ]);
+    const projected = allocations.find(
+      (allocation) => allocation.id === placeholderId,
+    );
 
-    if (
-      requestedMemory < 128 ||
-      requestedMemory > resources.maxMemoryMbPerSite
-    ) {
+    if (!projected) {
       throw new BadRequestException(
-        `Memory must be between 128MB and ${resources.maxMemoryMbPerSite}MB for this tenant.`,
+        'Could not project the next site allocation.',
       );
     }
 
     return {
-      cpuLimit: requestedCpu,
-      memoryMb: Math.trunc(requestedMemory),
+      cpuLimit: projected.cpuLimit,
+      memoryMb: projected.memoryMb,
     };
+  }
+
+  public async validateTenantResourcePool(
+    tenantId: bigint,
+    overrides?: Partial<TenantPolicyPayload>,
+  ): Promise<void> {
+    const [tenantPolicy, sites] = await Promise.all([
+      this.getTenantPolicyOrThrow(tenantId),
+      this.getTenantSitesForResourcePool(tenantId),
+    ]);
+    const nextPolicy = {
+      ...tenantPolicy,
+      ...overrides,
+    };
+    const resources = resolveTenantPlanResources(nextPolicy);
+    try {
+      assertTenantSiteCountWithinLimit(resources, sites.length);
+    } catch (error) {
+      if (error instanceof TenantResourceAllocationError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
+    }
+    this.resolveTenantSiteAllocationsOrThrow(
+      nextPolicy,
+      sites.map((site) => ({
+        id: site.id,
+        createdAt: site.created_at,
+      })),
+    );
+  }
+
+  public async rebalanceTenantResourcePool(tenantId: bigint): Promise<void> {
+    const [tenantPolicy, sites] = await Promise.all([
+      this.getTenantPolicyOrThrow(tenantId),
+      this.getTenantSitesForResourcePool(tenantId),
+    ]);
+    const allocations = this.resolveTenantSiteAllocationsOrThrow(
+      tenantPolicy,
+      sites.map((site) => ({
+        id: site.id,
+        createdAt: site.created_at,
+      })),
+    );
+    const allocationMap = new Map(
+      allocations.map((allocation) => [allocation.id.toString(), allocation]),
+    );
+    const changedSites = sites
+      .map((site) => {
+        const allocation = allocationMap.get(site.id.toString());
+        if (!allocation) return null;
+        if (
+          site.cpu_limit === allocation.cpuLimit &&
+          site.memory_mb === allocation.memoryMb
+        ) {
+          return null;
+        }
+        return {
+          ...site,
+          cpu_limit: allocation.cpuLimit,
+          memory_mb: allocation.memoryMb,
+        };
+      })
+      .filter((site): site is TenantResourceSitePayload => site !== null);
+
+    if (!changedSites.length) {
+      return;
+    }
+
+    await this.prisma.$transaction(
+      changedSites.map((site) =>
+        this.prisma.site.update({
+          where: { id: site.id },
+          data: {
+            cpu_limit: site.cpu_limit,
+            memory_mb: site.memory_mb,
+          },
+        }),
+      ),
+    );
+
+    await Promise.all(
+      changedSites.map((site) => this.syncSiteResourcePoolToCoolify(site)),
+    );
+  }
+
+  public async getWorkspaceUsage(
+    user: JwtPayload,
+  ): Promise<WorkspaceUsagePayload | null> {
+    if (!user.tenant_id) {
+      return null;
+    }
+
+    const tenantId = toBigIntStrict(user.tenant_id, 'tenant_id');
+    const [tenantPolicy, sites] = await Promise.all([
+      this.getTenantPolicyOrThrow(tenantId),
+      this.getTenantSitesForResourcePool(tenantId),
+    ]);
+    const resources = resolveTenantPlanResources(tenantPolicy);
+    const cpuUsed = roundCpu(
+      sites.reduce((total, site) => total + site.cpu_limit, 0),
+    );
+    const memoryUsed = sites.reduce((total, site) => total + site.memory_mb, 0);
+
+    return {
+      tenant_id: tenantId.toString(),
+      plan: tenantPolicy.plan,
+      limits: {
+        max_sites: resources.maxSites,
+        max_cpu_total: resources.maxCpuTotal,
+        max_memory_mb_total: resources.maxMemoryMbTotal,
+        max_team_members_per_site: resources.maxTeamMembersPerSite,
+      },
+      usage: {
+        sites_used: sites.length,
+        sites_remaining: Math.max(0, resources.maxSites - sites.length),
+        cpu_used: cpuUsed,
+        cpu_remaining: roundCpu(Math.max(0, resources.maxCpuTotal - cpuUsed)),
+        memory_mb_used: memoryUsed,
+        memory_mb_remaining: Math.max(
+          0,
+          resources.maxMemoryMbTotal - memoryUsed,
+        ),
+        site_percentage: toPercentage(sites.length, resources.maxSites),
+        cpu_percentage: toPercentage(cpuUsed, resources.maxCpuTotal),
+        memory_percentage: toPercentage(
+          memoryUsed,
+          resources.maxMemoryMbTotal,
+        ),
+      },
+      sites: sortSitesForAllocation(
+        sites.map((site) => ({
+          id: site.id.toString(),
+          createdAt: site.created_at,
+          name: site.name,
+          status: site.status.toUpperCase(),
+          cpu_limit: site.cpu_limit,
+          memory_mb: site.memory_mb,
+        })),
+      ).map((site) => ({
+        id: site.id,
+        name: site.name,
+        status: site.status,
+        created_at: site.createdAt,
+        cpu_limit: site.cpu_limit,
+        memory_mb: site.memory_mb,
+        cpu_percentage: toPercentage(site.cpu_limit, resources.maxCpuTotal),
+        memory_percentage: toPercentage(
+          site.memory_mb,
+          resources.maxMemoryMbTotal,
+        ),
+      })),
+    };
+  }
+
+  private async syncSiteResourcePoolToCoolify(
+    site: Pick<
+      TenantResourceSitePayload,
+      | 'id'
+      | 'cpu_limit'
+      | 'memory_mb'
+      | 'coolify_resource_id'
+      | 'coolify_resource_type'
+    >,
+  ): Promise<void> {
+    if (!site.coolify_resource_id) {
+      return;
+    }
+
+    if (
+      site.coolify_resource_type &&
+      site.coolify_resource_type !== 'application'
+    ) {
+      return;
+    }
+
+    try {
+      await this.coolify.updateApplicationResources(site.coolify_resource_id, {
+        cpuLimit: site.cpu_limit,
+        memoryMb: site.memory_mb,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `[rebalanceTenantResourcePool] Failed to sync Coolify resources for site ${site.id.toString()}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   // -------------------------
@@ -412,6 +692,8 @@ export class SitesService {
       this.prisma.domain.deleteMany({ where: { site_id: { in: siteIds } } }),
       this.prisma.site.deleteMany({ where: { id: { in: siteIds } } }),
     ]);
+
+    await this.rebalanceTenantResourcePool(tenantId);
 
     return {
       deleted_sites: sitesResult.count,
@@ -537,6 +819,8 @@ export class SitesService {
         );
       });
     }
+
+    await this.rebalanceTenantResourcePool(site.tenant_id);
 
     return {
       deleted_sites: sitesResult.count,
@@ -815,12 +1099,8 @@ export class SitesService {
     const hostCnameTarget = this.getHostCnameTarget();
     const tenantId = this.requireTenantId(user);
     const userId = this.requireUserId(user);
-    const tenantPolicy = await this.getTenantPolicyOrThrow(tenantId);
-    await this.enforceTenantSiteLimit(tenantId, tenantPolicy);
-    const { cpuLimit, memoryMb } = this.resolveRequestedSiteResources(
-      tenantPolicy,
-      dto,
-    );
+    const projectedAllocation =
+      await this.projectNewSiteResourceAllocation(tenantId);
     this.logger.debug(
       `[createSite] Starting creation for ${dto.name} (tenant: ${tenantId})`,
     );
@@ -957,8 +1237,8 @@ export class SitesService {
           name: siteName,
           type: dto.type,
           status: 'provisioning',
-          cpu_limit: cpuLimit,
-          memory_mb: memoryMb,
+          cpu_limit: projectedAllocation.cpuLimit,
+          memory_mb: projectedAllocation.memoryMb,
           repo_url: repoForCoolify,
           repo_branch: repoForCoolify ? dto.repo_branch || 'main' : null,
           auto_deploy:
@@ -973,6 +1253,13 @@ export class SitesService {
           coolify_default_hostname: null,
         },
       });
+      await this.rebalanceTenantResourcePool(tenantId);
+      site = await this.prisma.site.findUnique({
+        where: { id: site.id },
+      });
+      if (!site) {
+        throw new NotFoundException('Site not found after allocation.');
+      }
 
       const defaultDomainTarget = this.buildDefaultDomainTarget(site.id);
 
@@ -980,8 +1267,8 @@ export class SitesService {
       const coolifyPayload: CoolifyCreateProjectInput = {
         name: siteName,
         type: dto.type,
-        cpu_limit: cpuLimit,
-        memory_mb: memoryMb,
+        cpu_limit: site.cpu_limit,
+        memory_mb: site.memory_mb,
         auto_deploy:
           dto.auto_deploy ?? (requiresRepository && !usesPrivateDeployKey),
       };
@@ -1100,6 +1387,13 @@ export class SitesService {
           where: { id: site.id },
           data: { status: 'error' },
         });
+        await this.rebalanceTenantResourcePool(tenantId).catch(
+          (rebalanceError) => {
+            this.logger.warn(
+              `[createSite] Failed to rebalance tenant ${tenantId.toString()} after error: ${rebalanceError instanceof Error ? rebalanceError.message : String(rebalanceError)}`,
+            );
+          },
+        );
       }
 
       if (shouldCleanupAutoProvisionedKey && deployKeyRecord) {

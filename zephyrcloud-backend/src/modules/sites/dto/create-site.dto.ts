@@ -1,10 +1,8 @@
 import {
   IsBoolean,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
-  Min,
 } from 'class-validator';
 
 export enum SiteTypeDto {
@@ -21,15 +19,6 @@ export class CreateSiteDto {
 
   @IsEnum(SiteTypeDto)
   type!: SiteTypeDto;
-
-  @IsOptional()
-  @Min(0.1)
-  cpu_limit?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(128)
-  memory_mb?: number;
 
   @IsOptional()
   @IsString()

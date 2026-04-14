@@ -32,6 +32,8 @@ model Tenant {
 
   plan                      SubscriptionPlan @default(FREE)
   max_sites                 Int?
+  max_cpu_total            Float?
+  max_memory_mb_total      Int?
   max_cpu_per_site          Float?
   max_memory_mb_per_site    Int?
   max_team_members_per_site Int?

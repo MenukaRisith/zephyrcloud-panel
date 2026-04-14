@@ -1,11 +1,8 @@
-import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
-  IsNumber,
   IsOptional,
   IsString,
-  Min,
 } from 'class-validator';
 
 import { SiteTypeDto } from '../../sites/dto/create-site.dto';
@@ -31,18 +28,6 @@ export class CreateAdminSiteDto {
   @IsOptional()
   @IsString()
   public repo_branch?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.1)
-  public cpu_limit?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(128)
-  public memory_mb?: number;
 
   @IsOptional()
   @IsBoolean()

@@ -84,14 +84,14 @@ type SerializedTenant = {
   resources: {
     overrides: {
       max_sites: number | null;
-      max_cpu_per_site: number | null;
-      max_memory_mb_per_site: number | null;
+      max_cpu_total: number | null;
+      max_memory_mb_total: number | null;
       max_team_members_per_site: number | null;
     };
     effective: {
       max_sites: number;
-      max_cpu_per_site: number;
-      max_memory_mb_per_site: number;
+      max_cpu_total: number;
+      max_memory_mb_total: number;
       max_team_members_per_site: number;
     };
   };
@@ -370,6 +370,8 @@ export class AdminService {
         created_at: true,
         updated_at: true,
         max_sites: true,
+        max_cpu_total: true,
+        max_memory_mb_total: true,
         max_cpu_per_site: true,
         max_memory_mb_per_site: true,
         max_team_members_per_site: true,
@@ -410,14 +412,31 @@ export class AdminService {
       plan?: SubscriptionPlan;
       is_active?: boolean;
       max_sites?: number | null;
-      max_cpu_per_site?: number | null;
-      max_memory_mb_per_site?: number | null;
+      max_cpu_total?: number | null;
+      max_memory_mb_total?: number | null;
       max_team_members_per_site?: number | null;
     },
   ) {
     this.requireAdmin(user);
     const tenantId = this.toBigIntStrict(id, 'tenantId');
     await this.assertTenantExists(tenantId);
+
+    const currentTenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        plan: true,
+        max_sites: true,
+        max_cpu_total: true,
+        max_memory_mb_total: true,
+        max_cpu_per_site: true,
+        max_memory_mb_per_site: true,
+        max_team_members_per_site: true,
+      },
+    });
+    if (!currentTenant) {
+      throw new NotFoundException('Tenant not found.');
+    }
 
     const data: {
       name?: string;
@@ -426,8 +445,8 @@ export class AdminService {
       is_active?: boolean;
       suspended_at?: Date | null;
       max_sites?: number | null;
-      max_cpu_per_site?: number | null;
-      max_memory_mb_per_site?: number | null;
+      max_cpu_total?: number | null;
+      max_memory_mb_total?: number | null;
       max_team_members_per_site?: number | null;
     } = {};
 
@@ -448,14 +467,14 @@ export class AdminService {
       data.max_sites =
         body.max_sites === null ? null : Math.trunc(body.max_sites);
     }
-    if (body.max_cpu_per_site !== undefined) {
-      data.max_cpu_per_site = body.max_cpu_per_site;
+    if (body.max_cpu_total !== undefined) {
+      data.max_cpu_total = body.max_cpu_total;
     }
-    if (body.max_memory_mb_per_site !== undefined) {
-      data.max_memory_mb_per_site =
-        body.max_memory_mb_per_site === null
+    if (body.max_memory_mb_total !== undefined) {
+      data.max_memory_mb_total =
+        body.max_memory_mb_total === null
           ? null
-          : Math.trunc(body.max_memory_mb_per_site);
+          : Math.trunc(body.max_memory_mb_total);
     }
     if (body.max_team_members_per_site !== undefined) {
       data.max_team_members_per_site =
@@ -467,6 +486,33 @@ export class AdminService {
     if (!Object.keys(data).length) {
       throw new BadRequestException('No tenant changes were provided.');
     }
+
+    await this.sites.validateTenantResourcePool(tenantId, {
+      ...currentTenant,
+      plan: body.plan ?? currentTenant.plan,
+      max_sites:
+        body.max_sites === undefined
+          ? currentTenant.max_sites
+          : body.max_sites === null
+            ? null
+            : Math.trunc(body.max_sites),
+      max_cpu_total:
+        body.max_cpu_total === undefined
+          ? currentTenant.max_cpu_total
+          : body.max_cpu_total,
+      max_memory_mb_total:
+        body.max_memory_mb_total === undefined
+          ? currentTenant.max_memory_mb_total
+          : body.max_memory_mb_total === null
+            ? null
+            : Math.trunc(body.max_memory_mb_total),
+      max_team_members_per_site:
+        body.max_team_members_per_site === undefined
+          ? currentTenant.max_team_members_per_site
+          : body.max_team_members_per_site === null
+            ? null
+            : Math.trunc(body.max_team_members_per_site),
+    });
 
     const updated = await this.prisma.tenant.update({
       where: { id: tenantId },
@@ -481,6 +527,8 @@ export class AdminService {
         created_at: true,
         updated_at: true,
         max_sites: true,
+        max_cpu_total: true,
+        max_memory_mb_total: true,
         max_cpu_per_site: true,
         max_memory_mb_per_site: true,
         max_team_members_per_site: true,
@@ -497,6 +545,8 @@ export class AdminService {
         },
       },
     });
+
+    await this.sites.rebalanceTenantResourcePool(tenantId);
 
     return {
       ok: true,
@@ -624,6 +674,8 @@ export class AdminService {
 
     const tenantId = this.toBigIntStrict(body.tenant_id, 'tenantId');
     await this.assertTenantExists(tenantId);
+    const projectedAllocation =
+      await this.sites.projectNewSiteResourceAllocation(tenantId);
 
     const applications = await this.coolify.getApplications();
     const application = applications.find(
@@ -662,8 +714,6 @@ export class AdminService {
       };
     }
 
-    const resources = await this.enforceTenantSiteLimit(tenantId);
-
     const created = await this.prisma.site.create({
       data: {
         tenant_id: tenantId,
@@ -676,8 +726,8 @@ export class AdminService {
         coolify_resource_id: application.uuid,
         coolify_app_id: application.uuid,
         coolify_resource_type: 'application',
-        cpu_limit: Math.min(0.5, resources.maxCpuPerSite),
-        memory_mb: Math.min(512, resources.maxMemoryMbPerSite),
+        cpu_limit: projectedAllocation.cpuLimit,
+        memory_mb: projectedAllocation.memoryMb,
         auto_deploy: false,
         last_status_sync_at: new Date(),
       },
@@ -698,6 +748,8 @@ export class AdminService {
       );
     }
 
+    await this.sites.rebalanceTenantResourcePool(tenantId);
+
     return {
       ok: true,
       imported: true,
@@ -714,8 +766,6 @@ export class AdminService {
       type: CreateSiteDto['type'];
       repo_url?: string;
       repo_branch?: string;
-      cpu_limit?: number;
-      memory_mb?: number;
       auto_deploy?: boolean;
       github_app_id?: string;
       private_key_uuid?: string;
@@ -736,8 +786,6 @@ export class AdminService {
       type: body.type,
       repo_url: body.repo_url,
       repo_branch: body.repo_branch,
-      cpu_limit: body.cpu_limit,
-      memory_mb: body.memory_mb,
       auto_deploy: body.auto_deploy,
       github_app_id: body.github_app_id,
       private_key_uuid: body.private_key_uuid,
@@ -953,6 +1001,8 @@ export class AdminService {
     created_at: Date;
     updated_at: Date;
     max_sites: number | null;
+    max_cpu_total: number | null;
+    max_memory_mb_total: number | null;
     max_cpu_per_site: number | null;
     max_memory_mb_per_site: number | null;
     max_team_members_per_site: number | null;
@@ -982,14 +1032,14 @@ export class AdminService {
       resources: {
         overrides: {
           max_sites: entry.max_sites,
-          max_cpu_per_site: entry.max_cpu_per_site,
-          max_memory_mb_per_site: entry.max_memory_mb_per_site,
+          max_cpu_total: entry.max_cpu_total,
+          max_memory_mb_total: entry.max_memory_mb_total,
           max_team_members_per_site: entry.max_team_members_per_site,
         },
         effective: {
           max_sites: effective.maxSites,
-          max_cpu_per_site: effective.maxCpuPerSite,
-          max_memory_mb_per_site: effective.maxMemoryMbPerSite,
+          max_cpu_total: effective.maxCpuTotal,
+          max_memory_mb_total: effective.maxMemoryMbTotal,
           max_team_members_per_site: effective.maxTeamMembersPerSite,
         },
       },
@@ -1271,8 +1321,8 @@ export class AdminService {
       description: value.description,
       resources: {
         max_sites: value.resources.maxSites,
-        max_cpu_per_site: value.resources.maxCpuPerSite,
-        max_memory_mb_per_site: value.resources.maxMemoryMbPerSite,
+        max_cpu_total: value.resources.maxCpuTotal,
+        max_memory_mb_total: value.resources.maxMemoryMbTotal,
         max_team_members_per_site: value.resources.maxTeamMembersPerSite,
       },
     }));
