@@ -23,6 +23,7 @@ import { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import { AddSiteMemberDto } from './dto/add-site-member.dto';
 import { CreateUserDatabaseDto } from './dto/create-user-database.dto';
 import { UpdateSiteBuildSettingsDto } from './dto/update-site-build-settings.dto';
+import { CreateSiteStorageDto } from './dto/create-site-storage.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('sites')
@@ -186,6 +187,34 @@ export class SitesController {
     @Param('id') id: string,
   ) {
     return this.sites.getLiveStatus(user, id);
+  }
+
+  @Get(':id/metrics')
+  public metrics(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.sites.getSiteMetrics(user, id);
+  }
+
+  @Get(':id/storages')
+  public storages(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.sites.getSiteStorages(user, id);
+  }
+
+  @Post(':id/storages')
+  public createStorage(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: CreateSiteStorageDto,
+  ) {
+    return this.sites.createSiteStorage(user, id, dto);
+  }
+
+  @Delete(':id/storages/:storageId')
+  public deleteStorage(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Param('storageId') storageId: string,
+  ) {
+    return this.sites.deleteSiteStorage(user, id, storageId);
   }
 
   @Post(':id/deploy')

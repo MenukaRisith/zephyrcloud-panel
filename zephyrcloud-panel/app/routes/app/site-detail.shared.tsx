@@ -20,6 +20,8 @@ export type Site = {
   name: string;
   type: "wordpress" | "node" | "static" | "php" | "python";
   status: string;
+  cpu_limit?: number;
+  memory_mb?: number;
   primaryDomain?: string | null;
   default_domain_target?: string | null;
   repo_url?: string;
@@ -106,6 +108,54 @@ export type StatusPayload =
   | { ok: true; status: string; source?: string; updatedAt?: string; raw?: unknown }
   | { ok: false; error: string };
 
+export type SiteStorageItem = {
+  id: string;
+  volume_name: string;
+  mount_path: string;
+  size_gb: number;
+  is_default: boolean;
+  created_at?: string;
+};
+
+export type SiteStorageSummary = {
+  site_id: string;
+  tenant_id: string;
+  limits: {
+    max_storage_gb_total: number;
+  };
+  usage: {
+    assigned_gb: number;
+    remaining_gb: number;
+    percentage: number;
+  };
+  items: SiteStorageItem[];
+};
+
+export type SiteMetricsPayload =
+  | {
+      ok: true;
+      site_id: string;
+      refreshed_at: string;
+      availability: { enabled: boolean; reason?: string };
+      limits: { cpu_limit: number; memory_mb: number };
+      current: {
+        cpu_percent: number | null;
+        cpu_limit_percentage: number | null;
+        memory_used_mb: number | null;
+        memory_percentage: number | null;
+      };
+      history: {
+        cpu: Array<{ time: string; percent: number }>;
+        memory: Array<{
+          time: string;
+          used_mb: number;
+          total_mb: number | null;
+          used_percent: number;
+        }>;
+      };
+    }
+  | { ok: false; error: string };
+
 export type NormalizedSiteStatus =
   | "RUNNING"
   | "STOPPED"
@@ -157,6 +207,7 @@ export type SiteRouteContext = {
   db: DBInfo | null;
   envs: EnvVar[];
   team: TeamInfo;
+  storages: SiteStorageSummary | null;
   dnsTarget: {
     value: string;
     recordType: string;

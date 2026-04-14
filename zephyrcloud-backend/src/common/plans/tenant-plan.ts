@@ -4,6 +4,7 @@ export type TenantPlanResources = {
   maxSites: number;
   maxCpuTotal: number;
   maxMemoryMbTotal: number;
+  maxStorageGbTotal: number;
   maxTeamMembersPerSite: number;
 };
 
@@ -12,6 +13,7 @@ export type TenantWithPlanOverrides = {
   max_sites?: number | null;
   max_cpu_total?: number | null;
   max_memory_mb_total?: number | null;
+  max_storage_gb_total?: number | null;
   max_cpu_per_site?: number | null;
   max_memory_mb_per_site?: number | null;
   max_team_members_per_site?: number | null;
@@ -32,6 +34,7 @@ export const TENANT_PLAN_CATALOG: Record<
       maxSites: 1,
       maxCpuTotal: 1,
       maxMemoryMbTotal: 512,
+      maxStorageGbTotal: 5,
       maxTeamMembersPerSite: 1,
     },
   },
@@ -42,6 +45,7 @@ export const TENANT_PLAN_CATALOG: Record<
       maxSites: 3,
       maxCpuTotal: 2,
       maxMemoryMbTotal: 1024,
+      maxStorageGbTotal: 20,
       maxTeamMembersPerSite: 3,
     },
   },
@@ -52,6 +56,7 @@ export const TENANT_PLAN_CATALOG: Record<
       maxSites: 5,
       maxCpuTotal: 2,
       maxMemoryMbTotal: 2048,
+      maxStorageGbTotal: 50,
       maxTeamMembersPerSite: 5,
     },
   },
@@ -62,6 +67,7 @@ export const TENANT_PLAN_CATALOG: Record<
       maxSites: 15,
       maxCpuTotal: 4,
       maxMemoryMbTotal: 4096,
+      maxStorageGbTotal: 150,
       maxTeamMembersPerSite: 10,
     },
   },
@@ -72,6 +78,7 @@ export const TENANT_PLAN_CATALOG: Record<
       maxSites: 40,
       maxCpuTotal: 8,
       maxMemoryMbTotal: 8192,
+      maxStorageGbTotal: 500,
       maxTeamMembersPerSite: 25,
     },
   },
@@ -82,6 +89,7 @@ export const TENANT_PLAN_CATALOG: Record<
       maxSites: 100,
       maxCpuTotal: 16,
       maxMemoryMbTotal: 16384,
+      maxStorageGbTotal: 1500,
       maxTeamMembersPerSite: 100,
     },
   },
@@ -101,6 +109,10 @@ export function resolveTenantPlanResources(
     maxMemoryMbTotal: normalizePositiveInt(
       tenant.max_memory_mb_total ?? tenant.max_memory_mb_per_site,
       defaults.maxMemoryMbTotal,
+    ),
+    maxStorageGbTotal: normalizePositiveInt(
+      tenant.max_storage_gb_total,
+      defaults.maxStorageGbTotal,
     ),
     maxTeamMembersPerSite: normalizePositiveInt(
       tenant.max_team_members_per_site,

@@ -8,6 +8,7 @@ export type WorkspaceUsage = {
     max_sites: number;
     max_cpu_total: number;
     max_memory_mb_total: number;
+    max_storage_gb_total: number;
     max_team_members_per_site: number;
   };
   usage: {
@@ -17,9 +18,12 @@ export type WorkspaceUsage = {
     cpu_remaining: number;
     memory_mb_used: number;
     memory_mb_remaining: number;
+    storage_gb_used: number;
+    storage_gb_remaining: number;
     site_percentage: number;
     cpu_percentage: number;
     memory_percentage: number;
+    storage_percentage: number;
   };
 };
 
@@ -63,6 +67,7 @@ export function parseWorkspaceUsage(payload: unknown): WorkspaceUsage | null {
       max_sites: getNumberValue(limits.max_sites) ?? 0,
       max_cpu_total: getNumberValue(limits.max_cpu_total) ?? 0,
       max_memory_mb_total: getNumberValue(limits.max_memory_mb_total) ?? 0,
+      max_storage_gb_total: getNumberValue(limits.max_storage_gb_total) ?? 0,
       max_team_members_per_site:
         getNumberValue(limits.max_team_members_per_site) ?? 0,
     },
@@ -73,9 +78,12 @@ export function parseWorkspaceUsage(payload: unknown): WorkspaceUsage | null {
       cpu_remaining: getNumberValue(usage.cpu_remaining) ?? 0,
       memory_mb_used: getNumberValue(usage.memory_mb_used) ?? 0,
       memory_mb_remaining: getNumberValue(usage.memory_mb_remaining) ?? 0,
+      storage_gb_used: getNumberValue(usage.storage_gb_used) ?? 0,
+      storage_gb_remaining: getNumberValue(usage.storage_gb_remaining) ?? 0,
       site_percentage: getNumberValue(usage.site_percentage) ?? 0,
       cpu_percentage: getNumberValue(usage.cpu_percentage) ?? 0,
       memory_percentage: getNumberValue(usage.memory_percentage) ?? 0,
+      storage_percentage: getNumberValue(usage.storage_percentage) ?? 0,
     },
   };
 }
@@ -86,6 +94,10 @@ export function formatCpu(value: number) {
 
 export function formatMemoryMb(value: number) {
   return `${Math.round(value)} MB`;
+}
+
+export function formatStorageGb(value: number) {
+  return `${Math.round(value)} GB`;
 }
 
 function formatPercent(value: number) {
@@ -158,7 +170,7 @@ export function WorkspaceUsageSection({
         </div>
         {titleAction}
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <WorkspaceUsageCard
           label="Sites"
           used={`${workspaceUsage.usage.sites_used}`}
@@ -179,6 +191,13 @@ export function WorkspaceUsageSection({
           remaining={`${formatMemoryMb(workspaceUsage.usage.memory_mb_remaining)} left`}
           total={`${formatMemoryMb(workspaceUsage.limits.max_memory_mb_total)} total`}
           percentage={workspaceUsage.usage.memory_percentage}
+        />
+        <WorkspaceUsageCard
+          label="Storage pool"
+          used={formatStorageGb(workspaceUsage.usage.storage_gb_used)}
+          remaining={`${formatStorageGb(workspaceUsage.usage.storage_gb_remaining)} left`}
+          total={`${formatStorageGb(workspaceUsage.limits.max_storage_gb_total)} total`}
+          percentage={workspaceUsage.usage.storage_percentage}
         />
       </div>
     </div>

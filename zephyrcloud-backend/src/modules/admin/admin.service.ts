@@ -86,12 +86,14 @@ type SerializedTenant = {
       max_sites: number | null;
       max_cpu_total: number | null;
       max_memory_mb_total: number | null;
+      max_storage_gb_total: number | null;
       max_team_members_per_site: number | null;
     };
     effective: {
       max_sites: number;
       max_cpu_total: number;
       max_memory_mb_total: number;
+      max_storage_gb_total: number;
       max_team_members_per_site: number;
     };
   };
@@ -372,6 +374,7 @@ export class AdminService {
         max_sites: true,
         max_cpu_total: true,
         max_memory_mb_total: true,
+        max_storage_gb_total: true,
         max_cpu_per_site: true,
         max_memory_mb_per_site: true,
         max_team_members_per_site: true,
@@ -414,6 +417,7 @@ export class AdminService {
       max_sites?: number | null;
       max_cpu_total?: number | null;
       max_memory_mb_total?: number | null;
+      max_storage_gb_total?: number | null;
       max_team_members_per_site?: number | null;
     },
   ) {
@@ -429,6 +433,7 @@ export class AdminService {
         max_sites: true,
         max_cpu_total: true,
         max_memory_mb_total: true,
+        max_storage_gb_total: true,
         max_cpu_per_site: true,
         max_memory_mb_per_site: true,
         max_team_members_per_site: true,
@@ -447,6 +452,7 @@ export class AdminService {
       max_sites?: number | null;
       max_cpu_total?: number | null;
       max_memory_mb_total?: number | null;
+      max_storage_gb_total?: number | null;
       max_team_members_per_site?: number | null;
     } = {};
 
@@ -476,6 +482,12 @@ export class AdminService {
           ? null
           : Math.trunc(body.max_memory_mb_total);
     }
+    if (body.max_storage_gb_total !== undefined) {
+      data.max_storage_gb_total =
+        body.max_storage_gb_total === null
+          ? null
+          : Math.trunc(body.max_storage_gb_total);
+    }
     if (body.max_team_members_per_site !== undefined) {
       data.max_team_members_per_site =
         body.max_team_members_per_site === null
@@ -487,7 +499,7 @@ export class AdminService {
       throw new BadRequestException('No tenant changes were provided.');
     }
 
-    await this.sites.validateTenantResourcePool(tenantId, {
+    const nextResourceState = {
       ...currentTenant,
       plan: body.plan ?? currentTenant.plan,
       max_sites:
@@ -506,13 +518,26 @@ export class AdminService {
           : body.max_memory_mb_total === null
             ? null
             : Math.trunc(body.max_memory_mb_total),
+      max_storage_gb_total:
+        body.max_storage_gb_total === undefined
+          ? currentTenant.max_storage_gb_total
+          : body.max_storage_gb_total === null
+            ? null
+            : Math.trunc(body.max_storage_gb_total),
       max_team_members_per_site:
         body.max_team_members_per_site === undefined
           ? currentTenant.max_team_members_per_site
           : body.max_team_members_per_site === null
             ? null
             : Math.trunc(body.max_team_members_per_site),
-    });
+    };
+
+    await this.sites.validateTenantResourcePool(tenantId, nextResourceState);
+    const nextResources = resolveTenantPlanResources(nextResourceState);
+    await this.sites.validateTenantStoragePool(
+      tenantId,
+      nextResources.maxStorageGbTotal,
+    );
 
     const updated = await this.prisma.tenant.update({
       where: { id: tenantId },
@@ -529,6 +554,7 @@ export class AdminService {
         max_sites: true,
         max_cpu_total: true,
         max_memory_mb_total: true,
+        max_storage_gb_total: true,
         max_cpu_per_site: true,
         max_memory_mb_per_site: true,
         max_team_members_per_site: true,
@@ -1003,6 +1029,7 @@ export class AdminService {
     max_sites: number | null;
     max_cpu_total: number | null;
     max_memory_mb_total: number | null;
+    max_storage_gb_total: number | null;
     max_cpu_per_site: number | null;
     max_memory_mb_per_site: number | null;
     max_team_members_per_site: number | null;
@@ -1034,12 +1061,14 @@ export class AdminService {
           max_sites: entry.max_sites,
           max_cpu_total: entry.max_cpu_total,
           max_memory_mb_total: entry.max_memory_mb_total,
+          max_storage_gb_total: entry.max_storage_gb_total,
           max_team_members_per_site: entry.max_team_members_per_site,
         },
         effective: {
           max_sites: effective.maxSites,
           max_cpu_total: effective.maxCpuTotal,
           max_memory_mb_total: effective.maxMemoryMbTotal,
+          max_storage_gb_total: effective.maxStorageGbTotal,
           max_team_members_per_site: effective.maxTeamMembersPerSite,
         },
       },
@@ -1323,6 +1352,7 @@ export class AdminService {
         max_sites: value.resources.maxSites,
         max_cpu_total: value.resources.maxCpuTotal,
         max_memory_mb_total: value.resources.maxMemoryMbTotal,
+        max_storage_gb_total: value.resources.maxStorageGbTotal,
         max_team_members_per_site: value.resources.maxTeamMembersPerSite,
       },
     }));

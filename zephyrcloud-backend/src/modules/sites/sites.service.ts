@@ -16,6 +16,7 @@ import {
   type Domain,
   type SiteDatabase,
   type SiteDeployKey,
+  type SitePersistentStorage,
   type UserDatabase,
   SiteMemberRole,
 } from '@prisma/client';
@@ -45,6 +46,7 @@ import type { CreateSiteDatabaseDto } from './dto/create-site-database.dto';
 import type { AddSiteMemberDto } from './dto/add-site-member.dto';
 import type { CreateUserDatabaseDto } from './dto/create-user-database.dto';
 import type { UpdateSiteBuildSettingsDto } from './dto/update-site-build-settings.dto';
+import type { CreateSiteStorageDto } from './dto/create-site-storage.dto';
 import { DomainAutomationService } from './domain-automation.service';
 import { DomainVerificationService } from './domain-verification.service';
 
@@ -111,6 +113,14 @@ function toPercentage(value: number, total: number): number {
   return Math.round((Math.max(0, value) / total) * 10000) / 100;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+const DEFAULT_SITE_STORAGE_GB = 1;
+const MIN_SITE_STORAGE_GB = 1;
+const MAX_STORAGE_MOUNT_LENGTH = 160;
+
 // --- DTO / Payload Types ---
 
 type SitePayload = Site;
@@ -128,6 +138,7 @@ type DeploymentPayload = {
 type SiteDatabasePayload = SiteDatabase;
 type UserDatabasePayload = UserDatabase;
 type SiteDeployKeyPayload = SiteDeployKey;
+type SitePersistentStoragePayload = SitePersistentStorage;
 type CoolifyCreateProjectInput = Parameters<CoolifyService['createProject']>[0];
 type CoolifyCreateProjectResult = Awaited<
   ReturnType<CoolifyService['createProject']>
@@ -173,6 +184,7 @@ type TenantPolicyPayload = {
   max_sites: number | null;
   max_cpu_total: number | null;
   max_memory_mb_total: number | null;
+  max_storage_gb_total: number | null;
   max_cpu_per_site: number | null;
   max_memory_mb_per_site: number | null;
   max_team_members_per_site: number | null;
@@ -197,6 +209,7 @@ type WorkspaceUsagePayload = {
     max_sites: number;
     max_cpu_total: number;
     max_memory_mb_total: number;
+    max_storage_gb_total: number;
     max_team_members_per_site: number;
   };
   usage: {
@@ -206,9 +219,12 @@ type WorkspaceUsagePayload = {
     cpu_remaining: number;
     memory_mb_used: number;
     memory_mb_remaining: number;
+    storage_gb_used: number;
+    storage_gb_remaining: number;
     site_percentage: number;
     cpu_percentage: number;
     memory_percentage: number;
+    storage_percentage: number;
   };
   sites: Array<{
     id: string;
@@ -219,7 +235,57 @@ type WorkspaceUsagePayload = {
     memory_mb: number;
     cpu_percentage: number;
     memory_percentage: number;
+    storage_gb?: number;
   }>;
+};
+
+type SiteStorageSummaryPayload = {
+  site_id: string;
+  tenant_id: string;
+  limits: {
+    max_storage_gb_total: number;
+  };
+  usage: {
+    assigned_gb: number;
+    remaining_gb: number;
+    percentage: number;
+  };
+  items: Array<{
+    id: string;
+    volume_name: string;
+    mount_path: string;
+    size_gb: number;
+    is_default: boolean;
+    created_at: Date;
+  }>;
+};
+
+type SiteMetricsPayload = {
+  site_id: string;
+  refreshed_at: string;
+  availability: {
+    enabled: boolean;
+    reason?: string;
+  };
+  limits: {
+    cpu_limit: number;
+    memory_mb: number;
+  };
+  current: {
+    cpu_percent: number | null;
+    cpu_limit_percentage: number | null;
+    memory_used_mb: number | null;
+    memory_percentage: number | null;
+  };
+  history: {
+    cpu: Array<{ time: string; percent: number }>;
+    memory: Array<{
+      time: string;
+      used_mb: number;
+      total_mb: number | null;
+      used_percent: number;
+    }>;
+  };
 };
 
 type CoolifyCleanupOptions = {
@@ -289,6 +355,232 @@ export class SitesService {
     };
   }
 
+  private getDefaultStorageMountPath(type: Site['type'] | SiteTypeDto): string {
+    switch (type) {
+      case 'wordpress':
+        return '/var/www/html';
+      case 'python':
+        return '/app/data';
+      default:
+        return '/app/public';
+    }
+  }
+
+  private normalizeMountPath(mountPath: string): string {
+    const normalized = String(mountPath ?? '')
+      .trim()
+      .replace(/\\/g, '/')
+      .replace(/\/{2,}/g, '/');
+
+    if (!normalized) {
+      throw new BadRequestException('Mount path is required.');
+    }
+
+    const withLeadingSlash = normalized.startsWith('/')
+      ? normalized
+      : `/${normalized}`;
+    const withoutTrailingSlash =
+      withLeadingSlash.length > 1
+        ? withLeadingSlash.replace(/\/+$/, '')
+        : withLeadingSlash;
+
+    if (
+      withoutTrailingSlash === '/' ||
+      withoutTrailingSlash.length > MAX_STORAGE_MOUNT_LENGTH
+    ) {
+      throw new BadRequestException(
+        'Mount path must point to a folder inside the application container.',
+      );
+    }
+
+    if (!/^\/[a-zA-Z0-9._/-]+$/.test(withoutTrailingSlash)) {
+      throw new BadRequestException(
+        'Mount path may only contain letters, numbers, ".", "-", "_" and "/".',
+      );
+    }
+
+    return withoutTrailingSlash;
+  }
+
+  private buildStorageVolumeName(siteId: bigint, mountPath: string): string {
+    const safeMount = mountPath
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32) || 'data';
+    const hash = crypto
+      .createHash('sha1')
+      .update(`${siteId.toString()}:${mountPath}`)
+      .digest('hex')
+      .slice(0, 8);
+    return `site-${siteId.toString()}-${safeMount}-${hash}`.slice(0, 80);
+  }
+
+  private buildStorageRunOptions(
+    storages: Array<Pick<SitePersistentStoragePayload, 'volume_name' | 'mount_path'>>,
+  ): string | undefined {
+    if (!storages.length) {
+      return undefined;
+    }
+
+    return storages
+      .map(
+        (storage) =>
+          `--mount type=volume,source=${storage.volume_name},target=${storage.mount_path}`,
+      )
+      .join(' ');
+  }
+
+  private parseStorageMountsFromRunOptions(
+    runOptions?: string | null,
+  ): Array<{ volume_name: string; mount_path: string }> {
+    const source = String(runOptions ?? '').trim();
+    if (!source) {
+      return [];
+    }
+
+    const matches = source.matchAll(
+      /--mount\s+type=volume,source=([^,\s]+),target=([^,\s]+)/g,
+    );
+
+    return Array.from(matches)
+      .map((match) => ({
+        volume_name: String(match[1] ?? '').trim(),
+        mount_path: this.normalizeMountPath(String(match[2] ?? '').trim()),
+      }))
+      .filter((storage) => storage.volume_name && storage.mount_path);
+  }
+
+  private async getTenantStoragePoolState(tenantId: bigint): Promise<{
+    tenantPolicy: TenantPolicyPayload;
+    resources: ReturnType<typeof resolveTenantPlanResources>;
+    assignedGb: number;
+  }> {
+    const [tenantPolicy, aggregate] = await Promise.all([
+      this.getTenantPolicyOrThrow(tenantId),
+      this.prisma.sitePersistentStorage.aggregate({
+        where: { tenant_id: tenantId },
+        _sum: { size_gb: true },
+      }),
+    ]);
+
+    return {
+      tenantPolicy,
+      resources: resolveTenantPlanResources(tenantPolicy),
+      assignedGb: aggregate._sum.size_gb ?? 0,
+    };
+  }
+
+  public async validateTenantStoragePool(
+    tenantId: bigint,
+    maxStorageGbTotal: number,
+  ): Promise<void> {
+    const aggregate = await this.prisma.sitePersistentStorage.aggregate({
+      where: { tenant_id: tenantId },
+      _sum: { size_gb: true },
+    });
+    const assignedGb = aggregate._sum.size_gb ?? 0;
+
+    if (assignedGb > maxStorageGbTotal) {
+      throw new BadRequestException(
+        `This tenant already has ${assignedGb} GB assigned to persistent storage.`,
+      );
+    }
+  }
+
+  private async syncSiteStoragesToCoolify(
+    site: Pick<
+      SitePayload,
+      'id' | 'coolify_resource_id' | 'coolify_resource_type' | 'name'
+    >,
+    storages: Array<Pick<SitePersistentStoragePayload, 'volume_name' | 'mount_path'>>,
+  ): Promise<void> {
+    if (!site.coolify_resource_id) {
+      return;
+    }
+
+    if (
+      site.coolify_resource_type &&
+      site.coolify_resource_type !== 'application'
+    ) {
+      return;
+    }
+
+    try {
+      await this.coolify.updateApplicationStorage(site.coolify_resource_id, {
+        customDockerRunOptions: this.buildStorageRunOptions(storages) ?? '',
+      });
+      await this.coolify.deployResource('application', site.coolify_resource_id, {
+        force: true,
+        instantDeploy: true,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `[syncSiteStoragesToCoolify] Failed to sync storages for site ${site.id.toString()}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async backfillSiteStoragesFromCoolify(
+    site: Pick<
+      SitePayload,
+      'id' | 'tenant_id' | 'type' | 'coolify_resource_id' | 'coolify_resource_type'
+    >,
+  ): Promise<SitePersistentStoragePayload[]> {
+    const existing = await this.prisma.sitePersistentStorage.findMany({
+      where: { site_id: site.id },
+      orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+    });
+    if (existing.length || !site.coolify_resource_id) {
+      return existing;
+    }
+
+    if (
+      site.coolify_resource_type &&
+      site.coolify_resource_type !== 'application'
+    ) {
+      return existing;
+    }
+
+    try {
+      const application = await this.coolify.getApplication(site.coolify_resource_id);
+      const mounts = this.parseStorageMountsFromRunOptions(
+        typeof application.custom_docker_run_options === 'string'
+          ? application.custom_docker_run_options
+          : null,
+      );
+
+      if (!mounts.length) {
+        return existing;
+      }
+
+      await this.prisma.$transaction(
+        mounts.map((mount, index) =>
+          this.prisma.sitePersistentStorage.create({
+            data: {
+              tenant_id: site.tenant_id,
+              site_id: site.id,
+              volume_name: mount.volume_name,
+              mount_path: mount.mount_path,
+              size_gb: DEFAULT_SITE_STORAGE_GB,
+              is_default: index === 0,
+            },
+          }),
+        ),
+      );
+
+      return this.prisma.sitePersistentStorage.findMany({
+        where: { site_id: site.id },
+        orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+      });
+    } catch (error) {
+      this.logger.warn(
+        `[backfillSiteStoragesFromCoolify] Failed to inspect storages for site ${site.id.toString()}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return existing;
+    }
+  }
+
   private async getTenantPolicyOrThrow(
     tenantId: bigint,
   ): Promise<TenantPolicyPayload> {
@@ -300,6 +592,7 @@ export class SitesService {
         max_sites: true,
         max_cpu_total: true,
         max_memory_mb_total: true,
+        max_storage_gb_total: true,
         max_cpu_per_site: true,
         max_memory_mb_per_site: true,
         max_team_members_per_site: true,
@@ -485,15 +778,27 @@ export class SitesService {
     }
 
     const tenantId = toBigIntStrict(user.tenant_id, 'tenant_id');
-    const [tenantPolicy, sites] = await Promise.all([
-      this.getTenantPolicyOrThrow(tenantId),
+    const [{ tenantPolicy, resources, assignedGb }, sites, storageRows] =
+      await Promise.all([
+      this.getTenantStoragePoolState(tenantId),
       this.getTenantSitesForResourcePool(tenantId),
+      this.prisma.sitePersistentStorage.findMany({
+        where: { tenant_id: tenantId },
+        select: { site_id: true, size_gb: true },
+      }),
     ]);
-    const resources = resolveTenantPlanResources(tenantPolicy);
     const cpuUsed = roundCpu(
       sites.reduce((total, site) => total + site.cpu_limit, 0),
     );
     const memoryUsed = sites.reduce((total, site) => total + site.memory_mb, 0);
+    const storageBySite = storageRows.reduce<Record<string, number>>(
+      (accumulator, storage) => {
+        const key = storage.site_id.toString();
+        accumulator[key] = (accumulator[key] ?? 0) + storage.size_gb;
+        return accumulator;
+      },
+      {},
+    );
 
     return {
       tenant_id: tenantId.toString(),
@@ -502,6 +807,7 @@ export class SitesService {
         max_sites: resources.maxSites,
         max_cpu_total: resources.maxCpuTotal,
         max_memory_mb_total: resources.maxMemoryMbTotal,
+        max_storage_gb_total: resources.maxStorageGbTotal,
         max_team_members_per_site: resources.maxTeamMembersPerSite,
       },
       usage: {
@@ -514,12 +820,18 @@ export class SitesService {
           0,
           resources.maxMemoryMbTotal - memoryUsed,
         ),
+        storage_gb_used: assignedGb,
+        storage_gb_remaining: Math.max(
+          0,
+          resources.maxStorageGbTotal - assignedGb,
+        ),
         site_percentage: toPercentage(sites.length, resources.maxSites),
         cpu_percentage: toPercentage(cpuUsed, resources.maxCpuTotal),
         memory_percentage: toPercentage(
           memoryUsed,
           resources.maxMemoryMbTotal,
         ),
+        storage_percentage: toPercentage(assignedGb, resources.maxStorageGbTotal),
       },
       sites: sortSitesForAllocation(
         sites.map((site) => ({
@@ -542,6 +854,7 @@ export class SitesService {
           site.memory_mb,
           resources.maxMemoryMbTotal,
         ),
+        storage_gb: storageBySite[site.id] ?? 0,
       })),
     };
   }
@@ -1099,8 +1412,18 @@ export class SitesService {
     const hostCnameTarget = this.getHostCnameTarget();
     const tenantId = this.requireTenantId(user);
     const userId = this.requireUserId(user);
-    const projectedAllocation =
-      await this.projectNewSiteResourceAllocation(tenantId);
+    const [projectedAllocation, storagePoolState] = await Promise.all([
+      this.projectNewSiteResourceAllocation(tenantId),
+      this.getTenantStoragePoolState(tenantId),
+    ]);
+    if (
+      storagePoolState.assignedGb + DEFAULT_SITE_STORAGE_GB >
+      storagePoolState.resources.maxStorageGbTotal
+    ) {
+      throw new BadRequestException(
+        `This workspace only has ${storagePoolState.resources.maxStorageGbTotal} GB of persistent storage. ${Math.max(0, storagePoolState.resources.maxStorageGbTotal - storagePoolState.assignedGb)} GB is still available.`,
+      );
+    }
     this.logger.debug(
       `[createSite] Starting creation for ${dto.name} (tenant: ${tenantId})`,
     );
@@ -1261,6 +1584,28 @@ export class SitesService {
         throw new NotFoundException('Site not found after allocation.');
       }
 
+      const siteStorages = await this.prisma.sitePersistentStorage.findMany({
+        where: { site_id: site.id },
+        orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+      });
+      const effectiveStorages =
+        siteStorages.length > 0
+          ? siteStorages
+          : [
+              await this.prisma.sitePersistentStorage.create({
+                data: {
+                  tenant_id: tenantId,
+                  site_id: site.id,
+                  volume_name: this.buildStorageVolumeName(
+                    site.id,
+                    this.getDefaultStorageMountPath(dto.type),
+                  ),
+                  mount_path: this.getDefaultStorageMountPath(dto.type),
+                  size_gb: DEFAULT_SITE_STORAGE_GB,
+                  is_default: true,
+                },
+              }),
+            ];
       const defaultDomainTarget = this.buildDefaultDomainTarget(site.id);
 
       // 2. Prepare config and send to Coolify
@@ -1269,6 +1614,8 @@ export class SitesService {
         type: dto.type,
         cpu_limit: site.cpu_limit,
         memory_mb: site.memory_mb,
+        custom_docker_run_options:
+          this.buildStorageRunOptions(effectiveStorages),
         auto_deploy:
           dto.auto_deploy ?? (requiresRepository && !usesPrivateDeployKey),
       };
@@ -1503,6 +1850,415 @@ export class SitesService {
       raw: live.raw,
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  public async getSiteStorages(
+    user: JwtPayload,
+    id: string,
+  ): Promise<SiteStorageSummaryPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    const storages = await this.backfillSiteStoragesFromCoolify(site);
+    const { resources, assignedGb } = await this.getTenantStoragePoolState(
+      site.tenant_id,
+    );
+
+    return {
+      site_id: site.id.toString(),
+      tenant_id: site.tenant_id.toString(),
+      limits: {
+        max_storage_gb_total: resources.maxStorageGbTotal,
+      },
+      usage: {
+        assigned_gb: assignedGb,
+        remaining_gb: Math.max(0, resources.maxStorageGbTotal - assignedGb),
+        percentage: toPercentage(assignedGb, resources.maxStorageGbTotal),
+      },
+      items: storages.map((storage) => ({
+        id: storage.id.toString(),
+        volume_name: storage.volume_name,
+        mount_path: storage.mount_path,
+        size_gb: storage.size_gb,
+        is_default: storage.is_default,
+        created_at: storage.created_at,
+      })),
+    };
+  }
+
+  public async createSiteStorage(
+    user: JwtPayload,
+    id: string,
+    dto: CreateSiteStorageDto,
+  ): Promise<SiteStorageSummaryPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+    await this.backfillSiteStoragesFromCoolify(site);
+
+    const mountPath = this.normalizeMountPath(dto.mount_path);
+    const sizeGb = Math.trunc(dto.size_gb);
+    if (sizeGb < MIN_SITE_STORAGE_GB) {
+      throw new BadRequestException(
+        `Storage size must be at least ${MIN_SITE_STORAGE_GB} GB.`,
+      );
+    }
+
+    const duplicate = await this.prisma.sitePersistentStorage.findFirst({
+      where: {
+        site_id: site.id,
+        mount_path: mountPath,
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new BadRequestException(
+        'A persistent volume already exists for that mount path.',
+      );
+    }
+
+    const { resources, assignedGb } = await this.getTenantStoragePoolState(
+      site.tenant_id,
+    );
+    if (assignedGb + sizeGb > resources.maxStorageGbTotal) {
+      throw new BadRequestException(
+        `This workspace only has ${resources.maxStorageGbTotal} GB of persistent storage. ${Math.max(0, resources.maxStorageGbTotal - assignedGb)} GB is still available.`,
+      );
+    }
+
+    await this.prisma.sitePersistentStorage.create({
+      data: {
+        tenant_id: site.tenant_id,
+        site_id: site.id,
+        volume_name: this.buildStorageVolumeName(site.id, mountPath),
+        mount_path: mountPath,
+        size_gb: sizeGb,
+        is_default: false,
+      },
+    });
+
+    const storages = await this.prisma.sitePersistentStorage.findMany({
+      where: { site_id: site.id },
+      orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+    });
+    await this.prisma.site.update({
+      where: { id: site.id },
+      data: { status: 'provisioning' },
+    });
+    await this.syncSiteStoragesToCoolify(site, storages);
+
+    return this.getSiteStorages(user, id);
+  }
+
+  public async deleteSiteStorage(
+    user: JwtPayload,
+    id: string,
+    storageId: string,
+  ): Promise<SiteStorageSummaryPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const storageBigInt = toBigIntStrict(storageId, 'storageId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user, {
+      requireWrite: true,
+    });
+    await this.backfillSiteStoragesFromCoolify(site);
+
+    const storage = await this.prisma.sitePersistentStorage.findFirst({
+      where: {
+        id: storageBigInt,
+        site_id: site.id,
+      },
+    });
+
+    if (!storage) {
+      throw new NotFoundException('Persistent storage mount not found.');
+    }
+
+    if (storage.is_default) {
+      throw new BadRequestException(
+        'The default persistent volume cannot be removed.',
+      );
+    }
+
+    await this.prisma.sitePersistentStorage.delete({
+      where: { id: storage.id },
+    });
+
+    const storages = await this.prisma.sitePersistentStorage.findMany({
+      where: { site_id: site.id },
+      orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+    });
+    await this.prisma.site.update({
+      where: { id: site.id },
+      data: { status: 'provisioning' },
+    });
+    await this.syncSiteStoragesToCoolify(site, storages);
+
+    return this.getSiteStorages(user, id);
+  }
+
+  public async getSiteMetrics(
+    user: JwtPayload,
+    id: string,
+  ): Promise<SiteMetricsPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    const refreshedAt = new Date().toISOString();
+
+    if (
+      !site.coolify_resource_id ||
+      (site.coolify_resource_type &&
+        site.coolify_resource_type !== 'application')
+    ) {
+      return {
+        site_id: site.id.toString(),
+        refreshed_at: refreshedAt,
+        availability: {
+          enabled: false,
+          reason: 'Live metrics are only available for provisioned applications.',
+        },
+        limits: {
+          cpu_limit: site.cpu_limit,
+          memory_mb: site.memory_mb,
+        },
+        current: {
+          cpu_percent: null,
+          cpu_limit_percentage: null,
+          memory_used_mb: null,
+          memory_percentage: null,
+        },
+        history: { cpu: [], memory: [] },
+      };
+    }
+
+    let sentinelToken = (process.env.COOLIFY_SENTINEL_TOKEN ?? '').trim();
+    let sentinelBaseUrl = (process.env.COOLIFY_SENTINEL_BASE_URL ?? '').trim();
+    let sentinelEnabled = true;
+    let metricsEnabled = true;
+
+    try {
+      const application = await this.coolify.getApplication(site.coolify_resource_id);
+      const destination = isRecord(application.destination)
+        ? application.destination
+        : null;
+      const server = destination && isRecord(destination.server) ? destination.server : null;
+      const settings =
+        server && isRecord(server.settings) ? server.settings : null;
+
+      if (settings) {
+        if (typeof settings.is_sentinel_enabled === 'boolean') {
+          sentinelEnabled = settings.is_sentinel_enabled;
+        }
+        if (typeof settings.is_metrics_enabled === 'boolean') {
+          metricsEnabled = settings.is_metrics_enabled;
+        }
+        if (!sentinelBaseUrl && typeof settings.sentinel_custom_url === 'string') {
+          sentinelBaseUrl = settings.sentinel_custom_url.trim();
+        }
+        if (!sentinelToken && typeof settings.sentinel_token === 'string') {
+          sentinelToken = settings.sentinel_token.trim();
+        }
+      }
+    } catch {
+      // Ignore resolution errors and fall back to explicit backend config.
+    }
+
+    if (!sentinelEnabled) {
+      return {
+        site_id: site.id.toString(),
+        refreshed_at: refreshedAt,
+        availability: {
+          enabled: false,
+          reason: 'Sentinel is disabled for this Coolify server.',
+        },
+        limits: {
+          cpu_limit: site.cpu_limit,
+          memory_mb: site.memory_mb,
+        },
+        current: {
+          cpu_percent: null,
+          cpu_limit_percentage: null,
+          memory_used_mb: null,
+          memory_percentage: null,
+        },
+        history: { cpu: [], memory: [] },
+      };
+    }
+
+    if (!metricsEnabled) {
+      return {
+        site_id: site.id.toString(),
+        refreshed_at: refreshedAt,
+        availability: {
+          enabled: false,
+          reason: 'Container metrics are disabled for this Coolify server.',
+        },
+        limits: {
+          cpu_limit: site.cpu_limit,
+          memory_mb: site.memory_mb,
+        },
+        current: {
+          cpu_percent: null,
+          cpu_limit_percentage: null,
+          memory_used_mb: null,
+          memory_percentage: null,
+        },
+        history: { cpu: [], memory: [] },
+      };
+    }
+
+    if (!sentinelToken || !sentinelBaseUrl) {
+      return {
+        site_id: site.id.toString(),
+        refreshed_at: refreshedAt,
+        availability: {
+          enabled: false,
+          reason:
+            'Live metrics need COOLIFY_SENTINEL_BASE_URL and COOLIFY_SENTINEL_TOKEN configured on the backend.',
+        },
+        limits: {
+          cpu_limit: site.cpu_limit,
+          memory_mb: site.memory_mb,
+        },
+        current: {
+          cpu_percent: null,
+          cpu_limit_percentage: null,
+          memory_used_mb: null,
+          memory_percentage: null,
+        },
+        history: { cpu: [], memory: [] },
+      };
+    }
+
+    const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const to = refreshedAt;
+    const containerId = site.coolify_resource_id;
+
+    try {
+      const [cpuHistoryRaw, memoryHistoryRaw] = await Promise.all([
+        fetch(
+          `${sentinelBaseUrl.replace(/\/+$/, '')}/api/container/${containerId}/cpu/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${sentinelToken}`,
+              Accept: 'application/json',
+            },
+          },
+        ),
+        fetch(
+          `${sentinelBaseUrl.replace(/\/+$/, '')}/api/container/${containerId}/memory/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${sentinelToken}`,
+              Accept: 'application/json',
+            },
+          },
+        ),
+      ]);
+
+      if (!cpuHistoryRaw.ok || !memoryHistoryRaw.ok) {
+        throw new Error('Sentinel request failed');
+      }
+
+      const [cpuPayload, memoryPayload] = (await Promise.all([
+        cpuHistoryRaw.json(),
+        memoryHistoryRaw.json(),
+      ])) as [unknown, unknown];
+
+      const cpuHistory = Array.isArray(cpuPayload)
+        ? cpuPayload
+            .map((entry) => {
+              if (typeof entry !== 'object' || entry === null) return null;
+              const record = entry as Record<string, unknown>;
+              const percent = Number(record.percent);
+              const time = String(record.time ?? '');
+              if (!Number.isFinite(percent) || !time) return null;
+              return { time, percent };
+            })
+            .filter((entry): entry is { time: string; percent: number } => entry !== null)
+        : [];
+
+      const memoryHistory = Array.isArray(memoryPayload)
+        ? memoryPayload
+            .map((entry) => {
+              if (typeof entry !== 'object' || entry === null) return null;
+              const record = entry as Record<string, unknown>;
+              const used = Number(record.used);
+              const total = Number(record.total);
+              const usedPercent = Number(record.usedPercent);
+              const time = String(record.time ?? '');
+              if (!Number.isFinite(used) || !Number.isFinite(usedPercent) || !time) {
+                return null;
+              }
+              return {
+                time,
+                used_mb: Math.round((used / (1024 * 1024)) * 100) / 100,
+                total_mb: Number.isFinite(total)
+                  ? Math.round((total / (1024 * 1024)) * 100) / 100
+                  : null,
+                used_percent: usedPercent,
+              };
+            })
+            .filter(
+              (
+                entry,
+              ): entry is {
+                time: string;
+                used_mb: number;
+                total_mb: number | null;
+                used_percent: number;
+              } => entry !== null,
+            )
+        : [];
+
+      const currentCpu = cpuHistory[cpuHistory.length - 1] ?? null;
+      const currentMemory = memoryHistory[memoryHistory.length - 1] ?? null;
+
+      return {
+        site_id: site.id.toString(),
+        refreshed_at: refreshedAt,
+        availability: { enabled: true },
+        limits: {
+          cpu_limit: site.cpu_limit,
+          memory_mb: site.memory_mb,
+        },
+        current: {
+          cpu_percent: currentCpu?.percent ?? null,
+          cpu_limit_percentage:
+            currentCpu?.percent != null && site.cpu_limit > 0
+              ? Math.round((currentCpu.percent / site.cpu_limit) * 100) / 100
+              : null,
+          memory_used_mb: currentMemory?.used_mb ?? null,
+          memory_percentage: currentMemory?.used_percent ?? null,
+        },
+        history: {
+          cpu: cpuHistory,
+          memory: memoryHistory,
+        },
+      };
+    } catch (error) {
+      return {
+        site_id: site.id.toString(),
+        refreshed_at: refreshedAt,
+        availability: {
+          enabled: false,
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'Live metrics are currently unavailable.',
+        },
+        limits: {
+          cpu_limit: site.cpu_limit,
+          memory_mb: site.memory_mb,
+        },
+        current: {
+          cpu_percent: null,
+          cpu_limit_percentage: null,
+          memory_used_mb: null,
+          memory_percentage: null,
+        },
+        history: { cpu: [], memory: [] },
+      };
+    }
   }
 
   // --- Helper: Resource Type ---

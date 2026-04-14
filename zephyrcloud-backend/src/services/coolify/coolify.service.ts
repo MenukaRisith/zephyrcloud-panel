@@ -97,6 +97,10 @@ type UpdateApplicationResourcesInput = {
   memoryMb: number;
 };
 
+type UpdateApplicationStorageInput = {
+  customDockerRunOptions?: string | null;
+};
+
 type CreatePrivateKeyInput = {
   name: string;
   description?: string;
@@ -112,6 +116,7 @@ type CreateProjectConfig = {
   auto_deploy?: boolean;
   cpu_limit: number;
   memory_mb: number;
+  custom_docker_run_options?: string;
   build_command?: string;
   start_command?: string;
   install_command?: string;
@@ -292,6 +297,9 @@ export class CoolifyService {
         serverUuid,
         environment,
         destinationUuid: destination.uuid,
+        cpuLimit: config.cpu_limit,
+        memoryMb: config.memory_mb,
+        storageRunOptions: config.custom_docker_run_options,
         db: config.db,
       });
       resourceUuid = bundle.appUuid;
@@ -498,6 +506,22 @@ export class CoolifyService {
       limits_cpus: String(input.cpuLimit),
       limits_memory: `${Math.trunc(input.memoryMb)}M`,
     });
+  }
+
+  async updateApplicationStorage(
+    uuid: string,
+    input: UpdateApplicationStorageInput,
+  ): Promise<void> {
+    if (!uuid) throw new Error('Resource UUID missing');
+
+    await this.client.patch(`/api/v1/applications/${uuid}`, {
+      custom_docker_run_options: input.customDockerRunOptions ?? '',
+    });
+  }
+
+  async getApplication(uuid: string): Promise<CoolifyApplication> {
+    if (!uuid) throw new Error('Application UUID missing');
+    return this.client.get<CoolifyApplication>(`/api/v1/applications/${uuid}`);
   }
 
   async createPrivateKey(
@@ -1048,6 +1072,7 @@ export class CoolifyService {
       ports_exposes: exposedPort,
       limits_memory: `${config.memory_mb}M`,
       limits_cpus: String(config.cpu_limit),
+      custom_docker_run_options: config.custom_docker_run_options,
       install_command: config.install_command,
       build_command: config.build_command,
       start_command: config.start_command,
@@ -1158,6 +1183,9 @@ export class CoolifyService {
     serverUuid: string;
     environment: CoolifyEnvironment;
     destinationUuid: string;
+    cpuLimit: number;
+    memoryMb: number;
+    storageRunOptions?: string;
     db?: CoolifyDbDetails;
   }): Promise<{
     appUuid: string;
@@ -1167,8 +1195,17 @@ export class CoolifyService {
     dbUser?: string;
     dbName?: string;
   }> {
-    const { name, projectUuid, serverUuid, environment, destinationUuid, db } =
-      args;
+    const {
+      name,
+      projectUuid,
+      serverUuid,
+      environment,
+      destinationUuid,
+      cpuLimit,
+      memoryMb,
+      storageRunOptions,
+      db,
+    } = args;
     if (!db) throw new Error('Database config required for WordPress bundle');
 
     const safeName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -1198,9 +1235,11 @@ export class CoolifyService {
       name: appName,
       docker_registry_image_name: 'wordpress:latest',
       ports_exposes: '80',
-      limits_memory: '512M',
-      limits_cpus: '1',
-      custom_docker_run_options: `--mount type=volume,source=${wpVolumeName},target=/var/www/html`,
+      limits_memory: `${Math.trunc(memoryMb)}M`,
+      limits_cpus: String(cpuLimit),
+      custom_docker_run_options:
+        storageRunOptions?.trim() ||
+        `--mount type=volume,source=${wpVolumeName},target=/var/www/html`,
     };
     const wpApp = await this.client.post<CoolifyApplication>(
       '/api/v1/applications/dockerimage',

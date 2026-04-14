@@ -89,6 +89,7 @@ type WorkspaceUsageSite = {
   memory_mb: number;
   cpu_percentage: number;
   memory_percentage: number;
+  storage_gb: number;
 };
 
 type WorkspaceUsage = {
@@ -98,6 +99,7 @@ type WorkspaceUsage = {
     max_sites: number;
     max_cpu_total: number;
     max_memory_mb_total: number;
+    max_storage_gb_total: number;
     max_team_members_per_site: number;
   };
   usage: {
@@ -107,9 +109,12 @@ type WorkspaceUsage = {
     cpu_remaining: number;
     memory_mb_used: number;
     memory_mb_remaining: number;
+    storage_gb_used: number;
+    storage_gb_remaining: number;
     site_percentage: number;
     cpu_percentage: number;
     memory_percentage: number;
+    storage_percentage: number;
   };
   sites: WorkspaceUsageSite[];
 };
@@ -442,6 +447,7 @@ function parseWorkspaceUsage(payload: unknown): WorkspaceUsage | null {
             memory_mb: getNumberValue(site.memory_mb) ?? 0,
             cpu_percentage: getNumberValue(site.cpu_percentage) ?? 0,
             memory_percentage: getNumberValue(site.memory_percentage) ?? 0,
+            storage_gb: getNumberValue(site.storage_gb) ?? 0,
           } satisfies WorkspaceUsageSite;
         })
         .filter((site): site is WorkspaceUsageSite => site !== null)
@@ -454,6 +460,7 @@ function parseWorkspaceUsage(payload: unknown): WorkspaceUsage | null {
       max_sites: getNumberValue(payload.limits.max_sites) ?? 0,
       max_cpu_total: getNumberValue(payload.limits.max_cpu_total) ?? 0,
       max_memory_mb_total: getNumberValue(payload.limits.max_memory_mb_total) ?? 0,
+      max_storage_gb_total: getNumberValue(payload.limits.max_storage_gb_total) ?? 0,
       max_team_members_per_site:
         getNumberValue(payload.limits.max_team_members_per_site) ?? 0,
     },
@@ -464,9 +471,12 @@ function parseWorkspaceUsage(payload: unknown): WorkspaceUsage | null {
       cpu_remaining: getNumberValue(payload.usage.cpu_remaining) ?? 0,
       memory_mb_used: getNumberValue(payload.usage.memory_mb_used) ?? 0,
       memory_mb_remaining: getNumberValue(payload.usage.memory_mb_remaining) ?? 0,
+      storage_gb_used: getNumberValue(payload.usage.storage_gb_used) ?? 0,
+      storage_gb_remaining: getNumberValue(payload.usage.storage_gb_remaining) ?? 0,
       site_percentage: getNumberValue(payload.usage.site_percentage) ?? 0,
       cpu_percentage: getNumberValue(payload.usage.cpu_percentage) ?? 0,
       memory_percentage: getNumberValue(payload.usage.memory_percentage) ?? 0,
+      storage_percentage: getNumberValue(payload.usage.storage_percentage) ?? 0,
     },
     sites,
   };
@@ -968,6 +978,7 @@ export default function SitesPage() {
           const allocation = siteAllocationMap.get(site.id);
           const cpuLimit = allocation?.cpu_limit ?? site.cpu_limit;
           const memoryMb = allocation?.memory_mb ?? site.memory_mb;
+          const storageGb = allocation?.storage_gb ?? 0;
           return (
             <MotionDiv
               key={site.id}
@@ -1013,6 +1024,11 @@ export default function SitesPage() {
                   {typeof memoryMb === "number" ? (
                     <span className="inline-flex items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]">
                       RAM {formatMemoryMb(memoryMb)}
+                    </span>
+                  ) : null}
+                  {storageGb > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]">
+                      SSD {storageGb} GB
                     </span>
                   ) : null}
                 </div>
@@ -1791,13 +1807,15 @@ function CreateSiteModal({
                 <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs leading-5 text-[var(--text-muted)]">
                   <div>
                     This workspace shares {formatCpu(workspaceUsage.limits.max_cpu_total)} CPU and{" "}
-                    {formatMemoryMb(workspaceUsage.limits.max_memory_mb_total)} across{" "}
+                    {formatMemoryMb(workspaceUsage.limits.max_memory_mb_total)} plus{" "}
+                    {workspaceUsage.limits.max_storage_gb_total} GB of persistent storage across{" "}
                     {workspaceUsage.limits.max_sites} site
                     {workspaceUsage.limits.max_sites === 1 ? "" : "s"}.
                   </div>
                   <div className="mt-2">
                     Currently using {formatCpu(workspaceUsage.usage.cpu_used)} CPU and{" "}
-                    {formatMemoryMb(workspaceUsage.usage.memory_mb_used)} across{" "}
+                    {formatMemoryMb(workspaceUsage.usage.memory_mb_used)} with{" "}
+                    {workspaceUsage.usage.storage_gb_used} GB of storage assigned across{" "}
                     {workspaceUsage.usage.sites_used} site
                     {workspaceUsage.usage.sites_used === 1 ? "" : "s"}.
                   </div>
@@ -2296,6 +2314,9 @@ function CreateSiteModal({
                           </div>
                           <p className="mt-1 text-xs text-[var(--text-muted)]">
                             Every site shares the workspace pool. These allocations apply right after creation.
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--text-muted)]">
+                            New sites also start with a 1 GB persistent volume on the default app folder.
                           </p>
                         </div>
                         <span className="inline-flex items-center border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-1 text-[11px] font-medium text-[var(--text-muted)]">

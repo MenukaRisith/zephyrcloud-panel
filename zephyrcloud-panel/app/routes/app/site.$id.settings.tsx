@@ -16,7 +16,7 @@ function getSettingsSection(value: string | null): SiteSettingsSection {
 
 export default function SiteSettingsPage() {
   const [searchParams] = useSearchParams();
-  const { site, envs, team, canManageTeam, actionPath, currentIntent, isSubmitting } =
+  const { site, envs, team, storages, canManageTeam, actionPath, currentIntent, isSubmitting } =
     useOutletContext<SiteRouteContext>();
   const currentSection = getSettingsSection(searchParams.get("section"));
 
@@ -83,6 +83,117 @@ export default function SiteSettingsPage() {
                 </div>
               </Form>
             ) : null}
+
+            <div className="space-y-4 border border-[var(--line)] bg-[var(--surface)] px-4 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                    Persistent storage
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+                    Each mount gets its own named Docker volume in Coolify. The assigned size is tracked against your workspace storage pool.
+                  </p>
+                </div>
+                {storages ? (
+                  <div className="border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2 text-right">
+                    <div className="text-xs font-semibold text-[var(--foreground)]">
+                      {storages.usage.assigned_gb} GB assigned
+                    </div>
+                    <div className="text-[11px] text-[var(--text-muted)]">
+                      {storages.usage.remaining_gb} GB left of {storages.limits.max_storage_gb_total} GB
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {canManageTeam ? (
+                <Form method="post" action={actionPath} className="grid gap-3 lg:grid-cols-[1fr_180px_auto]">
+                  <input type="hidden" name="intent" value="createStorage" />
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                      Mount path
+                    </label>
+                    <input
+                      name="mount_path"
+                      placeholder={site.type === "wordpress" ? "/var/www/html/uploads" : "/app/uploads"}
+                      className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--foreground)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                      Size (GB)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      name="size_gb"
+                      defaultValue={1}
+                      className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)]"
+                    />
+                  </div>
+                  <div className="self-end">
+                    <button className="inline-flex min-h-9 items-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
+                      {isSubmitting && currentIntent === "createStorage" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      Add volume
+                    </button>
+                  </div>
+                </Form>
+              ) : (
+                <div className="text-xs leading-5 text-[var(--text-muted)]">
+                  Volume changes are only available to editors and workspace owners.
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {storages?.items.length ? (
+                  storages.items.map((storage) => (
+                    <article
+                      key={storage.id}
+                      className="flex flex-col gap-3 border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-3 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-mono text-xs text-[var(--foreground)]">{storage.mount_path}</div>
+                        <div className="mt-1 text-[11px] text-[var(--text-muted)]">
+                          {storage.volume_name} · {storage.size_gb} GB
+                          {storage.is_default ? " · default" : ""}
+                        </div>
+                      </div>
+                      {canManageTeam && !storage.is_default ? (
+                        <Form
+                          method="post"
+                          action={actionPath}
+                          onSubmit={(event) => {
+                            if (!confirm("Remove this persistent volume?")) {
+                              event.preventDefault();
+                            }
+                          }}
+                        >
+                          <input type="hidden" name="intent" value="deleteStorage" />
+                          <input type="hidden" name="storage_id" value={storage.id} />
+                          <button className="inline-flex min-h-9 items-center gap-2 border border-[var(--danger)] bg-[var(--danger-soft)] px-3 text-xs text-[var(--danger)]">
+                            <Trash2 className="h-4 w-4" />
+                            Remove
+                          </button>
+                        </Form>
+                      ) : (
+                        <span className="border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                          {storage.is_default ? "Required" : "Managed"}
+                        </span>
+                      )}
+                    </article>
+                  ))
+                ) : (
+                  <div className="text-xs text-[var(--text-muted)]">
+                    No persistent folders configured yet.
+                  </div>
+                )}
+              </div>
+            </div>
 
             {canManageTeam ? (
               <Form

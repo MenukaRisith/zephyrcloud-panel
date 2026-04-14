@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-04-14)
 
 ## Corpus Check
-- 116 files · ~63,870 words
+- 120 files · ~68,379 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 726 nodes · 1109 edges · 116 communities detected
+- 765 nodes · 1173 edges · 120 communities detected
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
@@ -126,13 +126,17 @@
 - [[_COMMUNITY_Community 113|Community 113]]
 - [[_COMMUNITY_Community 114|Community 114]]
 - [[_COMMUNITY_Community 115|Community 115]]
+- [[_COMMUNITY_Community 116|Community 116]]
+- [[_COMMUNITY_Community 117|Community 117]]
+- [[_COMMUNITY_Community 118|Community 118]]
+- [[_COMMUNITY_Community 119|Community 119]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `SitesService` - 76 edges
-2. `CoolifyService` - 74 edges
+1. `SitesService` - 89 edges
+2. `CoolifyService` - 76 edges
 3. `AdminService` - 47 edges
-4. `SitesController` - 41 edges
-5. `toBigIntStrict()` - 33 edges
+4. `SitesController` - 45 edges
+5. `toBigIntStrict()` - 37 edges
 6. `GithubService` - 28 edges
 7. `AdminController` - 20 edges
 8. `DomainAutomationService` - 18 edges
@@ -145,8 +149,8 @@
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.06
-Nodes (11): isGithubOwnerRepo(), normalizeDomain(), normalizeGithubAppSelection(), rand(), roundCpu(), safeDatabaseIdentifier(), safeSvc(), SitesService (+3 more)
+Cohesion: 0.05
+Nodes (12): isGithubOwnerRepo(), isRecord(), normalizeDomain(), normalizeGithubAppSelection(), rand(), roundCpu(), safeDatabaseIdentifier(), safeSvc() (+4 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.06
@@ -197,20 +201,20 @@ Cohesion: 0.35
 Nodes (8): action(), isRecord(), loader(), loadFirstAvailableDatabase(), parseDatabaseDetails(), parseMessage(), parseSiteSummaries(), safeJson()
 
 ### Community 13 - "Community 13"
+Cohesion: 0.22
+Nodes (2): getNumberValue(), parseWorkspaceUsage()
+
+### Community 14 - "Community 14"
 Cohesion: 0.36
 Nodes (4): AuthService, bcryptCompare(), bcryptHash(), slugify()
 
-### Community 14 - "Community 14"
+### Community 15 - "Community 15"
 Cohesion: 0.22
 Nodes (1): GithubController
 
-### Community 15 - "Community 15"
+### Community 16 - "Community 16"
 Cohesion: 0.43
 Nodes (1): PrismaService
-
-### Community 16 - "Community 16"
-Cohesion: 0.36
-Nodes (4): getNumberValue(), loader(), parseWorkspaceUsage(), safeJson()
 
 ### Community 17 - "Community 17"
 Cohesion: 0.25
@@ -229,248 +233,248 @@ Cohesion: 0.38
 Nodes (3): isRecord(), loader(), parseConnection()
 
 ### Community 21 - "Community 21"
+Cohesion: 0.29
+Nodes (0): 
+
+### Community 22 - "Community 22"
 Cohesion: 0.47
 Nodes (2): AdminBootstrapService, bcryptHash()
 
-### Community 22 - "Community 22"
+### Community 23 - "Community 23"
 Cohesion: 0.33
 Nodes (0): 
 
-### Community 23 - "Community 23"
+### Community 24 - "Community 24"
 Cohesion: 0.6
 Nodes (5): jsonResponse(), latestDeploymentFrom(), loader(), normalizeDeploymentStatus(), normalizeRuntimeStatus()
 
-### Community 24 - "Community 24"
+### Community 25 - "Community 25"
 Cohesion: 0.4
 Nodes (1): UpdateAdminTenantDto
 
-### Community 25 - "Community 25"
+### Community 26 - "Community 26"
 Cohesion: 0.4
 Nodes (1): AuthController
 
-### Community 26 - "Community 26"
+### Community 27 - "Community 27"
 Cohesion: 0.4
 Nodes (0): 
 
-### Community 27 - "Community 27"
+### Community 28 - "Community 28"
 Cohesion: 0.6
 Nodes (4): getStoredTheme(), isThemeMode(), persistTheme(), setDocumentTheme()
 
-### Community 28 - "Community 28"
+### Community 29 - "Community 29"
 Cohesion: 0.5
 Nodes (2): action(), isValidEmail()
 
-### Community 29 - "Community 29"
+### Community 30 - "Community 30"
 Cohesion: 0.4
 Nodes (0): 
 
-### Community 30 - "Community 30"
+### Community 31 - "Community 31"
 Cohesion: 0.6
 Nodes (3): loader(), sanitizeReturnTo(), withGithubStatus()
 
-### Community 31 - "Community 31"
+### Community 32 - "Community 32"
+Cohesion: 0.7
+Nodes (4): isRecord(), jsonResponse(), loader(), normalizeMetricsPayload()
+
+### Community 33 - "Community 33"
 Cohesion: 0.7
 Nodes (4): createUserSession(), getSession(), logout(), requireUser()
 
-### Community 32 - "Community 32"
+### Community 34 - "Community 34"
 Cohesion: 0.5
 Nodes (1): AppController
 
-### Community 33 - "Community 33"
+### Community 35 - "Community 35"
 Cohesion: 0.5
 Nodes (1): HealthController
 
-### Community 34 - "Community 34"
+### Community 36 - "Community 36"
 Cohesion: 0.67
 Nodes (1): PrismaAvailabilityExceptionFilter
 
-### Community 35 - "Community 35"
+### Community 37 - "Community 37"
 Cohesion: 0.5
 Nodes (1): JsonSerializerInterceptor
 
-### Community 36 - "Community 36"
+### Community 38 - "Community 38"
 Cohesion: 0.83
 Nodes (3): normalizePositiveInt(), normalizePositiveNumber(), resolveTenantPlanResources()
 
-### Community 37 - "Community 37"
+### Community 39 - "Community 39"
 Cohesion: 0.5
 Nodes (1): JwtStrategy
 
-### Community 38 - "Community 38"
+### Community 40 - "Community 40"
 Cohesion: 0.5
 Nodes (0): 
-
-### Community 39 - "Community 39"
-Cohesion: 0.67
-Nodes (2): isIpv4Address(), resolveDnsTarget()
-
-### Community 40 - "Community 40"
-Cohesion: 0.83
-Nodes (3): action(), loader(), proxy()
 
 ### Community 41 - "Community 41"
 Cohesion: 0.67
-Nodes (2): loader(), normalizeLegacyPath()
+Nodes (2): isIpv4Address(), resolveDnsTarget()
 
 ### Community 42 - "Community 42"
-Cohesion: 0.67
-Nodes (2): normalizeStatus(), statusClass()
+Cohesion: 0.83
+Nodes (3): action(), loader(), proxy()
 
 ### Community 43 - "Community 43"
-Cohesion: 0.5
-Nodes (0): 
+Cohesion: 0.67
+Nodes (2): loader(), normalizeLegacyPath()
 
 ### Community 44 - "Community 44"
 Cohesion: 0.67
-Nodes (1): AppService
+Nodes (2): normalizeStatus(), statusClass()
 
 ### Community 45 - "Community 45"
-Cohesion: 0.67
-Nodes (1): UpdateAdminUserDto
+Cohesion: 0.5
+Nodes (0): 
 
 ### Community 46 - "Community 46"
 Cohesion: 0.67
-Nodes (1): UpsertPanelEnvDto
+Nodes (1): AppService
 
 ### Community 47 - "Community 47"
 Cohesion: 0.67
-Nodes (0): 
+Nodes (1): UpdateAdminUserDto
 
 ### Community 48 - "Community 48"
 Cohesion: 0.67
-Nodes (0): 
+Nodes (1): UpsertPanelEnvDto
 
 ### Community 49 - "Community 49"
-Cohesion: 1.0
-Nodes (2): loader(), sanitizeReturnTo()
-
-### Community 50 - "Community 50"
-Cohesion: 1.0
-Nodes (2): action(), Logout()
-
-### Community 51 - "Community 51"
 Cohesion: 0.67
 Nodes (0): 
 
+### Community 50 - "Community 50"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 51 - "Community 51"
+Cohesion: 1.0
+Nodes (2): loader(), sanitizeReturnTo()
+
 ### Community 52 - "Community 52"
 Cohesion: 1.0
-Nodes (2): jsonResponse(), loader()
+Nodes (2): action(), Logout()
 
 ### Community 53 - "Community 53"
-Cohesion: 1.0
-Nodes (2): jsonResponse(), loader()
+Cohesion: 0.67
+Nodes (0): 
 
 ### Community 54 - "Community 54"
 Cohesion: 1.0
-Nodes (2): apiLogin(), parseError()
+Nodes (2): jsonResponse(), loader()
 
 ### Community 55 - "Community 55"
 Cohesion: 1.0
-Nodes (1): AppModule
+Nodes (2): jsonResponse(), loader()
 
 ### Community 56 - "Community 56"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (2): apiLogin(), parseError()
 
 ### Community 57 - "Community 57"
 Cohesion: 1.0
-Nodes (1): JwtAuthGuard
+Nodes (1): AppModule
 
 ### Community 58 - "Community 58"
 Cohesion: 1.0
-Nodes (1): PrismaModule
+Nodes (0): 
 
 ### Community 59 - "Community 59"
 Cohesion: 1.0
-Nodes (1): AdminModule
+Nodes (1): JwtAuthGuard
 
 ### Community 60 - "Community 60"
 Cohesion: 1.0
-Nodes (1): AssignAdminSiteDto
+Nodes (1): PrismaModule
 
 ### Community 61 - "Community 61"
 Cohesion: 1.0
-Nodes (1): CreateAdminSiteDto
+Nodes (1): AdminModule
 
 ### Community 62 - "Community 62"
 Cohesion: 1.0
-Nodes (1): CreateAdminUserDto
+Nodes (1): AssignAdminSiteDto
 
 ### Community 63 - "Community 63"
 Cohesion: 1.0
-Nodes (1): ImportCoolifySiteDto
+Nodes (1): CreateAdminSiteDto
 
 ### Community 64 - "Community 64"
 Cohesion: 1.0
-Nodes (1): AuthModule
+Nodes (1): CreateAdminUserDto
 
 ### Community 65 - "Community 65"
 Cohesion: 1.0
-Nodes (1): LoginDto
+Nodes (1): ImportCoolifySiteDto
 
 ### Community 66 - "Community 66"
 Cohesion: 1.0
-Nodes (1): RegisterDto
+Nodes (1): AuthModule
 
 ### Community 67 - "Community 67"
 Cohesion: 1.0
-Nodes (1): GithubModule
+Nodes (1): LoginDto
 
 ### Community 68 - "Community 68"
 Cohesion: 1.0
-Nodes (1): ExchangeGithubOauthDto
+Nodes (1): RegisterDto
 
 ### Community 69 - "Community 69"
 Cohesion: 1.0
-Nodes (1): SitesModule
+Nodes (1): GithubModule
 
 ### Community 70 - "Community 70"
 Cohesion: 1.0
-Nodes (1): AddDomainDto
+Nodes (1): ExchangeGithubOauthDto
 
 ### Community 71 - "Community 71"
 Cohesion: 1.0
-Nodes (1): AddSiteMemberDto
+Nodes (1): SitesModule
 
 ### Community 72 - "Community 72"
 Cohesion: 1.0
-Nodes (1): CreateDeployKeyDto
+Nodes (1): AddDomainDto
 
 ### Community 73 - "Community 73"
 Cohesion: 1.0
-Nodes (1): CreateSiteDatabaseDto
+Nodes (1): AddSiteMemberDto
 
 ### Community 74 - "Community 74"
 Cohesion: 1.0
-Nodes (1): CreateSiteDto
+Nodes (1): CreateDeployKeyDto
 
 ### Community 75 - "Community 75"
 Cohesion: 1.0
-Nodes (1): CreateUserDatabaseDto
+Nodes (1): CreateSiteDatabaseDto
 
 ### Community 76 - "Community 76"
 Cohesion: 1.0
-Nodes (1): UpdateSiteBuildSettingsDto
+Nodes (1): CreateSiteStorageDto
 
 ### Community 77 - "Community 77"
 Cohesion: 1.0
-Nodes (1): CloudflareModule
+Nodes (1): CreateSiteDto
 
 ### Community 78 - "Community 78"
 Cohesion: 1.0
-Nodes (1): CoolifyModule
+Nodes (1): CreateUserDatabaseDto
 
 ### Community 79 - "Community 79"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): UpdateSiteBuildSettingsDto
 
 ### Community 80 - "Community 80"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): CloudflareModule
 
 ### Community 81 - "Community 81"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): CoolifyModule
 
 ### Community 82 - "Community 82"
 Cohesion: 1.0
@@ -608,139 +612,159 @@ Nodes (0):
 Cohesion: 1.0
 Nodes (0): 
 
+### Community 116 - "Community 116"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 117 - "Community 117"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 118 - "Community 118"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 119 - "Community 119"
+Cohesion: 1.0
+Nodes (0): 
+
 ## Knowledge Gaps
-- **26 isolated node(s):** `AppModule`, `JwtAuthGuard`, `PrismaModule`, `AdminModule`, `AssignAdminSiteDto` (+21 more)
+- **27 isolated node(s):** `AppModule`, `JwtAuthGuard`, `PrismaModule`, `AdminModule`, `AssignAdminSiteDto` (+22 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 55`** (2 nodes): `AppModule`, `app.module.ts`
+- **Thin community `Community 57`** (2 nodes): `AppModule`, `app.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 56`** (2 nodes): `bootstrap()`, `main.ts`
+- **Thin community `Community 58`** (2 nodes): `bootstrap()`, `main.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 57`** (2 nodes): `JwtAuthGuard`, `jwt-auth.guard.ts`
+- **Thin community `Community 59`** (2 nodes): `JwtAuthGuard`, `jwt-auth.guard.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 58`** (2 nodes): `PrismaModule`, `prisma.module.ts`
+- **Thin community `Community 60`** (2 nodes): `PrismaModule`, `prisma.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 59`** (2 nodes): `AdminModule`, `admin.module.ts`
+- **Thin community `Community 61`** (2 nodes): `AdminModule`, `admin.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 60`** (2 nodes): `AssignAdminSiteDto`, `assign-admin-site.dto.ts`
+- **Thin community `Community 62`** (2 nodes): `AssignAdminSiteDto`, `assign-admin-site.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 61`** (2 nodes): `CreateAdminSiteDto`, `create-admin-site.dto.ts`
+- **Thin community `Community 63`** (2 nodes): `CreateAdminSiteDto`, `create-admin-site.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 62`** (2 nodes): `CreateAdminUserDto`, `create-admin-user.dto.ts`
+- **Thin community `Community 64`** (2 nodes): `CreateAdminUserDto`, `create-admin-user.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 63`** (2 nodes): `ImportCoolifySiteDto`, `import-coolify-site.dto.ts`
+- **Thin community `Community 65`** (2 nodes): `ImportCoolifySiteDto`, `import-coolify-site.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 64`** (2 nodes): `AuthModule`, `auth.module.ts`
+- **Thin community `Community 66`** (2 nodes): `AuthModule`, `auth.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 65`** (2 nodes): `LoginDto`, `login.dto.ts`
+- **Thin community `Community 67`** (2 nodes): `LoginDto`, `login.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 66`** (2 nodes): `RegisterDto`, `register.dto.ts`
+- **Thin community `Community 68`** (2 nodes): `RegisterDto`, `register.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 67`** (2 nodes): `GithubModule`, `github.module.ts`
+- **Thin community `Community 69`** (2 nodes): `GithubModule`, `github.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 68`** (2 nodes): `ExchangeGithubOauthDto`, `exchange-github-oauth.dto.ts`
+- **Thin community `Community 70`** (2 nodes): `ExchangeGithubOauthDto`, `exchange-github-oauth.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 69`** (2 nodes): `SitesModule`, `sites.module.ts`
+- **Thin community `Community 71`** (2 nodes): `SitesModule`, `sites.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 70`** (2 nodes): `AddDomainDto`, `add-domain.dto.ts`
+- **Thin community `Community 72`** (2 nodes): `AddDomainDto`, `add-domain.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 71`** (2 nodes): `AddSiteMemberDto`, `add-site-member.dto.ts`
+- **Thin community `Community 73`** (2 nodes): `AddSiteMemberDto`, `add-site-member.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 72`** (2 nodes): `CreateDeployKeyDto`, `create-deploy-key.dto.ts`
+- **Thin community `Community 74`** (2 nodes): `CreateDeployKeyDto`, `create-deploy-key.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 73`** (2 nodes): `CreateSiteDatabaseDto`, `create-site-database.dto.ts`
+- **Thin community `Community 75`** (2 nodes): `CreateSiteDatabaseDto`, `create-site-database.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 74`** (2 nodes): `CreateSiteDto`, `create-site.dto.ts`
+- **Thin community `Community 76`** (2 nodes): `CreateSiteStorageDto`, `create-site-storage.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 75`** (2 nodes): `CreateUserDatabaseDto`, `create-user-database.dto.ts`
+- **Thin community `Community 77`** (2 nodes): `CreateSiteDto`, `create-site.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 76`** (2 nodes): `UpdateSiteBuildSettingsDto`, `update-site-build-settings.dto.ts`
+- **Thin community `Community 78`** (2 nodes): `CreateUserDatabaseDto`, `create-user-database.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 77`** (2 nodes): `CloudflareModule`, `cloudflare.module.ts`
+- **Thin community `Community 79`** (2 nodes): `UpdateSiteBuildSettingsDto`, `update-site-build-settings.dto.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 78`** (2 nodes): `CoolifyModule`, `coolify.module.ts`
+- **Thin community `Community 80`** (2 nodes): `CloudflareModule`, `cloudflare.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 79`** (2 nodes): `Badge()`, `badge.tsx`
+- **Thin community `Community 81`** (2 nodes): `CoolifyModule`, `coolify.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 80`** (2 nodes): `Button()`, `button.tsx`
+- **Thin community `Community 82`** (2 nodes): `Badge()`, `badge.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 81`** (2 nodes): `Checkbox()`, `checkbox.tsx`
+- **Thin community `Community 83`** (2 nodes): `Button()`, `button.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 82`** (2 nodes): `cn()`, `dialog.tsx`
+- **Thin community `Community 84`** (2 nodes): `Checkbox()`, `checkbox.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 83`** (2 nodes): `Input()`, `input.tsx`
+- **Thin community `Community 85`** (2 nodes): `cn()`, `dialog.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 84`** (2 nodes): `Label()`, `label.tsx`
+- **Thin community `Community 86`** (2 nodes): `Input()`, `input.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 85`** (2 nodes): `Separator()`, `separator.tsx`
+- **Thin community `Community 87`** (2 nodes): `Label()`, `label.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 86`** (2 nodes): `cn()`, `table.tsx`
+- **Thin community `Community 88`** (2 nodes): `Separator()`, `separator.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 87`** (2 nodes): `cn()`, `textarea.tsx`
+- **Thin community `Community 89`** (2 nodes): `cn()`, `table.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 88`** (2 nodes): `cn()`, `utils.ts`
+- **Thin community `Community 90`** (2 nodes): `cn()`, `textarea.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 89`** (2 nodes): `action()`, `api.deploy-keys.ts`
+- **Thin community `Community 91`** (2 nodes): `cn()`, `utils.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 90`** (2 nodes): `loader()`, `api.github.apps.ts`
+- **Thin community `Community 92`** (2 nodes): `action()`, `api.deploy-keys.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 91`** (2 nodes): `loader()`, `api.github.branches.$appUuid.$owner.$repo.ts`
+- **Thin community `Community 93`** (2 nodes): `loader()`, `api.github.apps.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 92`** (2 nodes): `loader()`, `api.github.connected.branches.$owner.$repo.ts`
+- **Thin community `Community 94`** (2 nodes): `loader()`, `api.github.branches.$appUuid.$owner.$repo.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 93`** (2 nodes): `loader()`, `api.github.connected.repos.ts`
+- **Thin community `Community 95`** (2 nodes): `loader()`, `api.github.connected.branches.$owner.$repo.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 94`** (2 nodes): `loader()`, `api.github.repos.$appUuid.ts`
+- **Thin community `Community 96`** (2 nodes): `loader()`, `api.github.connected.repos.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 95`** (2 nodes): `getDatabaseView()`, `site.$id.database.tsx`
+- **Thin community `Community 97`** (2 nodes): `loader()`, `api.github.repos.$appUuid.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 96`** (2 nodes): `SiteDeploymentsPage()`, `site.$id.deployments.tsx`
+- **Thin community `Community 98`** (2 nodes): `loader()`, `index.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 97`** (2 nodes): `loader()`, `site.$id.logs.ts`
+- **Thin community `Community 99`** (2 nodes): `getDatabaseView()`, `site.$id.database.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 98`** (2 nodes): `getSettingsSection()`, `site.$id.settings.tsx`
+- **Thin community `Community 100`** (2 nodes): `SiteDeploymentsPage()`, `site.$id.deployments.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 99`** (2 nodes): `apiFetchAuthed()`, `api.authed.server.ts`
+- **Thin community `Community 101`** (2 nodes): `loader()`, `site.$id.logs.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 100`** (2 nodes): `apiUrl()`, `api.base.ts`
+- **Thin community `Community 102`** (2 nodes): `getSettingsSection()`, `site.$id.settings.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 101`** (1 nodes): `prisma.config.ts`
+- **Thin community `Community 103`** (2 nodes): `loader()`, `workspace.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 102`** (1 nodes): `app.controller.spec.ts`
+- **Thin community `Community 104`** (2 nodes): `apiFetchAuthed()`, `api.authed.server.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 103`** (1 nodes): `current-user.decorator.ts`
+- **Thin community `Community 105`** (2 nodes): `apiUrl()`, `api.base.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 104`** (1 nodes): `tenant-resource-allocation.spec.ts`
+- **Thin community `Community 106`** (1 nodes): `prisma.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 105`** (1 nodes): `auth.types.ts`
+- **Thin community `Community 107`** (1 nodes): `app.controller.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 106`** (1 nodes): `app.e2e-spec.ts`
+- **Thin community `Community 108`** (1 nodes): `current-user.decorator.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 107`** (1 nodes): `react-router.config.ts`
+- **Thin community `Community 109`** (1 nodes): `tenant-resource-allocation.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 108`** (1 nodes): `vite.config.ts`
+- **Thin community `Community 110`** (1 nodes): `auth.types.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 109`** (1 nodes): `routes.ts`
+- **Thin community `Community 111`** (1 nodes): `app.e2e-spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 110`** (1 nodes): `alert.tsx`
+- **Thin community `Community 112`** (1 nodes): `react-router.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 111`** (1 nodes): `ui.ts`
+- **Thin community `Community 113`** (1 nodes): `vite.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 112`** (1 nodes): `site.$id.domains.tsx`
+- **Thin community `Community 114`** (1 nodes): `routes.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 113`** (1 nodes): `site.$id.logs-view.tsx`
+- **Thin community `Community 115`** (1 nodes): `alert.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 114`** (1 nodes): `site.$id._index.tsx`
+- **Thin community `Community 116`** (1 nodes): `ui.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 115`** (1 nodes): `welcome.tsx`
+- **Thin community `Community 117`** (1 nodes): `site.$id.domains.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 118`** (1 nodes): `site.$id.logs-view.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 119`** (1 nodes): `welcome.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **What connects `AppModule`, `JwtAuthGuard`, `PrismaModule` to the rest of the system?**
-  _26 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _27 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.06 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
   _Cohesion score 0.06 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**

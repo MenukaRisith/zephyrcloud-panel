@@ -78,5 +78,11 @@ export class UpdateAdminTenantDto {
   @Transform(({ value }) => toNullableNumber(value))
   @IsNumber()
   @Min(1)
+  public max_storage_gb_total?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => toNullableNumber(value))
+  @IsNumber()
+  @Min(1)
   public max_team_members_per_site?: number | null;
 }

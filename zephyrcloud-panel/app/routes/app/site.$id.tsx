@@ -32,11 +32,15 @@ import {
   type EnvVar,
   type Site,
   type SiteRouteContext,
+  type SiteStorageSummary,
   type StatusPayload,
   type TeamInfo,
 } from "./site-detail.shared";
 
-type LoaderData = Omit<SiteRouteContext, "displayStatus" | "canManageTeam" | "currentIntent" | "isSubmitting" | "actionPath">;
+type LoaderData = Omit<
+  SiteRouteContext,
+  "displayStatus" | "canManageTeam" | "currentIntent" | "isSubmitting" | "actionPath"
+>;
 
 export async function loader({
   request,
@@ -48,13 +52,14 @@ export async function loader({
   const id = String(params.id);
 
   try {
-    const [siteRes, depRes, domRes, dbRes, envRes, teamRes] = await Promise.all([
+    const [siteRes, depRes, domRes, dbRes, envRes, teamRes, storageRes] = await Promise.all([
       apiFetchAuthed(request, `/api/sites/${id}`),
       apiFetchAuthed(request, `/api/sites/${id}/deployments`),
       apiFetchAuthed(request, `/api/sites/${id}/domains`),
       apiFetchAuthed(request, `/api/sites/${id}/database`),
       apiFetchAuthed(request, `/api/sites/${id}/envs`),
       apiFetchAuthed(request, `/api/sites/${id}/team`),
+      apiFetchAuthed(request, `/api/sites/${id}/storages`),
     ]);
 
     if (!siteRes.ok) throw new Error("Site not found");
@@ -91,6 +96,15 @@ export async function loader({
       }
     }
 
+    let storages: SiteStorageSummary | null = null;
+    if (storageRes.ok) {
+      try {
+        storages = (await storageRes.json()) as SiteStorageSummary;
+      } catch {
+        storages = null;
+      }
+    }
+
     const site = await siteRes.json();
     const deployments = await depRes.json();
     const domains = await domRes.json();
@@ -103,6 +117,7 @@ export async function loader({
       db,
       envs: Array.isArray(envs) ? envs : [],
       team,
+      storages,
       dnsTarget: resolveDnsTarget(request),
     };
   } catch (error) {
@@ -256,6 +271,29 @@ export async function action({
       return null;
     }
 
+    if (intent === "createStorage") {
+      const mount_path = String(fd.get("mount_path") || "").trim();
+      const size_gb = Number(fd.get("size_gb"));
+      if (!mount_path || !Number.isFinite(size_gb)) return null;
+
+      await apiFetchAuthed(request, `/api/sites/${id}/storages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mount_path, size_gb }),
+      });
+      return null;
+    }
+
+    if (intent === "deleteStorage") {
+      const storageId = String(fd.get("storage_id") || "").trim();
+      if (!storageId) return null;
+
+      await apiFetchAuthed(request, `/api/sites/${id}/storages/${encodeURIComponent(storageId)}`, {
+        method: "DELETE",
+      });
+      return null;
+    }
+
     if (intent === "deleteEnv") {
       const key = String(fd.get("key") || "").trim();
       if (!key) return null;
@@ -320,7 +358,8 @@ export async function action({
 }
 
 export default function SiteLayoutRoute() {
-  const { site, deployments, domains, db, envs, team, dnsTarget } = useLoaderData() as LoaderData;
+  const { site, deployments, domains, db, envs, team, storages, dnsTarget } =
+    useLoaderData() as LoaderData;
   const nav = useNavigation();
   const location = useLocation();
   const statusFetcher = useFetcher<StatusPayload>();
@@ -390,6 +429,7 @@ export default function SiteLayoutRoute() {
     db,
     envs,
     team,
+    storages,
     dnsTarget,
     displayStatus,
     canManageTeam,

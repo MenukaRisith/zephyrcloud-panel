@@ -61,6 +61,7 @@ export default [
 
     // Live status resource route (loader-only)
     route("sites/:id/status", "routes/app/sites.$id.status.ts"),
+    route("sites/:id/metrics", "routes/app/sites.$id.metrics.ts"),
 
     // Database explorer resource routes (loader-only)
     route(
