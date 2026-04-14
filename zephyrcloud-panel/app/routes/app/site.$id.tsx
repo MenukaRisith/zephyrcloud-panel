@@ -103,15 +103,7 @@ export async function loader({
       db,
       envs: Array.isArray(envs) ? envs : [],
       team,
-      dnsTarget:
-        typeof sitePayload.default_domain_target === "string" &&
-        sitePayload.default_domain_target.trim().length > 0
-          ? {
-              value: sitePayload.default_domain_target.trim(),
-              recordType: "CNAME",
-              isConfigured: true,
-            }
-          : resolveDnsTarget(request),
+      dnsTarget: resolveDnsTarget(request),
     };
   } catch (error) {
     console.error("Loader Error:", error);

@@ -119,8 +119,7 @@ export class DomainAutomationService {
       return this.failTimeout(domain.id);
     }
 
-    const expectedTarget =
-      domain.target_hostname ?? domain.site.default_domain_target;
+    const expectedTarget = this.resolveVerificationTarget(domain);
     if (!expectedTarget) {
       return this.prisma.domain.update({
         where: { id: domain.id },
@@ -306,6 +305,20 @@ export class DomainAutomationService {
       .toLowerCase()
       .replace(/^https?:\/\//, '')
       .replace(/\/+$/, '');
+  }
+
+  private getHostCnameTarget(): string | null {
+    const value = (process.env.HOST_CNAME_TARGET ?? '').trim().toLowerCase();
+    return value ? value.replace(/\.$/, '') : null;
+  }
+
+  private resolveVerificationTarget(domain: DomainWithSite): string | null {
+    const hostTarget = this.getHostCnameTarget();
+    if (hostTarget) {
+      return hostTarget;
+    }
+
+    return domain.target_hostname ?? domain.site?.default_domain_target ?? null;
   }
 
   private buildAttachMessage(

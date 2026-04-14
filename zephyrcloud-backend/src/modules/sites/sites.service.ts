@@ -202,6 +202,16 @@ export class SitesService {
     return `Point ${domain} to ${target} using a CNAME record, then click Verify.`;
   }
 
+  private resolveCustomDomainDnsTarget(domain: string): {
+    routingMode: 'subdomain_cname' | 'apex_flattening' | 'apex_alias';
+    target: string;
+  } {
+    return {
+      routingMode: this.domainVerifier.classifyDomain(domain),
+      target: this.getHostCnameTarget(),
+    };
+  }
+
   private async getTenantPolicyOrThrow(
     tenantId: bigint,
   ): Promise<TenantPolicyPayload> {
@@ -1496,7 +1506,7 @@ export class SitesService {
       throw new BadRequestException('That domain is already connected to another site.');
     }
 
-    const routingMode = this.domainVerifier.classifyDomain(domain);
+    const { routingMode, target } = this.resolveCustomDomainDnsTarget(domain);
 
     return this.prisma.domain.create({
       data: {
@@ -1506,12 +1516,12 @@ export class SitesService {
         status: DomainStatus.pending_dns,
         ssl_enabled: false,
         coolify_domain_id: null,
-        target_hostname: site.default_domain_target,
+        target_hostname: target,
         routing_mode: routingMode,
         verification_started_at: new Date(),
         diagnostic_message: this.buildInitialDomainInstructions(
           domain,
-          site.default_domain_target,
+          target,
           routingMode,
         ),
       },

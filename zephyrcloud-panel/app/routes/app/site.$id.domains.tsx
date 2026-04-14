@@ -103,7 +103,7 @@ export default function SiteDomainsPage() {
         )}
       </SiteSectionCard>
 
-      <SiteSectionCard title="Connect domain" subtitle="Add a new domain and point DNS to this site's default hostname.">
+      <SiteSectionCard title="Connect domain" subtitle="Add a new domain and point DNS to the shared target below.">
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 border border-[var(--line)] bg-[var(--surface)] px-3 py-3">
             <div className="min-w-0">
