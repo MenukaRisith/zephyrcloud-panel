@@ -32,6 +32,7 @@ export default [
 
   layout("routes/app/layout.tsx", [
     index("routes/app/index.tsx"),
+    route("workspace", "routes/app/workspace.tsx"),
 
     // Sites list + create modal
     route("sites", "routes/app/sites.tsx"),

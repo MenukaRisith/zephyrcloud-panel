@@ -12,6 +12,7 @@ import {
   Boxes,
   Database,
   Github,
+  Layers3,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -90,6 +91,7 @@ function initialsFromEmail(email: string) {
 
 function pageLabelFromPath(pathname: string) {
   if (pathname === "/") return "Overview";
+  if (pathname.startsWith("/workspace")) return "Usage";
   if (pathname.startsWith("/sites/")) {
     if (pathname.endsWith("/deployments")) return "Deployments";
     if (pathname.endsWith("/logs")) return "Logs";
@@ -473,6 +475,11 @@ export default function AppLayout() {
       label: "Overview",
       icon: <LayoutDashboard className="h-4 w-4" />,
       end: true,
+    },
+    {
+      to: "/workspace",
+      label: "Usage",
+      icon: <Layers3 className="h-4 w-4" />,
     },
     {
       to: "/sites",
