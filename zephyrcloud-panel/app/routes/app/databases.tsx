@@ -9,25 +9,32 @@ import { softInsetClass } from "~/lib/ui";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import { requireUser } from "~/services/session.server";
 
-type WorkspaceDatabase = {
+type DatabaseDetails = {
   id: string;
-  engine: "mariadb" | "mysql" | "postgresql";
+  engine: string;
   host: string;
   port: number;
   db_name: string;
   username: string;
-  password: string;
-  public_url: string;
+  password?: string;
+  public_url?: string | null;
   ssl_mode?: string | null;
+  source: "workspace" | "site";
+  siteName?: string | null;
 };
 
 type LoaderData = {
-  workspaceDatabase: WorkspaceDatabase | null;
+  database: DatabaseDetails | null;
 };
 
 type ActionData =
-  | { ok: true; message: string }
+  | { ok: true; message: string; database: DatabaseDetails | null }
   | { ok: false; error: string };
+
+type SiteSummary = {
+  id: string;
+  name: string;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -35,11 +42,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseMessage(payload: unknown, fallback: string) {
   if (!isRecord(payload)) return fallback;
-  if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
-  if (Array.isArray(payload.message) && typeof payload.message[0] === "string") {
+  if (typeof payload.message === "string" && payload.message.trim())
+    return payload.message;
+  if (
+    Array.isArray(payload.message) &&
+    typeof payload.message[0] === "string"
+  ) {
     return payload.message[0];
   }
-  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+  if (typeof payload.error === "string" && payload.error.trim())
+    return payload.error;
   return fallback;
 }
 
@@ -47,26 +59,124 @@ async function safeJson(response: Response) {
   return response.json().catch(() => null);
 }
 
-function formatEngineLabel(engine: WorkspaceDatabase["engine"]) {
-  if (engine === "postgresql") return "PostgreSQL";
+function formatEngineLabel(engine: string) {
+  if (engine === "postgresql" || engine === "postgres") return "PostgreSQL";
   if (engine === "mysql") return "MySQL";
-  return "MariaDB";
+  if (engine === "mariadb") return "MariaDB";
+  return engine.toUpperCase();
 }
 
-export async function loader({ request }: { request: Request }): Promise<LoaderData> {
-  await requireUser(request);
-
-  const response = await apiFetchAuthed(request, "/api/sites/workspace/database", {
-    method: "GET",
-  });
-  const payload = response.ok ? await safeJson(response) : null;
+function parseDatabaseDetails(
+  payload: unknown,
+  source: DatabaseDetails["source"],
+  siteName?: string | null,
+): DatabaseDetails | null {
+  if (!isRecord(payload)) return null;
+  if (typeof payload.id !== "string") return null;
+  if (typeof payload.engine !== "string") return null;
+  if (typeof payload.host !== "string") return null;
+  if (typeof payload.port !== "number") return null;
+  if (typeof payload.db_name !== "string") return null;
+  if (typeof payload.username !== "string") return null;
 
   return {
-    workspaceDatabase: payload && typeof payload === "object" ? (payload as WorkspaceDatabase) : null,
+    id: payload.id,
+    engine: payload.engine,
+    host: payload.host,
+    port: payload.port,
+    db_name: payload.db_name,
+    username: payload.username,
+    password:
+      typeof payload.password === "string" ? payload.password : undefined,
+    public_url:
+      typeof payload.public_url === "string" ? payload.public_url : null,
+    ssl_mode: typeof payload.ssl_mode === "string" ? payload.ssl_mode : null,
+    source,
+    siteName,
   };
 }
 
-export async function action({ request }: { request: Request }): Promise<ActionData | null> {
+function parseSiteSummaries(payload: unknown): SiteSummary[] {
+  if (!Array.isArray(payload)) return [];
+
+  return payload
+    .filter(isRecord)
+    .map((entry) => ({
+      id: typeof entry.id === "string" ? entry.id : "",
+      name: typeof entry.name === "string" ? entry.name : "",
+    }))
+    .filter((entry) => entry.id.length > 0);
+}
+
+async function loadFirstAvailableDatabase(
+  request: Request,
+): Promise<DatabaseDetails | null> {
+  const workspaceResponse = await apiFetchAuthed(
+    request,
+    "/api/sites/workspace/database",
+    {
+      method: "GET",
+    },
+  );
+  const workspacePayload = workspaceResponse.ok
+    ? await safeJson(workspaceResponse)
+    : null;
+  const workspaceDatabase = parseDatabaseDetails(workspacePayload, "workspace");
+  if (workspaceDatabase) {
+    return workspaceDatabase;
+  }
+
+  const sitesResponse = await apiFetchAuthed(request, "/api/sites", {
+    method: "GET",
+  });
+  if (!sitesResponse.ok) {
+    return null;
+  }
+
+  const sites = parseSiteSummaries(await safeJson(sitesResponse));
+  for (const site of sites) {
+    const databaseResponse = await apiFetchAuthed(
+      request,
+      `/api/sites/${site.id}/database`,
+      {
+        method: "GET",
+      },
+    );
+    if (!databaseResponse.ok) {
+      continue;
+    }
+
+    const database = parseDatabaseDetails(
+      await safeJson(databaseResponse),
+      "site",
+      site.name || null,
+    );
+    if (database) {
+      return database;
+    }
+  }
+
+  return null;
+}
+
+export async function loader({
+  request,
+}: {
+  request: Request;
+}): Promise<LoaderData> {
+  await requireUser(request);
+
+  return {
+    database: await loadFirstAvailableDatabase(request),
+  };
+}
+
+export async function action({
+  request,
+}: {
+  request: Request;
+}): Promise<ActionData | null> {
+  await requireUser(request);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "");
 
@@ -79,11 +189,15 @@ export async function action({ request }: { request: Request }): Promise<ActionD
     return { ok: false, error: "Choose a valid database engine." };
   }
 
-  const response = await apiFetchAuthed(request, "/api/sites/workspace/database", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ engine }),
-  });
+  const response = await apiFetchAuthed(
+    request,
+    "/api/sites/workspace/database",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ engine }),
+    },
+  );
 
   const payload = await safeJson(response);
   if (!response.ok) {
@@ -93,11 +207,20 @@ export async function action({ request }: { request: Request }): Promise<ActionD
     };
   }
 
-  const label = engine === "postgresql" ? "PostgreSQL" : engine === "mysql" ? "MySQL" : "MariaDB";
+  const label =
+    engine === "postgresql"
+      ? "PostgreSQL"
+      : engine === "mysql"
+        ? "MySQL"
+        : "MariaDB";
+  const database = parseDatabaseDetails(payload, "workspace");
 
   return {
     ok: true,
-    message: `${label} database setup has started. Connection details will appear here when the service is ready.`,
+    message: database
+      ? `${label} database is ready. Connection details are shown below.`
+      : `${label} database setup has started. Connection details will appear here when the service is ready.`,
+    database,
   };
 }
 
@@ -115,12 +238,16 @@ function CopyField({ label, value }: { label: string; value: string }) {
   }
 
   return (
-    <div className={`${softInsetClass} flex items-start justify-between gap-3 px-4 py-4`}>
+    <div
+      className={`${softInsetClass} flex items-start justify-between gap-3 px-4 py-4`}
+    >
       <div className="min-w-0 space-y-2">
         <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
           {label}
         </div>
-        <div className="break-all font-mono text-xs text-[var(--foreground)]">{value}</div>
+        <div className="break-all font-mono text-xs text-[var(--foreground)]">
+          {value}
+        </div>
       </div>
       <button
         type="button"
@@ -135,8 +262,14 @@ function CopyField({ label, value }: { label: string; value: string }) {
 }
 
 export default function DatabasesPage() {
-  const { workspaceDatabase } = useLoaderData() as LoaderData;
+  const { database } = useLoaderData() as LoaderData;
   const actionData = useActionData() as ActionData | null;
+  const displayedDatabase =
+    actionData && actionData.ok && actionData.database
+      ? actionData.database
+      : database;
+  const showingExistingSiteDatabase =
+    displayedDatabase?.source === "site" && displayedDatabase.siteName;
 
   return (
     <div className="space-y-4 pb-8">
@@ -155,39 +288,73 @@ export default function DatabasesPage() {
       <section className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-3">
-            <CardTitle>{workspaceDatabase ? "Connection details" : "Set up a database"}</CardTitle>
+            <CardTitle>
+              {displayedDatabase ? "Connection details" : "Set up a database"}
+            </CardTitle>
             <CardDescription>
-              {workspaceDatabase
-                ? "Use these credentials to connect services inside your workspace."
+              {displayedDatabase
+                ? showingExistingSiteDatabase
+                  ? `Showing the first available database from ${displayedDatabase.siteName}.`
+                  : "Use these credentials to connect services inside your workspace."
                 : "Provision one shared workspace database before creating sites that depend on it."}
             </CardDescription>
           </div>
-          {workspaceDatabase ? <Badge>{formatEngineLabel(workspaceDatabase.engine)}</Badge> : null}
+          {displayedDatabase ? (
+            <Badge>{formatEngineLabel(displayedDatabase.engine)}</Badge>
+          ) : null}
         </div>
 
-        {workspaceDatabase ? (
+        {displayedDatabase ? (
           <div className="grid gap-4 lg:grid-cols-2">
-            <CopyField label="Public URL" value={workspaceDatabase.public_url} />
-            <CopyField label="Host" value={`${workspaceDatabase.host}:${workspaceDatabase.port}`} />
-            <CopyField label="Database name" value={workspaceDatabase.db_name} />
-            <CopyField label="Username" value={workspaceDatabase.username} />
-            <CopyField label="Password" value={workspaceDatabase.password} />
-            <CopyField label="SSL mode" value={workspaceDatabase.ssl_mode || "default"} />
+            {displayedDatabase.public_url ? (
+              <CopyField
+                label="Public URL"
+                value={displayedDatabase.public_url}
+              />
+            ) : null}
+            <CopyField
+              label="Host"
+              value={`${displayedDatabase.host}:${displayedDatabase.port}`}
+            />
+            <CopyField
+              label="Database name"
+              value={displayedDatabase.db_name}
+            />
+            <CopyField label="Username" value={displayedDatabase.username} />
+            {displayedDatabase.password ? (
+              <CopyField label="Password" value={displayedDatabase.password} />
+            ) : null}
+            <CopyField
+              label="SSL mode"
+              value={displayedDatabase.ssl_mode || "default"}
+            />
           </div>
         ) : (
           <Form method="post" className="space-y-4">
-            <input type="hidden" name="intent" value="create-workspace-database" />
+            <input
+              type="hidden"
+              name="intent"
+              value="create-workspace-database"
+            />
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <div className="text-xs font-medium text-[var(--foreground)]">Database type</div>
+                <div className="text-xs font-medium text-[var(--foreground)]">
+                  Database type
+                </div>
                 <p className="text-xs text-[var(--text-muted)]">
                   Choose the engine that best matches your application stack.
                 </p>
               </div>
               <div className="space-y-3">
                 <label className="flex items-start gap-3 border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-3 text-[var(--foreground)]">
-                  <input type="radio" name="engine" value="mariadb" defaultChecked className="mt-1" />
+                  <input
+                    type="radio"
+                    name="engine"
+                    value="mariadb"
+                    defaultChecked
+                    className="mt-1"
+                  />
                   <div className="space-y-2">
                     <div className="font-medium">MariaDB</div>
                     <div className="text-xs text-[var(--text-muted)]">
@@ -196,7 +363,12 @@ export default function DatabasesPage() {
                   </div>
                 </label>
                 <label className="flex items-start gap-3 border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-3 text-[var(--foreground)]">
-                  <input type="radio" name="engine" value="mysql" className="mt-1" />
+                  <input
+                    type="radio"
+                    name="engine"
+                    value="mysql"
+                    className="mt-1"
+                  />
                   <div className="space-y-2">
                     <div className="font-medium">MySQL</div>
                     <div className="text-xs text-[var(--text-muted)]">
@@ -205,7 +377,12 @@ export default function DatabasesPage() {
                   </div>
                 </label>
                 <label className="flex items-start gap-3 border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-3 text-[var(--foreground)]">
-                  <input type="radio" name="engine" value="postgresql" className="mt-1" />
+                  <input
+                    type="radio"
+                    name="engine"
+                    value="postgresql"
+                    className="mt-1"
+                  />
                   <div className="space-y-2">
                     <div className="font-medium">PostgreSQL</div>
                     <div className="text-xs text-[var(--text-muted)]">
