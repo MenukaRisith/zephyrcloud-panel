@@ -115,6 +115,20 @@ type CoolifyCreateProjectInput = Parameters<CoolifyService['createProject']>[0];
 type CoolifyCreateProjectResult = Awaited<
   ReturnType<CoolifyService['createProject']>
 >;
+type SiteDatabaseViewPayload = {
+  id: string;
+  engine: string;
+  host: string;
+  port: number;
+  db_name: string;
+  username: string;
+  password?: string;
+  public_url: string | null;
+  ssl_mode: string | null;
+  is_public: boolean;
+  created_at: Date;
+  updated_at: Date;
+};
 type SiteTeamMemberPayload = {
   id: string;
   user_id: string;
@@ -1021,6 +1035,7 @@ export class SitesService {
             db_name: finalDbName,
             username: finalDbUser,
             password: finalDbPassword,
+            coolify_database_id: coolifyResult.dbUuid,
           },
         });
       }
@@ -1928,17 +1943,7 @@ export class SitesService {
   public async getDatabase(
     user: JwtPayload,
     id: string,
-  ): Promise<{
-    id: string;
-    engine: string;
-    host: string;
-    port: number;
-    db_name: string;
-    username: string;
-    password?: string;
-    created_at: Date;
-    updated_at: Date;
-  } | null> {
+  ): Promise<SiteDatabaseViewPayload | null> {
     const siteId = toBigIntStrict(id, 'siteId');
     const site = await this.getOwnedSiteOrThrow(siteId, user, {
       requireWrite: true,
@@ -1950,17 +1955,45 @@ export class SitesService {
 
     if (!db) return null;
 
-    return {
-      id: db.id.toString(),
-      engine: db.engine,
-      host: db.host,
-      port: db.port,
-      db_name: db.db_name,
-      username: db.username,
-      password: db.password,
-      created_at: db.created_at,
-      updated_at: db.updated_at,
-    };
+    return this.serializeSiteDatabase(db);
+  }
+
+  public async makeDatabasePublic(
+    user: JwtPayload,
+    id: string,
+  ): Promise<SiteDatabaseViewPayload> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const db = await this.getOwnedDatabaseOrThrow(siteId, user);
+    const coolifyDatabaseId = this.resolveSiteDatabaseCoolifyId(db);
+
+    if (!coolifyDatabaseId) {
+      throw new BadRequestException(
+        'This database is not linked to a Coolify-managed resource.',
+      );
+    }
+
+    try {
+      await this.coolify.makeDatabasePublic(coolifyDatabaseId);
+    } catch (error) {
+      this.logger.warn(
+        `[makeDatabasePublic] Failed for site ${siteId.toString()} and database ${coolifyDatabaseId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw new BadRequestException(
+        error instanceof Error
+          ? error.message
+          : 'Failed to expose the database publicly.',
+      );
+    }
+
+    const storedDb =
+      db.coolify_database_id === coolifyDatabaseId
+        ? db
+        : await this.prisma.siteDatabase.update({
+            where: { id: db.id },
+            data: { coolify_database_id: coolifyDatabaseId },
+          });
+
+    return this.serializeSiteDatabase(storedDb);
   }
 
   public async createOrReplaceDatabase(
@@ -2109,6 +2142,63 @@ export class SitesService {
       resourceName: safeSvc(`${base}-${suffix}-db`).slice(0, 40),
       databaseName,
       username,
+    };
+  }
+
+  private resolveSiteDatabaseCoolifyId(db: SiteDatabasePayload): string | null {
+    const storedId = String(db.coolify_database_id ?? '').trim();
+    if (storedId) return storedId;
+
+    const hostCandidate = String(db.host ?? '')
+      .trim()
+      .split(':')[0]
+      ?.trim();
+    if (
+      hostCandidate &&
+      /^[a-z0-9-]{8,}$/i.test(hostCandidate) &&
+      !hostCandidate.includes('.')
+    ) {
+      return hostCandidate;
+    }
+
+    return null;
+  }
+
+  private async serializeSiteDatabase(
+    db: SiteDatabasePayload,
+  ): Promise<SiteDatabaseViewPayload> {
+    let publicUrl: string | null = null;
+    let sslMode: string | null = null;
+    let isPublic = false;
+
+    const coolifyDatabaseId = this.resolveSiteDatabaseCoolifyId(db);
+    if (coolifyDatabaseId) {
+      try {
+        const details =
+          await this.coolify.getDatabasePublicInfo(coolifyDatabaseId);
+        publicUrl = details.publicUrl;
+        sslMode = details.sslMode ?? null;
+        isPublic = details.isPublic;
+      } catch (error) {
+        this.logger.debug(
+          `[serializeSiteDatabase] Failed to read Coolify database ${coolifyDatabaseId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return {
+      id: db.id.toString(),
+      engine: db.engine,
+      host: db.host,
+      port: db.port,
+      db_name: db.db_name,
+      username: db.username,
+      password: db.password,
+      public_url: publicUrl,
+      ssl_mode: sslMode,
+      is_public: isPublic,
+      created_at: db.created_at,
+      updated_at: db.updated_at,
     };
   }
 

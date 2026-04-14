@@ -56,12 +56,15 @@ export type Domain = {
 };
 
 export type DBInfo = {
-  engine: "mariadb" | "mysql" | "postgres";
+  engine: "mariadb" | "mysql" | "postgres" | "postgresql";
   host: string;
   port: number;
   username: string;
   db_name: string;
   password?: string;
+  public_url: string | null;
+  ssl_mode: string | null;
+  is_public: boolean;
 };
 
 export type EnvVar = {

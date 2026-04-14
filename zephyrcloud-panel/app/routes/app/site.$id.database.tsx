@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useFetcher, useOutletContext, useSearchParams } from "react-router";
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, Loader2, RefreshCw } from "lucide-react";
 
 import {
   InlineAlert,
@@ -18,11 +18,12 @@ function getDatabaseView(value: string | null): SiteDatabaseView {
 }
 
 export default function SiteDatabasePage() {
-  const { site, db } = useOutletContext<SiteRouteContext>();
+  const { site, db, actionPath, canManageTeam } = useOutletContext<SiteRouteContext>();
   const [searchParams] = useSearchParams();
   const currentView = getDatabaseView(searchParams.get("view"));
   const dbTablesFetcher = useFetcher<DbTablesPayload>();
   const dbRowsFetcher = useFetcher<DbRowsPayload>();
+  const makePublicFetcher = useFetcher();
   const [tableQuery, setTableQuery] = React.useState("");
   const [selectedTable, setSelectedTable] = React.useState("");
   const [rowLimit, setRowLimit] = React.useState<"25" | "50" | "100">("25");
@@ -38,6 +39,10 @@ export default function SiteDatabasePage() {
     table.name.toLowerCase().includes(tableQuery.trim().toLowerCase()),
   );
   const rowPayload = dbRowsFetcher.data && dbRowsFetcher.data.ok ? dbRowsFetcher.data : null;
+  const publicDatabaseUrl = db?.public_url || "";
+  const isPublishingDatabase =
+    makePublicFetcher.state === "loading" ||
+    makePublicFetcher.state === "submitting";
 
   React.useEffect(() => {
     if (currentView !== "browser" || !db) return;
@@ -119,6 +124,70 @@ export default function SiteDatabasePage() {
                 }
               />
             </div>
+            {db.public_url ? (
+              <div className="md:col-span-2">
+                <KeyValueField
+                  label="Public URL"
+                  value={publicDatabaseUrl}
+                  mono
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => void copyToClipboard(publicDatabaseUrl)}
+                      className="inline-flex min-h-9 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-xs text-[var(--foreground)]"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Copy
+                    </button>
+                  }
+                />
+              </div>
+            ) : null}
+            {db.ssl_mode ? (
+              <KeyValueField label="SSL mode" value={db.ssl_mode} mono />
+            ) : null}
+            {!db.public_url && canManageTeam ? (
+              <div className="md:col-span-2 border border-[var(--warning)] bg-[var(--warning-soft)] px-4 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--warning)]">
+                  Public access warning
+                </div>
+                <p className="mt-2 text-xs leading-5 text-[var(--warning)]">
+                  Making this database public exposes it to the internet. Only
+                  enable this when you need external connections, and rotate
+                  credentials if they were shared already.
+                </p>
+                <makePublicFetcher.Form
+                  method="post"
+                  action={actionPath}
+                  className="mt-3"
+                  onSubmit={(event) => {
+                    if (
+                      !window.confirm(
+                        "This will expose the database to the public internet. Continue?",
+                      )
+                    ) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  <input
+                    type="hidden"
+                    name="intent"
+                    value="makeDatabasePublic"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isPublishingDatabase}
+                    className="inline-flex min-h-9 items-center gap-2 border border-[var(--warning)] bg-[var(--surface)] px-3 text-xs font-medium text-[var(--warning)] disabled:opacity-60"
+                  >
+                    {isPublishingDatabase ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    Make DB public
+                  </button>
+                </makePublicFetcher.Form>
+              </div>
+            ) : null}
           </div>
         </SiteSectionCard>
       ) : (
@@ -190,12 +259,12 @@ export default function SiteDatabasePage() {
               </div>
 
             <div className="border border-[var(--line)] bg-[var(--surface)] p-3">
-                {!selectedTable ? (
+              {!selectedTable ? (
                   <div className="py-12 text-center text-xs text-[var(--text-muted)]">
                     Select a table to view rows.
                   </div>
-                ) : (
-                  <>
+              ) : (
+                <>
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <div className="text-xs font-medium text-[var(--foreground)]">
                         Table: <span className="font-mono">{selectedTable}</span>
@@ -288,8 +357,8 @@ export default function SiteDatabasePage() {
                         </div>
                       )}
                     </div>
-                  </>
-                )}
+                </>
+              )}
             </div>
           </div>
         </SiteSectionCard>

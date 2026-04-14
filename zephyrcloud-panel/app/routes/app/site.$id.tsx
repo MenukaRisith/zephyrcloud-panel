@@ -200,6 +200,13 @@ export async function action({
       return null;
     }
 
+    if (intent === "makeDatabasePublic") {
+      await apiFetchAuthed(request, `/api/sites/${id}/database/public`, {
+        method: "POST",
+      });
+      return null;
+    }
+
     if (intent === "deleteSite") {
       await apiFetchAuthed(request, `/api/sites/${id}`, {
         method: "DELETE",

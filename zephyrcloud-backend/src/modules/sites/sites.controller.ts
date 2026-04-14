@@ -326,6 +326,14 @@ export class SitesController {
     return this.sites.createOrReplaceDatabase(user, id, dto);
   }
 
+  @Post(':id/database/public')
+  public makeDatabasePublic(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.sites.makeDatabasePublic(user, id);
+  }
+
   @Get(':id/database/tables')
   public databaseTables(
     @CurrentUser() user: JwtPayload,

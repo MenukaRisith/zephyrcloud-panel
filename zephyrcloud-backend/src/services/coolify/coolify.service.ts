@@ -195,6 +195,12 @@ export type CoolifyManagedDatabase = {
   sslMode?: string;
 };
 
+export type CoolifyDatabasePublicInfo = {
+  publicUrl: string | null;
+  sslMode?: string;
+  isPublic: boolean;
+};
+
 type CoolifyDomainSyncOptions = {
   restartAfterUpdate?: boolean;
 };
@@ -237,6 +243,7 @@ export class CoolifyService {
     serverUuid: string;
     destinationUuid: string;
     resourceType: CoolifyResourceType;
+    dbUuid?: string;
     dbHost?: string;
     dbPassword?: string;
     dbUser?: string;
@@ -266,6 +273,7 @@ export class CoolifyService {
 
     let resourceUuid: string;
     let resourceType: CoolifyResourceType;
+    let dbUuidUsed: string | undefined;
     let dbHostUsed: string | undefined;
     let dbPasswordUsed: string | undefined;
     let dbUserUsed: string | undefined;
@@ -282,6 +290,7 @@ export class CoolifyService {
         db: config.db,
       });
       resourceUuid = bundle.appUuid;
+      dbUuidUsed = bundle.dbUuid;
       dbHostUsed = bundle.dbHost;
       dbPasswordUsed = bundle.dbPassword;
       dbUserUsed = bundle.dbUser;
@@ -303,6 +312,7 @@ export class CoolifyService {
       serverUuid,
       destinationUuid: destination.uuid,
       resourceType,
+      dbUuid: dbUuidUsed,
       dbHost: dbHostUsed,
       dbPassword: dbPasswordUsed,
       dbUser: dbUserUsed,
@@ -951,6 +961,28 @@ export class CoolifyService {
     );
   }
 
+  async getDatabasePublicInfo(
+    uuid: string,
+  ): Promise<CoolifyDatabasePublicInfo> {
+    const resource = await this.getDatabase(uuid);
+    return this.toDatabasePublicInfo(resource);
+  }
+
+  async makeDatabasePublic(uuid: string): Promise<CoolifyDatabasePublicInfo> {
+    const current = await this.getDatabase(uuid);
+    const currentInfo = this.toDatabasePublicInfo(current);
+    if (currentInfo.publicUrl) {
+      return currentInfo;
+    }
+
+    await this.client.patch(`/api/v1/databases/${uuid}`, {
+      is_public: true,
+    });
+
+    const updated = await this.waitForPublicDatabase(uuid);
+    return this.toDatabasePublicInfo(updated);
+  }
+
   async getLogs(type: string, uuid: string, lines = 200): Promise<string> {
     if (!uuid?.trim()) throw new Error('Missing resourceId');
     const boundedLines = Math.min(5000, Math.max(10, Math.trunc(lines)));
@@ -1112,6 +1144,7 @@ export class CoolifyService {
     db?: CoolifyDbDetails;
   }): Promise<{
     appUuid: string;
+    dbUuid: string;
     dbHost: string;
     dbPassword?: string;
     dbUser?: string;
@@ -1181,6 +1214,7 @@ export class CoolifyService {
 
     return {
       appUuid: wpApp.uuid,
+      dbUuid: dbRes.uuid,
       dbHost: finalDbHost,
       dbPassword: dbRes.password,
       dbUser: 'root',
@@ -1314,6 +1348,20 @@ export class CoolifyService {
     throw new Error(
       `Coolify database ${uuid} did not expose a public connection URL.`,
     );
+  }
+
+  private toDatabasePublicInfo(
+    resource: CoolifyDatabaseResource,
+  ): CoolifyDatabasePublicInfo {
+    const publicUrl =
+      this.toStringValue(resource.external_db_url)?.trim() || null;
+
+    return {
+      publicUrl,
+      sslMode: this.toStringValue(resource.ssl_mode) ?? undefined,
+      isPublic:
+        Boolean(this.toBooleanValue(resource.is_public)) || Boolean(publicUrl),
+    };
   }
 
   private extractManagedDatabase(
