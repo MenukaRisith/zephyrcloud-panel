@@ -10,7 +10,10 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { CoolifyService, type CoolifyResourceType } from '../../services/coolify/coolify.service';
+import {
+  CoolifyService,
+  type CoolifyResourceType,
+} from '../../services/coolify/coolify.service';
 import { DomainVerificationService } from './domain-verification.service';
 
 type DomainWithSite = Domain & {
@@ -111,9 +114,7 @@ export class DomainAutomationService {
     }
 
     const startedAt =
-      domain.verification_started_at ??
-      domain.created_at ??
-      new Date();
+      domain.verification_started_at ?? domain.created_at ?? new Date();
     if (Date.now() - startedAt.getTime() >= this.verifyTimeoutMs) {
       return this.failTimeout(domain.id);
     }
@@ -176,11 +177,13 @@ export class DomainAutomationService {
       });
     }
 
+    let syncResult: Awaited<ReturnType<CoolifyService['addDomain']>>;
     try {
-      await this.coolify.addDomain(
+      syncResult = await this.coolify.addDomain(
         this.getResourceType(domain.site),
         domain.site.coolify_resource_id,
         `https://${domain.domain}`,
+        { restartAfterUpdate: true },
       );
     } catch (error) {
       return this.prisma.domain.update({
@@ -199,6 +202,7 @@ export class DomainAutomationService {
         status: DomainStatus.attaching,
         coolify_attached_at: new Date(),
         target_hostname: expectedTarget,
+        diagnostic_message: this.buildAttachMessage(syncResult),
       },
     });
 
@@ -209,9 +213,7 @@ export class DomainAutomationService {
 
   private async refreshAttachedDomain(domain: DomainWithSite): Promise<Domain> {
     const startedAt =
-      domain.verification_started_at ??
-      domain.created_at ??
-      new Date();
+      domain.verification_started_at ?? domain.created_at ?? new Date();
     if (Date.now() - startedAt.getTime() >= this.verifyTimeoutMs) {
       return this.failTimeout(domain.id);
     }
@@ -227,20 +229,26 @@ export class DomainAutomationService {
       });
     }
 
-    const coolifyDomains = await this.coolify.getApplicationDomains(
-      domain.site.coolify_resource_id,
-    );
+    const resourceType = this.getResourceType(domain.site);
     const normalizedExpected = this.normalizeDomain(domain.domain);
-    const hasCoolifyDomain = coolifyDomains.some(
-      (value) => this.normalizeDomain(value) === normalizedExpected,
-    );
+    const hasCoolifyDomain =
+      resourceType === 'service'
+        ? Boolean(domain.coolify_attached_at)
+        : (
+            await this.coolify.getResourceDomains(
+              resourceType,
+              domain.site.coolify_resource_id,
+            )
+          ).some((value) => this.normalizeDomain(value) === normalizedExpected);
 
     if (!hasCoolifyDomain) {
+      let syncResult: Awaited<ReturnType<CoolifyService['addDomain']>>;
       try {
-        await this.coolify.addDomain(
-          this.getResourceType(domain.site),
+        syncResult = await this.coolify.addDomain(
+          resourceType,
           domain.site.coolify_resource_id,
           `https://${domain.domain}`,
+          { restartAfterUpdate: true },
         );
       } catch (error) {
         return this.prisma.domain.update({
@@ -260,8 +268,7 @@ export class DomainAutomationService {
         data: {
           status: DomainStatus.attaching,
           verification_checked_at: new Date(),
-          diagnostic_message:
-            'DNS verified. Waiting for Coolify to attach the domain.',
+          diagnostic_message: this.buildAttachMessage(syncResult),
         },
       });
     }
@@ -275,7 +282,8 @@ export class DomainAutomationService {
           ssl_enabled: true,
           ssl_ready_at: new Date(),
           verification_checked_at: new Date(),
-          diagnostic_message: 'Domain is reachable over HTTPS and SSL is active.',
+          diagnostic_message:
+            'Domain is reachable over HTTPS and SSL is active.',
         },
       });
     }
@@ -293,7 +301,26 @@ export class DomainAutomationService {
   }
 
   private normalizeDomain(value: string): string {
-    return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/+$/, '');
+  }
+
+  private buildAttachMessage(
+    result: Awaited<ReturnType<CoolifyService['addDomain']>>,
+  ): string {
+    if (result.updated && result.restarted) {
+      return 'DNS verified. Coolify domain updated and restart queued.';
+    }
+    if (result.updated) {
+      return 'DNS verified. Coolify domain updated.';
+    }
+    if (result.restarted) {
+      return 'DNS verified. Coolify restart queued for the attached domain.';
+    }
+    return 'DNS verified. Waiting for Coolify to attach the domain.';
   }
 
   private async checkHttps(domain: string): Promise<boolean> {

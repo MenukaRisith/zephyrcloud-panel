@@ -195,6 +195,15 @@ export type CoolifyManagedDatabase = {
   sslMode?: string;
 };
 
+type CoolifyDomainSyncOptions = {
+  restartAfterUpdate?: boolean;
+};
+
+type CoolifyDomainSyncResult = {
+  updated: boolean;
+  restarted: boolean;
+};
+
 @Injectable()
 export class CoolifyService {
   private readonly logger = new Logger(CoolifyService.name);
@@ -345,9 +354,8 @@ export class CoolifyService {
 
   async getDatabases(): Promise<CoolifyDatabaseSummary[]> {
     try {
-      const databases = await this.client.get<CoolifyDatabase[]>(
-        '/api/v1/databases',
-      );
+      const databases =
+        await this.client.get<CoolifyDatabase[]>('/api/v1/databases');
       if (!Array.isArray(databases)) return [];
       const results: CoolifyDatabaseSummary[] = [];
       for (const db of databases) {
@@ -368,9 +376,8 @@ export class CoolifyService {
 
   async getProjects(): Promise<CoolifyProjectSummary[]> {
     try {
-      const projects = await this.client.get<CoolifyProject[]>(
-        '/api/v1/projects',
-      );
+      const projects =
+        await this.client.get<CoolifyProject[]>('/api/v1/projects');
       if (!Array.isArray(projects)) return [];
       return projects
         .map((project) => {
@@ -381,7 +388,9 @@ export class CoolifyService {
             name: this.toStringValue(project?.name) ?? uuid,
           };
         })
-        .filter((project): project is CoolifyProjectSummary => project !== null);
+        .filter(
+          (project): project is CoolifyProjectSummary => project !== null,
+        );
     } catch (error: unknown) {
       this.logger.error(`[getProjects] Failed: ${this.formatError(error)}`);
       return [];
@@ -631,17 +640,31 @@ export class CoolifyService {
     }
   }
 
-  async getApplicationDomains(uuid: string): Promise<string[]> {
-    if (!uuid) throw new Error('Application UUID missing');
+  async getResourceDomains(
+    type: CoolifyResourceType,
+    uuid: string,
+  ): Promise<string[]> {
+    if (!uuid?.trim()) throw new Error('Resource UUID missing');
+    if (type === 'database') return [];
+
     try {
       const resource = await this.client.get<unknown>(
-        `/api/v1/applications/${uuid}`,
+        this.getResourceEndpoint(type, uuid),
       );
       if (!this.isRecord(resource)) return [];
+
+      if (type === 'service') {
+        return this.extractServiceUrls(resource).map((entry) => entry.url);
+      }
+
       return this.extractDomains(resource);
     } catch {
       return [];
     }
+  }
+
+  async getApplicationDomains(uuid: string): Promise<string[]> {
+    return this.getResourceDomains('application', uuid);
   }
 
   // Kept for backward compatibility if needed, but getResourceStatus is preferred
@@ -662,16 +685,19 @@ export class CoolifyService {
     type: CoolifyResourceType,
     uuid: string,
     domainUrl: string,
-  ): Promise<void> {
+    options?: CoolifyDomainSyncOptions,
+  ): Promise<CoolifyDomainSyncResult> {
     if (!uuid) throw new Error('Resource UUID missing');
-    if (type === 'service' || type === 'database') {
+    if (type === 'database') {
       this.logger.warn(
         `[addDomain] Skipping domain sync for ${type} ${uuid} (manual config required).`,
       );
-      return;
+      return { updated: false, restarted: false };
     }
 
-    const endpoint = `/api/v1/applications/${uuid}`;
+    const endpoint = this.getResourceEndpoint(type, uuid);
+    const restartAfterUpdate = options?.restartAfterUpdate ?? false;
+    const normalizedCandidate = this.normalizeDomainValue(domainUrl);
 
     try {
       const resource = await this.client.get<unknown>(endpoint);
@@ -679,21 +705,68 @@ export class CoolifyService {
         this.logger.warn(
           `[addDomain] Resource ${uuid} response is not an object.`,
         );
-        return;
+        return { updated: false, restarted: false };
       }
+
+      if (type === 'service') {
+        const urls = this.extractServiceUrls(resource);
+        if (
+          urls.some(
+            (entry) =>
+              this.normalizeDomainValue(entry.url) === normalizedCandidate,
+          )
+        ) {
+          return { updated: false, restarted: false };
+        }
+
+        const nextUrls = [
+          ...urls,
+          this.buildServiceUrlEntry(
+            domainUrl,
+            urls.map((entry) => entry.name),
+          ),
+        ];
+
+        this.logger.log(
+          `[addDomain] Updating service urls for ${uuid} to: ${nextUrls
+            .map((entry) => entry.url)
+            .join(',')}`,
+        );
+
+        await this.client.patch(endpoint, { urls: nextUrls });
+
+        if (restartAfterUpdate) {
+          await this.restartResource(type, uuid);
+          return { updated: true, restarted: true };
+        }
+
+        return { updated: true, restarted: false };
+      }
+
       const domains = this.extractDomains(resource);
-      if (domains.includes(domainUrl)) {
-        return;
+      if (
+        domains.some(
+          (value) => this.normalizeDomainValue(value) === normalizedCandidate,
+        )
+      ) {
+        return { updated: false, restarted: false };
       }
 
       domains.push(domainUrl);
       const newDomains = domains.join(',');
 
-      this.logger.log(`[addDomain] Updating domains for ${uuid} to: ${newDomains}`);
+      this.logger.log(
+        `[addDomain] Updating domains for ${uuid} to: ${newDomains}`,
+      );
 
       try {
         await this.client.patch(endpoint, { domains: newDomains });
-        return;
+        if (restartAfterUpdate) {
+          await this.restartResource(type, uuid);
+          return { updated: true, restarted: true };
+        }
+
+        return { updated: true, restarted: false };
       } catch (patchError: unknown) {
         if (this.getHttpStatus(patchError) !== 422) {
           throw patchError;
@@ -709,7 +782,7 @@ export class CoolifyService {
         );
         await this.setEnv(uuid, 'FQDN', newDomains);
         await this.deployResource('application', uuid);
-        return;
+        return { updated: true, restarted: true };
       }
 
       this.logger.warn(
@@ -717,6 +790,7 @@ export class CoolifyService {
       );
       await this.setEnv(uuid, 'FQDN', newDomains);
       await this.deployResource('application', uuid);
+      return { updated: true, restarted: true };
     } catch (error: unknown) {
       const message = this.formatError(error);
       this.logger.error(`[addDomain] Failed to sync to Coolify: ${message}`);
@@ -872,7 +946,9 @@ export class CoolifyService {
   }
 
   async getDatabase(uuid: string): Promise<CoolifyDatabaseResource> {
-    return this.client.get<CoolifyDatabaseResource>(`/api/v1/databases/${uuid}`);
+    return this.client.get<CoolifyDatabaseResource>(
+      `/api/v1/databases/${uuid}`,
+    );
   }
 
   async getLogs(type: string, uuid: string, lines = 200): Promise<string> {
@@ -1272,7 +1348,8 @@ export class CoolifyService {
       password,
       externalUrl,
       publicPort:
-        this.toNumberValue(resource.public_port) ?? (port > 0 ? port : undefined),
+        this.toNumberValue(resource.public_port) ??
+        (port > 0 ? port : undefined),
       sslMode: this.toStringValue(resource.ssl_mode) ?? undefined,
     };
   }
@@ -1381,6 +1458,17 @@ export class CoolifyService {
     return typeof value === 'object' && value !== null;
   }
 
+  private getResourceEndpoint(type: CoolifyResourceType, uuid: string): string {
+    switch (type) {
+      case 'database':
+        return `/api/v1/databases/${uuid}`;
+      case 'service':
+        return `/api/v1/services/${uuid}`;
+      default:
+        return `/api/v1/applications/${uuid}`;
+    }
+  }
+
   private extractDomains(resource: Record<string, unknown>): string[] {
     const domainsValue = resource.domains;
     if (Array.isArray(domainsValue)) {
@@ -1401,9 +1489,81 @@ export class CoolifyService {
       .filter((value) => value.length > 0);
   }
 
+  private extractServiceUrls(
+    resource: Record<string, unknown>,
+  ): Array<{ name: string; url: string }> {
+    const urlsValue = resource.urls;
+    if (Array.isArray(urlsValue)) {
+      return urlsValue
+        .map((value) => {
+          if (!this.isRecord(value)) return null;
+
+          const rawUrl = this.toStringValue(value.url)?.trim();
+          if (!rawUrl) return null;
+
+          return {
+            name:
+              this.toStringValue(value.name)?.trim() ||
+              this.deriveServiceUrlName(rawUrl),
+            url: rawUrl,
+          };
+        })
+        .filter(
+          (entry): entry is { name: string; url: string } => entry !== null,
+        );
+    }
+
+    return this.extractDomains(resource).map((url) => ({
+      name: this.deriveServiceUrlName(url),
+      url,
+    }));
+  }
+
+  private buildServiceUrlEntry(
+    domainUrl: string,
+    existingNames: string[],
+  ): { name: string; url: string } {
+    const usedNames = new Set(
+      existingNames.map((value) => value.trim()).filter(Boolean),
+    );
+    const baseName = this.deriveServiceUrlName(domainUrl);
+
+    let name = baseName;
+    let suffix = 2;
+    while (usedNames.has(name)) {
+      name = `${baseName}-${suffix}`;
+      suffix += 1;
+    }
+
+    return { name, url: domainUrl };
+  }
+
+  private deriveServiceUrlName(domainUrl: string): string {
+    const normalized = this.normalizeDomainValue(domainUrl)
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    return normalized || 'domain';
+  }
+
+  private normalizeDomainValue(value: string): string {
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) return '';
+
+    try {
+      const parsed = new URL(
+        /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`,
+      );
+      return `${parsed.host}${parsed.pathname}`.replace(/\/+$/, '');
+    } catch {
+      return trimmed.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    }
+  }
+
   private buildQueryString(params: Record<string, boolean>): string {
     const entries = Object.entries(params).map(
-      ([key, value]) => `${encodeURIComponent(key)}=${value ? 'true' : 'false'}`,
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${value ? 'true' : 'false'}`,
     );
     return entries.length ? `?${entries.join('&')}` : '';
   }
