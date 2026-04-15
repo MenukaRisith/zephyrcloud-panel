@@ -119,6 +119,21 @@ export default function LoginRoute() {
   return (
     <section className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10 sm:px-6">
       <div className={cn(softCardClass, "w-full max-w-[440px] p-8 sm:p-10")}>
+        <div className="mb-6 flex h-9 items-center">
+          <img
+            src="/logo-b.png"
+            alt=""
+            aria-hidden="true"
+            className="theme-logo-light h-9 w-auto object-contain"
+          />
+          <img
+            src="/logo-w.png"
+            alt=""
+            aria-hidden="true"
+            className="theme-logo-dark h-9 w-auto object-contain"
+          />
+        </div>
+
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
           Sign in
         </h1>
@@ -204,7 +219,7 @@ export default function LoginRoute() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={cn(primaryCtaClass, "min-h-12 w-full py-3 text-sm")}
+            className={cn(primaryCtaClass, "min-h-12 w-full py-3 text-base")}
           >
             {isSubmitting ? (
               <>
