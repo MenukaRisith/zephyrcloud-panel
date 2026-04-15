@@ -2033,8 +2033,6 @@ export class SitesService {
       );
     }
 
-    let sentinelToken = (process.env.COOLIFY_SENTINEL_TOKEN ?? '').trim();
-    let sentinelBaseUrl = (process.env.COOLIFY_SENTINEL_BASE_URL ?? '').trim();
     let sentinelEnabled = true;
     let metricsEnabled = true;
 
@@ -2054,9 +2052,6 @@ export class SitesService {
         if (typeof settings.is_metrics_enabled === 'boolean') {
           metricsEnabled = settings.is_metrics_enabled;
         }
-        if (!sentinelToken && typeof settings.sentinel_token === 'string') {
-          sentinelToken = settings.sentinel_token.trim();
-        }
       }
     } catch {
       // Ignore resolution errors and fall back to explicit backend config.
@@ -2070,68 +2065,99 @@ export class SitesService {
       return unavailable('Container metrics are disabled for this Coolify server.');
     }
 
-    if (!sentinelBaseUrl) {
+    const metricsBridgeBaseUrl = (process.env.METRICS_BRIDGE_BASE_URL ?? '')
+      .trim()
+      .replace(/\/+$/, '');
+    const metricsBridgeApiKey = (process.env.METRICS_BRIDGE_API_KEY ?? '').trim();
+
+    if (!metricsBridgeBaseUrl) {
       return unavailable(
-        'Live metrics need COOLIFY_SENTINEL_BASE_URL configured on the backend. Coolify server settings do not expose a direct metrics API URL.',
+        'Live metrics need METRICS_BRIDGE_BASE_URL configured on the backend.',
       );
     }
 
-    if (!sentinelToken) {
+    if (!metricsBridgeApiKey) {
       return unavailable(
-        'Live metrics need COOLIFY_SENTINEL_TOKEN configured on the backend.',
+        'Live metrics need METRICS_BRIDGE_API_KEY configured on the backend.',
       );
     }
 
     const from = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const to = refreshedAt;
     const containerId = site.coolify_resource_id;
-    const metricsBaseUrl = sentinelBaseUrl.replace(/\/+$/, '');
+    const bridgeUrl = new URL(
+      `/metrics/${encodeURIComponent(containerId)}`,
+      `${metricsBridgeBaseUrl}/`,
+    );
+    bridgeUrl.searchParams.set('from', from);
+    bridgeUrl.searchParams.set('to', to);
 
     try {
-      const [cpuHistoryRaw, memoryHistoryRaw] = await Promise.all([
-        fetch(
-          `${metricsBaseUrl}/api/container/${containerId}/cpu/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-          {
-            headers: {
-              Authorization: `Bearer ${sentinelToken}`,
-              Accept: 'application/json',
-            },
-            signal: AbortSignal.timeout(8000),
-          },
-        ),
-        fetch(
-          `${metricsBaseUrl}/api/container/${containerId}/memory/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-          {
-            headers: {
-              Authorization: `Bearer ${sentinelToken}`,
-              Accept: 'application/json',
-            },
-            signal: AbortSignal.timeout(8000),
-          },
-        ),
-      ]);
+      const bridgeResponse = await fetch(bridgeUrl, {
+        headers: {
+          Authorization: `Bearer ${metricsBridgeApiKey}`,
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      const bridgePayload = (await bridgeResponse.json().catch(() => null)) as unknown;
 
-      if (!cpuHistoryRaw.ok || !memoryHistoryRaw.ok) {
-        const firstFailure = !cpuHistoryRaw.ok ? cpuHistoryRaw : memoryHistoryRaw;
-        if (firstFailure.status === 401) {
+      if (!bridgeResponse.ok) {
+        const bridgeErrorCode =
+          isRecord(bridgePayload) && typeof bridgePayload.code === 'string'
+            ? bridgePayload.code
+            : null;
+        const bridgeError =
+          isRecord(bridgePayload) && typeof bridgePayload.error === 'string'
+            ? bridgePayload.error
+            : null;
+
+        if (bridgeResponse.status === 401 || bridgeResponse.status === 403) {
           return unavailable(
-            'Sentinel rejected the metrics request. Check COOLIFY_SENTINEL_TOKEN.',
+            'Metrics bridge rejected the request. Check METRICS_BRIDGE_API_KEY.',
           );
         }
-        if (firstFailure.status === 404) {
+        if (
+          bridgeResponse.status === 404 ||
+          bridgeErrorCode === 'sentinel_not_found'
+        ) {
           return unavailable(
             'Live metrics are not available for this site yet. Sentinel has not collected container samples for it.',
           );
         }
+        if (bridgeResponse.status === 429) {
+          return unavailable(
+            'Live metrics are temporarily rate limited by the metrics bridge. Retry shortly.',
+          );
+        }
+        if (bridgeErrorCode === 'sentinel_unauthorized') {
+          return unavailable(
+            'Metrics bridge could not authenticate with Sentinel. Check SENTINEL_TOKEN on the bridge.',
+          );
+        }
+        if (
+          bridgeErrorCode === 'sentinel_timeout' ||
+          bridgeErrorCode === 'sentinel_unreachable'
+        ) {
+          return unavailable(
+            'Live metrics are currently unreachable from the metrics bridge. Check bridge connectivity to Sentinel.',
+          );
+        }
         throw new Error(
-          `Sentinel metrics request failed with HTTP ${firstFailure.status}.`,
+          bridgeError
+            ? `Metrics bridge request failed: ${bridgeError}`
+            : `Metrics bridge request failed with HTTP ${bridgeResponse.status}.`,
         );
       }
 
-      const [cpuPayload, memoryPayload] = (await Promise.all([
-        cpuHistoryRaw.json(),
-        memoryHistoryRaw.json(),
-      ])) as [unknown, unknown];
+      const cpuPayload =
+        isRecord(bridgePayload) && Array.isArray(bridgePayload.cpu)
+          ? bridgePayload.cpu
+          : [];
+      const memoryPayload =
+        isRecord(bridgePayload) && Array.isArray(bridgePayload.memory)
+          ? bridgePayload.memory
+          : [];
 
       const cpuHistory = Array.isArray(cpuPayload)
         ? cpuPayload
@@ -2209,7 +2235,7 @@ export class SitesService {
         error instanceof Error &&
         (error.message === 'fetch failed' ||
           /network|timeout|connect|socket/i.test(error.message))
-          ? 'Live metrics are currently unreachable from the backend. Check COOLIFY_SENTINEL_BASE_URL network access.'
+          ? 'Live metrics are currently unreachable from the metrics bridge. Check METRICS_BRIDGE_BASE_URL network access.'
           : error instanceof Error
             ? error.message
             : 'Live metrics are currently unavailable.';

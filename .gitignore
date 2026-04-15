@@ -7,3 +7,4 @@
 **/.react-router/
 **/coverage/
 *.log
+graphify-out/cache/
