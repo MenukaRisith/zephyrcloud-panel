@@ -4,7 +4,7 @@ import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 
 import type { ApiError, LoginRequest, LoginResponse } from "../services/api.client";
 import { apiUrl } from "../services/api.base";
-import { PANEL_DESCRIPTION, PANEL_HOST, PANEL_NAME, pageTitle } from "../lib/brand";
+import { PANEL_DESCRIPTION, pageTitle } from "../lib/brand";
 import { createUserSession } from "../services/session.server";
 import { primaryCtaClass, softCardClass } from "~/lib/ui";
 import { cn } from "~/lib/utils";
@@ -119,31 +119,6 @@ export default function LoginRoute() {
   return (
     <section className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10 sm:px-6">
       <div className={cn(softCardClass, "w-full max-w-[440px] p-8 sm:p-10")}>
-        <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-9 items-center">
-            <img
-              src="/logo-b.png"
-              alt=""
-              aria-hidden="true"
-              className="theme-logo-light h-9 w-auto object-contain"
-            />
-            <img
-              src="/logo-w.png"
-              alt=""
-              aria-hidden="true"
-              className="theme-logo-dark h-9 w-auto object-contain"
-            />
-          </span>
-          <div>
-            <div className="text-sm font-semibold tracking-[0.08em] text-[var(--foreground)]">
-              {PANEL_NAME}
-            </div>
-            <div className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              {PANEL_HOST}
-            </div>
-          </div>
-        </div>
-
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
           Sign in
         </h1>
@@ -226,7 +201,11 @@ export default function LoginRoute() {
             ) : null}
           </div>
 
-          <button type="submit" disabled={isSubmitting} className={cn(primaryCtaClass, "w-full")}>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={cn(primaryCtaClass, "min-h-12 w-full py-3 text-sm")}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
