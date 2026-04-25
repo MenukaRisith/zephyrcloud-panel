@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  Workflow,
 } from "lucide-react";
 
 import {
@@ -98,19 +99,27 @@ type AdminUser = {
   tenant_id: string | null;
   tenant_name: string | null;
   tenant_slug: string | null;
+  tenant_package_id: string | null;
+  tenant_package_name: string | null;
+  tenant_package_kind: PackageKind | null;
   site_memberships: number;
   last_login_at: string | null;
   created_at: string;
 };
 
+type PlanKey =
+  | "FREE"
+  | "PRO"
+  | "DRIFT_START"
+  | "DRIFT_CORE"
+  | "DRIFT_PLUS"
+  | "DRIFT_GLOBAL";
+
+type PackageKind = "WEB" | "N8N";
+type N8nVariant = "SIMPLE" | "POSTGRES" | "QUEUE";
+
 type PlanCatalogItem = {
-  key:
-    | "FREE"
-    | "PRO"
-    | "DRIFT_START"
-    | "DRIFT_CORE"
-    | "DRIFT_PLUS"
-    | "DRIFT_GLOBAL";
+  key: PlanKey;
   label: string;
   description: string;
   resources: {
@@ -121,16 +130,57 @@ type PlanCatalogItem = {
   };
 };
 
+type AdminPackage = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  kind: PackageKind;
+  is_active: boolean;
+  n8n_variant: N8nVariant | null;
+  legacy_plan: PlanKey | null;
+  resources: {
+    max_sites: number | null;
+    max_services: number | null;
+    max_cpu_total: number | null;
+    max_memory_mb_total: number | null;
+    max_storage_gb_total: number | null;
+    max_team_members_per_site: number | null;
+  };
+  variant_details: {
+    label: string;
+    description: string;
+  } | null;
+  usage: {
+    tenants: number;
+    managed_services: number;
+  };
+  created_at: string;
+  updated_at: string;
+};
+
+type N8nVariantDetail = {
+  key: N8nVariant;
+  label: string;
+  description: string;
+};
+
 type AdminTenant = {
   id: string;
   name: string;
   slug: string;
-  plan: PlanCatalogItem["key"];
+  plan: PlanKey;
+  package_id: string | null;
+  package_name: string | null;
+  package_kind: PackageKind | null;
+  package_is_active: boolean | null;
+  n8n_variant: N8nVariant | null;
   is_active: boolean;
   suspended_at: string | null;
   usage: {
     users: number;
     sites: number;
+    services: number;
     assigned_sites: number;
     unassigned_sites: number;
   };
@@ -157,7 +207,10 @@ type AdminSite = {
   status: string;
   tenant_id: string;
   tenant_name: string;
-  tenant_plan: PlanCatalogItem["key"];
+  tenant_plan: PlanKey;
+  tenant_package_id: string | null;
+  tenant_package_name: string | null;
+  tenant_package_kind: PackageKind | null;
   primary_domain: string | null;
   repo_url: string | null;
   repo_branch: string | null;
@@ -176,6 +229,25 @@ type AdminSite = {
   updated_at: string;
 };
 
+type AdminManagedService = {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  tenant_id: string;
+  tenant_name: string;
+  tenant_package_id: string | null;
+  tenant_package_name: string | null;
+  n8n_variant: N8nVariant;
+  primary_domain: string | null;
+  cpu_limit: number;
+  memory_mb: number;
+  storage_gb: number;
+  coolify_service_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type CoolifySiteCandidate = {
   uuid: string;
   name: string;
@@ -189,7 +261,10 @@ type LoaderData = {
   users: AdminUser[];
   tenants: AdminTenant[];
   sites: AdminSite[];
+  services: AdminManagedService[];
   coolifySites: CoolifySiteCandidate[];
+  packages: AdminPackage[];
+  n8nVariants: N8nVariantDetail[];
   planCatalog: PlanCatalogItem[];
   adminEmails: string[];
   stats: {
@@ -200,6 +275,7 @@ type LoaderData = {
     active_tenants: number;
     total_sites: number;
     unassigned_sites: number;
+    total_services: number;
   };
   coolifyHealth: {
     ok: boolean;
@@ -210,7 +286,7 @@ type LoaderData = {
 };
 
 type ActionData = { ok: true; message: string } | { ok: false; error: string };
-type AdminTab = "users" | "plans" | "sites" | "platform";
+type AdminTab = "users" | "packages" | "sites" | "services" | "platform";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -303,6 +379,18 @@ function statusTone(status?: string) {
   return "border-amber-400/20 bg-amber-400/10 text-amber-100";
 }
 
+function normalizePackageKind(value: unknown): PackageKind | null {
+  if (value === "WEB" || value === "N8N") return value;
+  return null;
+}
+
+function normalizeN8nVariant(value: unknown): N8nVariant | null {
+  if (value === "SIMPLE" || value === "POSTGRES" || value === "QUEUE") {
+    return value;
+  }
+  return null;
+}
+
 function parsePanelApps(panelAppsPayload: unknown): PanelApp[] {
   const panelApps = Array.isArray(panelAppsPayload)
     ? panelAppsPayload.filter(isRecord).map((app) => ({
@@ -362,6 +450,16 @@ function parseUsers(
             typeof user.tenant_name === "string" ? user.tenant_name : null,
           tenant_slug:
             typeof user.tenant_slug === "string" ? user.tenant_slug : null,
+          tenant_package_id:
+            typeof user.tenant_package_id === "string"
+              ? user.tenant_package_id
+              : null,
+          tenant_package_name:
+            typeof user.tenant_package_name === "string"
+              ? user.tenant_package_name
+              : null,
+          tenant_package_kind:
+            normalizePackageKind(user.tenant_package_kind),
           site_memberships:
             typeof user.site_memberships === "number"
               ? user.site_memberships
@@ -403,6 +501,7 @@ function parseUsers(
       active_tenants: 0,
       total_sites: 0,
       unassigned_sites: 0,
+      total_services: 0,
     },
   };
 }
@@ -461,6 +560,20 @@ function parseTenants(
           name: typeof tenant.name === "string" ? tenant.name : "",
           slug: typeof tenant.slug === "string" ? tenant.slug : "",
           plan: typeof tenant.plan === "string" ? tenant.plan : "FREE",
+          package_id:
+            typeof tenant.package_id === "string" ? tenant.package_id : null,
+          package_name:
+            typeof tenant.package_name === "string"
+              ? tenant.package_name
+              : null,
+          package_kind:
+            normalizePackageKind(tenant.package_kind),
+          package_is_active:
+            typeof tenant.package_is_active === "boolean"
+              ? tenant.package_is_active
+              : null,
+          n8n_variant:
+            normalizeN8nVariant(tenant.n8n_variant),
           is_active: Boolean(tenant.is_active),
           suspended_at:
             typeof tenant.suspended_at === "string"
@@ -476,6 +589,10 @@ function parseTenants(
                   typeof tenant.usage.sites === "number"
                     ? tenant.usage.sites
                     : 0,
+                services:
+                  typeof tenant.usage.services === "number"
+                    ? tenant.usage.services
+                    : 0,
                 assigned_sites:
                   typeof tenant.usage.assigned_sites === "number"
                     ? tenant.usage.assigned_sites
@@ -485,7 +602,13 @@ function parseTenants(
                     ? tenant.usage.unassigned_sites
                     : 0,
               }
-            : { users: 0, sites: 0, assigned_sites: 0, unassigned_sites: 0 },
+            : {
+                users: 0,
+                sites: 0,
+                services: 0,
+                assigned_sites: 0,
+                unassigned_sites: 0,
+              },
           resources: isRecord(tenant.resources)
             ? {
                 overrides: isRecord(tenant.resources.overrides)
@@ -583,6 +706,7 @@ function parseTenants(
           : 0,
       total_sites: 0,
       unassigned_sites: 0,
+      total_services: 0,
     },
   };
 }
@@ -613,6 +737,16 @@ function parseSites(
             typeof site.tenant_name === "string" ? site.tenant_name : "",
           tenant_plan:
             typeof site.tenant_plan === "string" ? site.tenant_plan : "FREE",
+          tenant_package_id:
+            typeof site.tenant_package_id === "string"
+              ? site.tenant_package_id
+              : null,
+          tenant_package_name:
+            typeof site.tenant_package_name === "string"
+              ? site.tenant_package_name
+              : null,
+          tenant_package_kind:
+            normalizePackageKind(site.tenant_package_kind),
           primary_domain:
             typeof site.primary_domain === "string"
               ? site.primary_domain
@@ -661,7 +795,192 @@ function parseSites(
         typeof statsRecord.unassigned_sites === "number"
           ? statsRecord.unassigned_sites
           : 0,
+      total_services: 0,
     },
+  };
+}
+
+function parsePackages(packagesPayload: unknown): {
+  packages: AdminPackage[];
+  n8nVariants: N8nVariantDetail[];
+} {
+  const packages =
+    isRecord(packagesPayload) && Array.isArray(packagesPayload.packages)
+      ? packagesPayload.packages.filter(isRecord).map((pkg) => {
+          const resources = isRecord(pkg.resources) ? pkg.resources : {};
+          const variantDetails = isRecord(pkg.variant_details)
+            ? pkg.variant_details
+            : null;
+          const usage = isRecord(pkg.usage) ? pkg.usage : {};
+          return {
+            id: typeof pkg.id === "string" ? pkg.id : "",
+            name: typeof pkg.name === "string" ? pkg.name : "",
+            slug: typeof pkg.slug === "string" ? pkg.slug : "",
+            description:
+              typeof pkg.description === "string" ? pkg.description : null,
+            kind: pkg.kind === "N8N" ? "N8N" : "WEB",
+            is_active: Boolean(pkg.is_active),
+            n8n_variant:
+              normalizeN8nVariant(pkg.n8n_variant),
+            legacy_plan:
+              typeof pkg.legacy_plan === "string"
+                ? (pkg.legacy_plan as PlanKey)
+                : null,
+            resources: {
+              max_sites:
+                typeof resources.max_sites === "number"
+                  ? resources.max_sites
+                  : null,
+              max_services:
+                typeof resources.max_services === "number"
+                  ? resources.max_services
+                  : null,
+              max_cpu_total:
+                typeof resources.max_cpu_total === "number"
+                  ? resources.max_cpu_total
+                  : null,
+              max_memory_mb_total:
+                typeof resources.max_memory_mb_total === "number"
+                  ? resources.max_memory_mb_total
+                  : null,
+              max_storage_gb_total:
+                typeof resources.max_storage_gb_total === "number"
+                  ? resources.max_storage_gb_total
+                  : null,
+              max_team_members_per_site:
+                typeof resources.max_team_members_per_site === "number"
+                  ? resources.max_team_members_per_site
+                  : null,
+            },
+            variant_details: variantDetails
+              ? {
+                  label:
+                    typeof variantDetails.label === "string"
+                      ? variantDetails.label
+                      : "",
+                  description:
+                    typeof variantDetails.description === "string"
+                      ? variantDetails.description
+                      : "",
+                }
+              : null,
+            usage: {
+              tenants:
+                typeof usage.tenants === "number" ? usage.tenants : 0,
+              managed_services:
+                typeof usage.managed_services === "number"
+                  ? usage.managed_services
+                  : 0,
+            },
+            created_at:
+              typeof pkg.created_at === "string"
+                ? pkg.created_at
+                : new Date(0).toISOString(),
+            updated_at:
+              typeof pkg.updated_at === "string"
+                ? pkg.updated_at
+                : new Date(0).toISOString(),
+          } satisfies AdminPackage;
+        })
+      : [];
+
+  const n8nVariants =
+    isRecord(packagesPayload) && Array.isArray(packagesPayload.n8n_variants)
+      ? packagesPayload.n8n_variants.filter(isRecord).map((variant) => ({
+          key:
+            normalizeN8nVariant(variant.key) ?? "SIMPLE",
+          label: typeof variant.label === "string" ? variant.label : "",
+          description:
+            typeof variant.description === "string"
+              ? variant.description
+              : "",
+        }))
+      : [
+          {
+            key: "SIMPLE" as const,
+            label: "Simple",
+            description:
+              "One n8n container with persistent /home/node/.n8n storage.",
+          },
+          {
+            key: "POSTGRES" as const,
+            label: "With Postgres",
+            description: "n8n plus PostgreSQL.",
+          },
+          {
+            key: "QUEUE" as const,
+            label: "Queue mode",
+            description: "n8n plus PostgreSQL, Redis, and a worker.",
+          },
+        ];
+
+  return {
+    packages: packages.filter((pkg) => pkg.id.length > 0),
+    n8nVariants,
+  };
+}
+
+function parseServices(servicesPayload: unknown): {
+  services: AdminManagedService[];
+  totalServices: number;
+} {
+  const statsRecord =
+    isRecord(servicesPayload) && isRecord(servicesPayload.stats)
+      ? servicesPayload.stats
+      : {};
+  const services =
+    isRecord(servicesPayload) && Array.isArray(servicesPayload.services)
+      ? servicesPayload.services.filter(isRecord).map((service) => ({
+          id: typeof service.id === "string" ? service.id : "",
+          name: typeof service.name === "string" ? service.name : "",
+          type: typeof service.type === "string" ? service.type : "n8n",
+          status:
+            typeof service.status === "string" ? service.status : "UNKNOWN",
+          tenant_id:
+            typeof service.tenant_id === "string" ? service.tenant_id : "",
+          tenant_name:
+            typeof service.tenant_name === "string" ? service.tenant_name : "",
+          tenant_package_id:
+            typeof service.tenant_package_id === "string"
+              ? service.tenant_package_id
+              : null,
+          tenant_package_name:
+            typeof service.tenant_package_name === "string"
+              ? service.tenant_package_name
+              : null,
+          n8n_variant:
+            normalizeN8nVariant(service.n8n_variant) ?? "SIMPLE",
+          primary_domain:
+            typeof service.primary_domain === "string"
+              ? service.primary_domain
+              : null,
+          cpu_limit:
+            typeof service.cpu_limit === "number" ? service.cpu_limit : 0,
+          memory_mb:
+            typeof service.memory_mb === "number" ? service.memory_mb : 0,
+          storage_gb:
+            typeof service.storage_gb === "number" ? service.storage_gb : 0,
+          coolify_service_id:
+            typeof service.coolify_service_id === "string"
+              ? service.coolify_service_id
+              : null,
+          created_at:
+            typeof service.created_at === "string"
+              ? service.created_at
+              : new Date(0).toISOString(),
+          updated_at:
+            typeof service.updated_at === "string"
+              ? service.updated_at
+              : new Date(0).toISOString(),
+        }))
+      : [];
+
+  return {
+    services: services.filter((service) => service.id.length > 0),
+    totalServices:
+      typeof statsRecord.total_services === "number"
+        ? statsRecord.total_services
+        : services.length,
   };
 }
 
@@ -699,20 +1018,32 @@ export async function loader({
   if (user.role !== "admin") return redirect("/");
 
   const errors: string[] = [];
-  const [appsRes, usersRes, tenantsRes, sitesRes, coolifySitesRes, healthRes] =
-    await Promise.all([
-      apiFetchAuthed(request, "/api/admin/panel-apps"),
-      apiFetchAuthed(request, "/api/admin/users"),
-      apiFetchAuthed(request, "/api/admin/tenants"),
-      apiFetchAuthed(request, "/api/admin/sites"),
-      apiFetchAuthed(request, "/api/admin/coolify-sites"),
-      apiFetchAuthed(request, "/api/admin/coolify/health"),
-    ]);
+  const [
+    appsRes,
+    usersRes,
+    tenantsRes,
+    packagesRes,
+    sitesRes,
+    servicesRes,
+    coolifySitesRes,
+    healthRes,
+  ] = await Promise.all([
+    apiFetchAuthed(request, "/api/admin/panel-apps"),
+    apiFetchAuthed(request, "/api/admin/users"),
+    apiFetchAuthed(request, "/api/admin/tenants"),
+    apiFetchAuthed(request, "/api/admin/packages"),
+    apiFetchAuthed(request, "/api/admin/sites"),
+    apiFetchAuthed(request, "/api/admin/services"),
+    apiFetchAuthed(request, "/api/admin/coolify-sites"),
+    apiFetchAuthed(request, "/api/admin/coolify/health"),
+  ]);
 
   const appsPayload = await safeJson(appsRes);
   const usersPayload = await safeJson(usersRes);
   const tenantsPayload = await safeJson(tenantsRes);
+  const packagesPayload = await safeJson(packagesRes);
   const sitesPayload = await safeJson(sitesRes);
+  const servicesPayload = await safeJson(servicesRes);
   const coolifySitesPayload = await safeJson(coolifySitesRes);
   const healthPayload = await safeJson(healthRes);
 
@@ -725,8 +1056,14 @@ export async function loader({
   if (!tenantsRes.ok) {
     errors.push(messageFrom(tenantsPayload, "Could not load tenants."));
   }
+  if (!packagesRes.ok) {
+    errors.push(messageFrom(packagesPayload, "Could not load packages."));
+  }
   if (!sitesRes.ok) {
     errors.push(messageFrom(sitesPayload, "Could not load sites."));
+  }
+  if (!servicesRes.ok) {
+    errors.push(messageFrom(servicesPayload, "Could not load services."));
   }
   if (!coolifySitesRes.ok) {
     errors.push(
@@ -739,14 +1076,19 @@ export async function loader({
 
   const usersData = parseUsers(usersPayload);
   const tenantsData = parseTenants(tenantsPayload);
+  const packagesData = parsePackages(packagesPayload);
   const sitesData = parseSites(sitesPayload);
+  const servicesData = parseServices(servicesPayload);
 
   return {
     panelApps: parsePanelApps(appsPayload),
     users: usersData.users,
     tenants: tenantsData.tenants,
     sites: sitesData.sites,
+    services: servicesData.services,
     coolifySites: parseCoolifySites(coolifySitesPayload),
+    packages: packagesData.packages,
+    n8nVariants: packagesData.n8nVariants,
     planCatalog: tenantsData.planCatalog,
     adminEmails: usersData.adminEmails,
     stats: {
@@ -755,6 +1097,7 @@ export async function loader({
       active_tenants: tenantsData.stats.active_tenants,
       total_sites: sitesData.stats.total_sites,
       unassigned_sites: sitesData.stats.unassigned_sites,
+      total_services: servicesData.totalServices,
     },
     coolifyHealth:
       isRecord(healthPayload) &&
@@ -877,6 +1220,7 @@ export async function action({
           role: String(formData.get("role") || "user"),
           is_active: String(formData.get("is_active") || "true") === "true",
           tenant_id: optionalStringField(formData, "tenant_id"),
+          package_id: optionalStringField(formData, "package_id"),
         }),
       },
     );
@@ -902,6 +1246,7 @@ export async function action({
         tenant_id: optionalStringField(formData, "tenant_id"),
         tenant_name: optionalStringField(formData, "tenant_name"),
         plan: optionalStringField(formData, "plan"),
+        package_id: optionalStringField(formData, "package_id"),
       }),
     });
     const payload = await safeJson(res);
@@ -948,6 +1293,7 @@ export async function action({
         body: JSON.stringify({
           name: optionalStringField(formData, "name"),
           plan: optionalStringField(formData, "plan"),
+          package_id: optionalStringField(formData, "package_id"),
           is_active: String(formData.get("is_active") || "true") === "true",
           max_sites: nullableNumberField(formData, "max_sites"),
           max_cpu_total: nullableNumberField(formData, "max_cpu_total"),
@@ -969,7 +1315,86 @@ export async function action({
         error: messageFrom(payload, "Could not update that plan."),
       };
     }
-    return { ok: true, message: "Tenant plan updated." };
+    return { ok: true, message: "Tenant package updated." };
+  }
+
+  if (intent === "create-package") {
+    const res = await apiFetchAuthed(request, "/api/admin/packages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: String(formData.get("name") || "").trim(),
+        description: optionalStringField(formData, "description"),
+        kind: String(formData.get("kind") || "WEB"),
+        is_active: String(formData.get("is_active") || "true") === "true",
+        n8n_variant: optionalStringField(formData, "n8n_variant"),
+        max_sites: nullableNumberField(formData, "max_sites"),
+        max_services: nullableNumberField(formData, "max_services"),
+        max_cpu_total: nullableNumberField(formData, "max_cpu_total"),
+        max_memory_mb_total: nullableNumberField(
+          formData,
+          "max_memory_mb_total",
+        ),
+        max_storage_gb_total: nullableNumberField(
+          formData,
+          "max_storage_gb_total",
+        ),
+        max_team_members_per_site: nullableNumberField(
+          formData,
+          "max_team_members_per_site",
+        ),
+      }),
+    });
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not create that package."),
+      };
+    }
+    return { ok: true, message: "Package created." };
+  }
+
+  if (intent === "update-package") {
+    const packageId = String(formData.get("package_id") || "");
+    const res = await apiFetchAuthed(
+      request,
+      `/api/admin/packages/${encodeURIComponent(packageId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: String(formData.get("name") || "").trim(),
+          description: optionalStringField(formData, "description") ?? null,
+          kind: String(formData.get("kind") || "WEB"),
+          is_active: String(formData.get("is_active") || "true") === "true",
+          n8n_variant: optionalStringField(formData, "n8n_variant"),
+          max_sites: nullableNumberField(formData, "max_sites"),
+          max_services: nullableNumberField(formData, "max_services"),
+          max_cpu_total: nullableNumberField(formData, "max_cpu_total"),
+          max_memory_mb_total: nullableNumberField(
+            formData,
+            "max_memory_mb_total",
+          ),
+          max_storage_gb_total: nullableNumberField(
+            formData,
+            "max_storage_gb_total",
+          ),
+          max_team_members_per_site: nullableNumberField(
+            formData,
+            "max_team_members_per_site",
+          ),
+        }),
+      },
+    );
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not update that package."),
+      };
+    }
+    return { ok: true, message: "Package updated." };
   }
 
   if (intent === "create-site") {
@@ -1053,6 +1478,77 @@ export async function action({
     return { ok: true, message: "Site assignment updated." };
   }
 
+  if (intent === "create-service") {
+    const res = await apiFetchAuthed(request, "/api/admin/services", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: String(formData.get("tenant_id") || "").trim(),
+        name: String(formData.get("name") || "").trim(),
+      }),
+    });
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not create that service."),
+      };
+    }
+    return { ok: true, message: "n8n service created." };
+  }
+
+  if (
+    intent === "deploy-service" ||
+    intent === "restart-service" ||
+    intent === "start-service" ||
+    intent === "stop-service" ||
+    intent === "delete-service"
+  ) {
+    const serviceId = String(formData.get("service_id") || "");
+    const serviceAction = intent.replace("-service", "");
+    const res = await apiFetchAuthed(
+      request,
+      `/api/admin/services/${encodeURIComponent(serviceId)}${
+        intent === "delete-service" ? "" : `/${serviceAction}`
+      }`,
+      { method: intent === "delete-service" ? "DELETE" : "POST" },
+    );
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not update that service."),
+      };
+    }
+    return { ok: true, message: `Service ${serviceAction} queued.` };
+  }
+
+  if (
+    intent === "deploy-site" ||
+    intent === "restart-site" ||
+    intent === "start-site" ||
+    intent === "stop-site" ||
+    intent === "delete-site"
+  ) {
+    const siteId = String(formData.get("site_id") || "");
+    const siteAction = intent.replace("-site", "");
+    const res = await apiFetchAuthed(
+      request,
+      `/api/admin/sites/${encodeURIComponent(siteId)}${
+        intent === "delete-site" ? "" : `/${siteAction}`
+      }`,
+      { method: intent === "delete-site" ? "DELETE" : "POST" },
+    );
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not update that site."),
+      };
+    }
+    return { ok: true, message: `Site ${siteAction} queued.` };
+  }
+
   return { ok: false, error: "Unknown action." };
 }
 
@@ -1062,7 +1558,10 @@ export default function AdminPage() {
     users,
     tenants,
     sites,
+    services,
     coolifySites,
+    packages,
+    n8nVariants,
     planCatalog,
     adminEmails,
     stats,
@@ -1073,8 +1572,9 @@ export default function AdminPage() {
   const navigation = useNavigation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [userQuery, setUserQuery] = React.useState("");
-  const [planQuery, setPlanQuery] = React.useState("");
+  const [packageQuery, setPackageQuery] = React.useState("");
   const [siteQuery, setSiteQuery] = React.useState("");
+  const [serviceQuery, setServiceQuery] = React.useState("");
   const [createSiteTenantId, setCreateSiteTenantId] = React.useState("");
 
   const currentIntent =
@@ -1097,9 +1597,17 @@ export default function AdminPage() {
     navigation.state !== "idle"
       ? String(navigation.formData?.get("tenant_id") || "")
       : "";
+  const currentPackageId =
+    navigation.state !== "idle"
+      ? String(navigation.formData?.get("package_id") || "")
+      : "";
   const currentSiteId =
     navigation.state !== "idle"
       ? String(navigation.formData?.get("site_id") || "")
+      : "";
+  const currentServiceId =
+    navigation.state !== "idle"
+      ? String(navigation.formData?.get("service_id") || "")
       : "";
   const currentCoolifyResourceId =
     navigation.state !== "idle"
@@ -1109,15 +1617,17 @@ export default function AdminPage() {
   const rawTab = searchParams.get("tab");
   const currentTab: AdminTab =
     rawTab === "users" ||
-    rawTab === "plans" ||
+    rawTab === "packages" ||
     rawTab === "sites" ||
+    rawTab === "services" ||
     rawTab === "platform"
       ? rawTab
       : "sites";
 
   const userSearch = userQuery.trim().toLowerCase();
-  const planSearch = planQuery.trim().toLowerCase();
+  const packageSearch = packageQuery.trim().toLowerCase();
   const siteSearch = siteQuery.trim().toLowerCase();
+  const serviceSearch = serviceQuery.trim().toLowerCase();
 
   const filteredUsers = userSearch
     ? users.filter((user) =>
@@ -1133,14 +1643,28 @@ export default function AdminPage() {
           .includes(userSearch),
       )
     : users;
-  const filteredTenants = planSearch
+  const filteredTenants = packageSearch
     ? tenants.filter((tenant) =>
-        [tenant.name, tenant.slug, tenant.plan]
+        [
+          tenant.name,
+          tenant.slug,
+          tenant.plan,
+          tenant.package_name || "",
+          tenant.package_kind || "",
+        ]
           .join(" ")
           .toLowerCase()
-          .includes(planSearch),
+          .includes(packageSearch),
       )
     : tenants;
+  const filteredPackages = packageSearch
+    ? packages.filter((pkg) =>
+        [pkg.name, pkg.slug, pkg.kind, pkg.n8n_variant || ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(packageSearch),
+      )
+    : packages;
   const filteredSites = siteSearch
     ? sites.filter((site) =>
         [
@@ -1156,13 +1680,32 @@ export default function AdminPage() {
           .includes(siteSearch),
       )
     : sites;
+  const filteredServices = serviceSearch
+    ? services.filter((service) =>
+        [
+          service.name,
+          service.status,
+          service.tenant_name,
+          service.tenant_package_name || "",
+          service.n8n_variant,
+          service.primary_domain || "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(serviceSearch),
+      )
+    : services;
+  const webTenants = tenants.filter(
+    (tenant) => tenant.package_kind === "WEB" || tenant.package_kind === null,
+  );
+  const n8nTenants = tenants.filter((tenant) => tenant.package_kind === "N8N");
   const createSiteAssignableUsers = users.filter(
     (user) =>
       !createSiteTenantId ||
       user.role === "admin" ||
       user.tenant_id === createSiteTenantId,
   );
-  const createSiteTenant = tenants.find(
+  const createSiteTenant = webTenants.find(
     (tenant) => tenant.id === createSiteTenantId,
   );
 
@@ -1205,7 +1748,7 @@ export default function AdminPage() {
         </Banner>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
         <StatCard
           icon={<Server className="h-5 w-5" />}
           label="Panel apps"
@@ -1230,6 +1773,11 @@ export default function AdminPage() {
           icon={<Globe className="h-5 w-5" />}
           label="Sites"
           value={String(stats.total_sites)}
+        />
+        <StatCard
+          icon={<Workflow className="h-5 w-5" />}
+          label="Services"
+          value={String(stats.total_services)}
         />
         <StatCard
           icon={<AlertTriangle className="h-5 w-5" />}
@@ -1260,6 +1808,7 @@ export default function AdminPage() {
             currentIntent={currentIntent}
             currentUserId={currentUserId}
             filteredUsers={filteredUsers}
+            packages={packages}
             planCatalog={planCatalog}
             stats={stats}
             tenants={tenants}
@@ -1268,14 +1817,18 @@ export default function AdminPage() {
           />
         </TabsContent>
 
-        <TabsContent value="plans" className="space-y-4">
-          <AdminPlansTab
+        <TabsContent value="packages" className="space-y-4">
+          <AdminPackagesTab
             currentIntent={currentIntent}
+            currentPackageId={currentPackageId}
             currentTenantId={currentTenantId}
+            filteredPackages={filteredPackages}
             filteredTenants={filteredTenants}
+            n8nVariants={n8nVariants}
+            packages={packages}
             planCatalog={planCatalog}
-            planQuery={planQuery}
-            onPlanQueryChange={setPlanQuery}
+            packageQuery={packageQuery}
+            onPackageQueryChange={setPackageQuery}
           />
         </TabsContent>
 
@@ -1291,10 +1844,22 @@ export default function AdminPage() {
             filteredSites={filteredSites}
             siteQuery={siteQuery}
             stats={stats}
-            tenants={tenants}
+            tenants={webTenants}
             users={users}
             onCreateSiteTenantChange={setCreateSiteTenantId}
             onSiteQueryChange={setSiteQuery}
+          />
+        </TabsContent>
+
+        <TabsContent value="services" className="space-y-4">
+          <AdminServicesTab
+            currentIntent={currentIntent}
+            currentServiceId={currentServiceId}
+            filteredServices={filteredServices}
+            n8nTenants={n8nTenants}
+            serviceQuery={serviceQuery}
+            stats={stats}
+            onServiceQueryChange={setServiceQuery}
           />
         </TabsContent>
 
@@ -1338,6 +1903,7 @@ function AdminUsersTab({
   currentIntent,
   currentUserId,
   filteredUsers,
+  packages,
   planCatalog,
   stats,
   tenants,
@@ -1348,6 +1914,7 @@ function AdminUsersTab({
   currentIntent: string;
   currentUserId: string;
   filteredUsers: AdminUser[];
+  packages: AdminPackage[];
   planCatalog: PlanCatalogItem[];
   stats: LoaderData["stats"];
   tenants: AdminTenant[];
@@ -1415,7 +1982,7 @@ function AdminUsersTab({
                 <option value="">Create workspace from name below</option>
                 {tenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
-                    {tenant.name} ({tenant.plan})
+                    {tenant.name} ({tenant.package_name || tenant.plan})
                   </option>
                 ))}
               </select>
@@ -1427,6 +1994,18 @@ function AdminUsersTab({
                 {planCatalog.map((plan) => (
                   <option key={plan.key} value={plan.key}>
                     {plan.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                name="package_id"
+                defaultValue=""
+                className={fieldClassName}
+              >
+                <option value="">Default web package for plan</option>
+                {packages.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} ({pkg.kind})
                   </option>
                 ))}
               </select>
@@ -1496,6 +2075,7 @@ function AdminUsersTab({
               <UserRow
                 key={user.id}
                 user={user}
+                packages={packages}
                 tenants={tenants}
                 isUpdating={
                   currentIntent === "update-user" && currentUserId === user.id
@@ -1516,72 +2096,127 @@ function AdminUsersTab({
   );
 }
 
-function AdminPlansTab({
+function AdminPackagesTab({
   currentIntent,
+  currentPackageId,
   currentTenantId,
+  filteredPackages,
   filteredTenants,
+  n8nVariants,
+  packages,
   planCatalog,
-  planQuery,
-  onPlanQueryChange,
+  packageQuery,
+  onPackageQueryChange,
 }: {
   currentIntent: string;
+  currentPackageId: string;
   currentTenantId: string;
+  filteredPackages: AdminPackage[];
   filteredTenants: AdminTenant[];
+  n8nVariants: N8nVariantDetail[];
+  packages: AdminPackage[];
   planCatalog: PlanCatalogItem[];
-  planQuery: string;
-  onPlanQueryChange: (value: string) => void;
+  packageQuery: string;
+  onPackageQueryChange: (value: string) => void;
 }) {
   return (
-    <MotionSection
-      id="plans-resources"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18 }}
-      className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
-    >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
-            Workspaces and plans
-          </p>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
-            Manage plans and limits
-          </h2>
-        </div>
-        <SearchField
-          value={planQuery}
-          onChange={onPlanQueryChange}
-          placeholder="Search workspaces and plans"
-        />
-      </div>
-
-      {planCatalog.length > 0 ? (
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          {planCatalog.map((plan) => (
-            <PlanCatalogCard key={plan.key} plan={plan} />
-          ))}
-        </div>
-      ) : null}
-
-      <div className="mt-4 space-y-4">
-        {filteredTenants.length > 0 ? (
-          filteredTenants.map((tenant) => (
-            <TenantRow
-              key={tenant.id}
-              tenant={tenant}
-              planCatalog={planCatalog}
-              isUpdating={
-                currentIntent === "update-tenant" && currentTenantId === tenant.id
-              }
-            />
-          ))
-        ) : (
-          <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
-            No workspaces matched that search.
+    <>
+      <MotionSection
+        id="packages"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18 }}
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
+              Packages
+            </p>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+              Manage packages
+            </h2>
           </div>
-        )}
-      </div>
-    </MotionSection>
+          <SearchField
+            value={packageQuery}
+            onChange={onPackageQueryChange}
+            placeholder="Search packages and workspaces"
+          />
+        </div>
+
+        <PackageCreateCard
+          currentIntent={currentIntent}
+          n8nVariants={n8nVariants}
+        />
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          {filteredPackages.length > 0 ? (
+            filteredPackages.map((pkg) => (
+              <PackageCard
+                key={pkg.id}
+                currentIntent={currentIntent}
+                currentPackageId={currentPackageId}
+                n8nVariants={n8nVariants}
+                pkg={pkg}
+              />
+            ))
+          ) : (
+            <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
+              No packages matched that search.
+            </div>
+          )}
+        </div>
+      </MotionSection>
+
+      <MotionSection
+        id="workspace-packages"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, delay: 0.04 }}
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
+              Workspaces
+            </p>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+              Assign packages and limits
+            </h2>
+          </div>
+          <Badge>{packages.length} packages</Badge>
+        </div>
+
+        {planCatalog.length > 0 ? (
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            {planCatalog.map((plan) => (
+              <PlanCatalogCard key={plan.key} plan={plan} />
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-4 space-y-4">
+          {filteredTenants.length > 0 ? (
+            filteredTenants.map((tenant) => (
+              <TenantRow
+                key={tenant.id}
+                tenant={tenant}
+                packages={packages}
+                planCatalog={planCatalog}
+                isUpdating={
+                  currentIntent === "update-tenant" &&
+                  currentTenantId === tenant.id
+                }
+              />
+            ))
+          ) : (
+            <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
+              No workspaces matched that search.
+            </div>
+          )}
+        </div>
+      </MotionSection>
+    </>
   );
 }
 
@@ -1652,7 +2287,7 @@ function AdminSitesTab({
                 </option>
                 {tenants.map((tenant) => (
                   <option key={tenant.id} value={tenant.id}>
-                    {tenant.name} ({tenant.plan})
+                    {tenant.name} ({tenant.package_name || tenant.plan})
                   </option>
                 ))}
               </select>
@@ -1859,6 +2494,8 @@ function AdminSitesTab({
             filteredSites.map((site) => (
               <SiteRow
                 key={site.id}
+                currentIntent={currentIntent}
+                currentSiteId={currentSiteId}
                 site={site}
                 users={users}
                 isAssigning={
@@ -1874,6 +2511,212 @@ function AdminSitesTab({
         </div>
       </MotionSection>
     </>
+  );
+}
+
+function AdminServicesTab({
+  currentIntent,
+  currentServiceId,
+  filteredServices,
+  n8nTenants,
+  serviceQuery,
+  stats,
+  onServiceQueryChange,
+}: {
+  currentIntent: string;
+  currentServiceId: string;
+  filteredServices: AdminManagedService[];
+  n8nTenants: AdminTenant[];
+  serviceQuery: string;
+  stats: LoaderData["stats"];
+  onServiceQueryChange: (value: string) => void;
+}) {
+  return (
+    <>
+      <div className="grid gap-4 xl:grid-cols-[1fr_0.85fr]">
+        <MotionSection
+          id="create-services"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+          className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+        >
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
+              n8n
+            </p>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+              Create n8n services
+            </h2>
+          </div>
+          <Form method="post" className="mt-4 space-y-3">
+            <input type="hidden" name="intent" value="create-service" />
+            <div className="grid gap-3 md:grid-cols-2">
+              <select name="tenant_id" className={fieldClassName} required>
+                <option value="">Select n8n workspace</option>
+                {n8nTenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name} ({tenant.package_name || "n8n"})
+                  </option>
+                ))}
+              </select>
+              <input
+                name="name"
+                placeholder="Service name"
+                className={fieldClassName}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={currentIntent === "create-service"}
+              className={primaryButtonClassName}
+            >
+              {currentIntent === "create-service" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Workflow className="h-4 w-4" />
+              )}
+              Create service
+            </button>
+          </Form>
+        </MotionSection>
+
+        <MotionSection
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, delay: 0.03 }}
+          className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
+            Directory
+          </p>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+            Manage n8n services
+          </h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <PlanLimit
+              label="Total services"
+              value={String(stats.total_services)}
+            />
+            <PlanLimit
+              label="n8n workspaces"
+              value={String(n8nTenants.length)}
+            />
+          </div>
+          <div className="mt-4">
+            <SearchField
+              value={serviceQuery}
+              onChange={onServiceQueryChange}
+              placeholder="Search services"
+            />
+          </div>
+        </MotionSection>
+      </div>
+
+      <MotionSection
+        id="manage-services"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, delay: 0.06 }}
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+      >
+        <div className="space-y-4">
+          {filteredServices.length > 0 ? (
+            filteredServices.map((service) => (
+              <ServiceRow
+                key={service.id}
+                currentIntent={currentIntent}
+                currentServiceId={currentServiceId}
+                service={service}
+              />
+            ))
+          ) : (
+            <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
+              No services matched that search.
+            </div>
+          )}
+        </div>
+      </MotionSection>
+    </>
+  );
+}
+
+function ServiceRow({
+  currentIntent,
+  currentServiceId,
+  service,
+}: {
+  currentIntent: string;
+  currentServiceId: string;
+  service: AdminManagedService;
+}) {
+  return (
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="text-base font-semibold text-[var(--foreground)]">
+          {service.name}
+        </div>
+        <Badge>{service.status}</Badge>
+        <Badge>{service.n8n_variant}</Badge>
+        <Badge>{service.tenant_name}</Badge>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
+        <span>Domain: {service.primary_domain || "none"}</span>
+        <span>CPU: {service.cpu_limit}</span>
+        <span>Memory: {service.memory_mb} MB</span>
+        <span>Storage: {service.storage_gb} GB</span>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {(["deploy", "restart", "start", "stop"] as const).map((action) => (
+          <Form key={action} method="post">
+            <input type="hidden" name="intent" value={`${action}-service`} />
+            <input type="hidden" name="service_id" value={service.id} />
+            <button
+              type="submit"
+              disabled={
+                currentIntent === `${action}-service` &&
+                currentServiceId === service.id
+              }
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)] disabled:opacity-60"
+            >
+              {currentIntent === `${action}-service` &&
+              currentServiceId === service.id ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              {action}
+            </button>
+          </Form>
+        ))}
+        <Form
+          method="post"
+          onSubmit={(event) => {
+            if (!confirm(`Delete ${service.name}?`)) event.preventDefault();
+          }}
+        >
+          <input type="hidden" name="intent" value="delete-service" />
+          <input type="hidden" name="service_id" value={service.id} />
+          <button
+            type="submit"
+            disabled={
+              currentIntent === "delete-service" &&
+              currentServiceId === service.id
+            }
+            className="inline-flex items-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
+          >
+            {currentIntent === "delete-service" &&
+            currentServiceId === service.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Delete
+          </button>
+        </Form>
+      </div>
+    </div>
   );
 }
 
@@ -2111,7 +2954,7 @@ function CoolifySiteImportCard({
             </option>
             {tenants.map((tenant) => (
               <option key={tenant.id} value={tenant.id}>
-                {tenant.name} ({tenant.plan})
+                {tenant.name} ({tenant.package_name || tenant.plan})
               </option>
             ))}
           </select>
@@ -2405,11 +3248,13 @@ function Badge({ children }: { children: React.ReactNode }) {
 
 function UserRow({
   user,
+  packages,
   tenants,
   isUpdating,
   isChangingPassword,
 }: {
   user: AdminUser;
+  packages: AdminPackage[];
   tenants: AdminTenant[];
   isUpdating: boolean;
   isChangingPassword: boolean;
@@ -2424,6 +3269,7 @@ function UserRow({
       <div className="mt-2 text-sm text-[var(--text-muted)]">{user.email}</div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
         <span>Tenant: {user.tenant_name || "No tenant"}</span>
+        <span>Package: {user.tenant_package_name || "none"}</span>
         <span>Sites: {user.site_memberships}</span>
         <span>Last login: {formatDate(user.last_login_at)}</span>
         <span>Created: {formatDate(user.created_at)}</span>
@@ -2472,7 +3318,19 @@ function UserRow({
               <option value="">No tenant</option>
               {tenants.map((tenant) => (
                 <option key={tenant.id} value={tenant.id}>
-                  {tenant.name} ({tenant.plan})
+                  {tenant.name} ({tenant.package_name || tenant.plan})
+                </option>
+              ))}
+            </select>
+            <select
+              name="package_id"
+              defaultValue={user.tenant_package_id || ""}
+              className={fieldClassName}
+            >
+              <option value="">Keep tenant package</option>
+              {packages.map((pkg) => (
+                <option key={pkg.id} value={pkg.id}>
+                  {pkg.name} ({pkg.kind})
                 </option>
               ))}
             </select>
@@ -2527,6 +3385,289 @@ function UserRow({
   );
 }
 
+function PackageCreateCard({
+  currentIntent,
+  n8nVariants,
+}: {
+  currentIntent: string;
+  n8nVariants: N8nVariantDetail[];
+}) {
+  return (
+    <Form
+      method="post"
+      className="mt-4 space-y-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+    >
+      <input type="hidden" name="intent" value="create-package" />
+      <div className="grid gap-3 md:grid-cols-3">
+        <input
+          name="name"
+          placeholder="Package name"
+          className={fieldClassName}
+          required
+        />
+        <select name="kind" defaultValue="WEB" className={fieldClassName}>
+          <option value="WEB">Web services</option>
+          <option value="N8N">n8n services</option>
+        </select>
+        <select
+          name="is_active"
+          defaultValue="true"
+          className={fieldClassName}
+        >
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+      <input
+        name="description"
+        placeholder="Short description"
+        className={fieldClassName}
+      />
+      <div className="grid gap-3 md:grid-cols-3">
+        <select
+          name="n8n_variant"
+          defaultValue="SIMPLE"
+          className={fieldClassName}
+        >
+          {n8nVariants.map((variant) => (
+            <option key={variant.key} value={variant.key}>
+              {variant.label}
+            </option>
+          ))}
+        </select>
+        <input
+          name="max_sites"
+          type="number"
+          min="0"
+          step="1"
+          placeholder="Web site limit"
+          className={fieldClassName}
+        />
+        <input
+          name="max_services"
+          type="number"
+          min="0"
+          step="1"
+          placeholder="n8n service limit"
+          className={fieldClassName}
+        />
+        <input
+          name="max_cpu_total"
+          type="number"
+          min="0.1"
+          step="0.1"
+          placeholder="CPU"
+          className={fieldClassName}
+        />
+        <input
+          name="max_memory_mb_total"
+          type="number"
+          min="128"
+          step="128"
+          placeholder="Memory MB"
+          className={fieldClassName}
+        />
+        <input
+          name="max_storage_gb_total"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Storage GB"
+          className={fieldClassName}
+        />
+        <input
+          name="max_team_members_per_site"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Team / site"
+          className={fieldClassName}
+        />
+      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {n8nVariants.map((variant) => (
+          <PlanLimit
+            key={variant.key}
+            label={variant.label}
+            value={variant.description}
+          />
+        ))}
+      </div>
+      <button
+        type="submit"
+        disabled={currentIntent === "create-package"}
+        className={primaryButtonClassName}
+      >
+        {currentIntent === "create-package" ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Plus className="h-4 w-4" />
+        )}
+        Create package
+      </button>
+    </Form>
+  );
+}
+
+function PackageCard({
+  currentIntent,
+  currentPackageId,
+  n8nVariants,
+  pkg,
+}: {
+  currentIntent: string;
+  currentPackageId: string;
+  n8nVariants: N8nVariantDetail[];
+  pkg: AdminPackage;
+}) {
+  const isUpdating =
+    currentIntent === "update-package" && currentPackageId === pkg.id;
+
+  return (
+    <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="text-base font-semibold text-[var(--foreground)]">
+          {pkg.name}
+        </div>
+        <Badge>{pkg.kind}</Badge>
+        <Badge>{pkg.is_active ? "active" : "inactive"}</Badge>
+        {pkg.n8n_variant ? <Badge>{pkg.n8n_variant}</Badge> : null}
+      </div>
+      <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+        {pkg.variant_details?.description ||
+          pkg.description ||
+          "Package resources are editable below."}
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <PlanLimit
+          label="Tenants"
+          value={String(pkg.usage.tenants)}
+        />
+        <PlanLimit
+          label={pkg.kind === "WEB" ? "Sites" : "Services"}
+          value={String(
+            pkg.kind === "WEB"
+              ? pkg.resources.max_sites ?? 0
+              : pkg.resources.max_services ?? 0,
+          )}
+        />
+        <PlanLimit
+          label="Memory"
+          value={`${pkg.resources.max_memory_mb_total ?? 0} MB`}
+        />
+      </div>
+      <Form method="post" className="mt-4 space-y-3">
+        <input type="hidden" name="intent" value="update-package" />
+        <input type="hidden" name="package_id" value={pkg.id} />
+        <div className="grid gap-3 md:grid-cols-3">
+          <input
+            name="name"
+            defaultValue={pkg.name}
+            className={fieldClassName}
+          />
+          <select name="kind" defaultValue={pkg.kind} className={fieldClassName}>
+            <option value="WEB">Web services</option>
+            <option value="N8N">n8n services</option>
+          </select>
+          <select
+            name="is_active"
+            defaultValue={pkg.is_active ? "true" : "false"}
+            className={fieldClassName}
+          >
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+        <input
+          name="description"
+          defaultValue={pkg.description || ""}
+          placeholder="Package description"
+          className={fieldClassName}
+        />
+        <div className="grid gap-3 md:grid-cols-3">
+          <select
+            name="n8n_variant"
+            defaultValue={pkg.n8n_variant || "SIMPLE"}
+            className={fieldClassName}
+          >
+            {n8nVariants.map((variant) => (
+              <option key={variant.key} value={variant.key}>
+                {variant.label}
+              </option>
+            ))}
+          </select>
+          <input
+            name="max_sites"
+            type="number"
+            min="0"
+            step="1"
+            defaultValue={pkg.resources.max_sites ?? ""}
+            placeholder="Web site limit"
+            className={fieldClassName}
+          />
+          <input
+            name="max_services"
+            type="number"
+            min="0"
+            step="1"
+            defaultValue={pkg.resources.max_services ?? ""}
+            placeholder="n8n service limit"
+            className={fieldClassName}
+          />
+          <input
+            name="max_cpu_total"
+            type="number"
+            min="0.1"
+            step="0.1"
+            defaultValue={pkg.resources.max_cpu_total ?? ""}
+            placeholder="CPU"
+            className={fieldClassName}
+          />
+          <input
+            name="max_memory_mb_total"
+            type="number"
+            min="128"
+            step="128"
+            defaultValue={pkg.resources.max_memory_mb_total ?? ""}
+            placeholder="Memory MB"
+            className={fieldClassName}
+          />
+          <input
+            name="max_storage_gb_total"
+            type="number"
+            min="1"
+            step="1"
+            defaultValue={pkg.resources.max_storage_gb_total ?? ""}
+            placeholder="Storage GB"
+            className={fieldClassName}
+          />
+          <input
+            name="max_team_members_per_site"
+            type="number"
+            min="1"
+            step="1"
+            defaultValue={pkg.resources.max_team_members_per_site ?? ""}
+            placeholder="Team / site"
+            className={fieldClassName}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isUpdating}
+          className={primaryButtonClassName}
+        >
+          {isUpdating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          Save package
+        </button>
+      </Form>
+    </div>
+  );
+}
+
 function PlanCatalogCard({ plan }: { plan: PlanCatalogItem }) {
   return (
     <div className="min-w-0 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
@@ -2574,10 +3715,12 @@ function PlanLimit({ label, value }: { label: string; value: string }) {
 
 function TenantRow({
   tenant,
+  packages,
   planCatalog,
   isUpdating,
 }: {
   tenant: AdminTenant;
+  packages: AdminPackage[];
   planCatalog: PlanCatalogItem[];
   isUpdating: boolean;
 }) {
@@ -2585,13 +3728,15 @@ function TenantRow({
     <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="text-base font-semibold text-[var(--foreground)]">{tenant.name}</div>
-        <Badge>{tenant.plan}</Badge>
+        <Badge>{tenant.package_name || tenant.plan}</Badge>
+        <Badge>{tenant.package_kind || "legacy web"}</Badge>
         <Badge>{tenant.is_active ? "active" : "suspended"}</Badge>
         <Badge>{tenant.slug}</Badge>
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
         <span>Users: {tenant.usage.users}</span>
         <span>Sites: {tenant.usage.sites}</span>
+        <span>Services: {tenant.usage.services}</span>
         <span>Assigned: {tenant.usage.assigned_sites}</span>
         <span>Unassigned: {tenant.usage.unassigned_sites}</span>
       </div>
@@ -2638,6 +3783,18 @@ function TenantRow({
             {planCatalog.map((plan) => (
               <option key={plan.key} value={plan.key}>
                 {plan.label}
+              </option>
+            ))}
+          </select>
+          <select
+            name="package_id"
+            defaultValue={tenant.package_id || ""}
+            className={fieldClassName}
+          >
+            <option value="">Legacy plan fallback</option>
+            {packages.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>
+                {pkg.name} ({pkg.kind})
               </option>
             ))}
           </select>
@@ -2689,8 +3846,8 @@ function TenantRow({
           />
         </div>
         <p className="text-xs text-[var(--text-muted)]">
-          Leave a quota field blank to remove the override and fall back to the
-          plan default.
+          Package switches are blocked when the workspace already owns the
+          other resource type. Blank quota fields fall back to package defaults.
         </p>
         <button
           type="submit"
@@ -2702,7 +3859,7 @@ function TenantRow({
           ) : (
             <Save className="h-4 w-4" />
           )}
-          Save tenant plan
+          Save tenant package
         </button>
       </Form>
     </div>
@@ -2710,10 +3867,14 @@ function TenantRow({
 }
 
 function SiteRow({
+  currentIntent,
+  currentSiteId,
   site,
   users,
   isAssigning,
 }: {
+  currentIntent: string;
+  currentSiteId: string;
   site: AdminSite;
   users: AdminUser[];
   isAssigning: boolean;
@@ -2728,7 +3889,7 @@ function SiteRow({
         <div className="text-base font-semibold text-[var(--foreground)]">{site.name}</div>
         <Badge>{site.type}</Badge>
         <Badge>{site.tenant_name}</Badge>
-        <Badge>{site.tenant_plan}</Badge>
+        <Badge>{site.tenant_package_name || site.tenant_plan}</Badge>
         <Badge>
           {site.is_unassigned ? "unassigned" : `${site.member_count} members`}
         </Badge>
@@ -2749,6 +3910,50 @@ function SiteRow({
           ))}
         </div>
       ) : null}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {(["deploy", "restart", "start", "stop"] as const).map((action) => (
+          <Form key={action} method="post">
+            <input type="hidden" name="intent" value={`${action}-site`} />
+            <input type="hidden" name="site_id" value={site.id} />
+            <button
+              type="submit"
+              disabled={
+                currentIntent === `${action}-site` && currentSiteId === site.id
+              }
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)] disabled:opacity-60"
+            >
+              {currentIntent === `${action}-site` &&
+              currentSiteId === site.id ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              {action}
+            </button>
+          </Form>
+        ))}
+        <Form
+          method="post"
+          onSubmit={(event) => {
+            if (!confirm(`Delete ${site.name}?`)) event.preventDefault();
+          }}
+        >
+          <input type="hidden" name="intent" value="delete-site" />
+          <input type="hidden" name="site_id" value={site.id} />
+          <button
+            type="submit"
+            disabled={currentIntent === "delete-site" && currentSiteId === site.id}
+            className="inline-flex items-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
+          >
+            {currentIntent === "delete-site" && currentSiteId === site.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Delete
+          </button>
+        </Form>
+      </div>
       <Form
         method="post"
         className="mt-4 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"

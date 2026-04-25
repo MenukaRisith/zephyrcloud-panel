@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { SubscriptionPlan } from '@prisma/client';
+import { HostingPackageKind, N8nDeploymentVariant } from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,
@@ -25,13 +25,6 @@ function toOptionalBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
-function toOptionalNumber(value: unknown): number | undefined {
-  if (value === undefined || value === null || value === '') return undefined;
-  const parsed =
-    typeof value === 'number' ? value : Number.parseFloat(String(value));
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
 function toNullableNumber(value: unknown): number | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === '') return null;
@@ -40,16 +33,11 @@ function toNullableNumber(value: unknown): number | null | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-export class UpdateAdminTenantDto {
-  @IsOptional()
+export class CreateAdminPackageDto {
   @Transform(({ value }) => String(value ?? '').trim())
   @IsString()
   @MinLength(2)
-  public name?: string;
-
-  @IsOptional()
-  @IsEnum(SubscriptionPlan)
-  public plan?: SubscriptionPlan;
+  public name!: string;
 
   @IsOptional()
   @Transform(({ value }) => {
@@ -57,7 +45,10 @@ export class UpdateAdminTenantDto {
     return normalized.length > 0 ? normalized : undefined;
   })
   @IsString()
-  public package_id?: string;
+  public description?: string;
+
+  @IsEnum(HostingPackageKind)
+  public kind!: HostingPackageKind;
 
   @IsOptional()
   @Transform(({ value }) => toOptionalBoolean(value))
@@ -65,10 +56,20 @@ export class UpdateAdminTenantDto {
   public is_active?: boolean;
 
   @IsOptional()
+  @IsEnum(N8nDeploymentVariant)
+  public n8n_variant?: N8nDeploymentVariant;
+
+  @IsOptional()
   @Transform(({ value }) => toNullableNumber(value))
   @IsNumber()
-  @Min(1)
+  @Min(0)
   public max_sites?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => toNullableNumber(value))
+  @IsNumber()
+  @Min(0)
+  public max_services?: number | null;
 
   @IsOptional()
   @Transform(({ value }) => toNullableNumber(value))

@@ -1,4 +1,4 @@
-import { SubscriptionPlan } from '@prisma/client';
+import { HostingPackageKind, SubscriptionPlan } from '@prisma/client';
 
 export type TenantPlanResources = {
   maxSites: number;
@@ -10,6 +10,15 @@ export type TenantPlanResources = {
 
 export type TenantWithPlanOverrides = {
   plan: SubscriptionPlan;
+  package?: {
+    kind: HostingPackageKind;
+    is_active: boolean;
+    max_sites?: number | null;
+    max_cpu_total?: number | null;
+    max_memory_mb_total?: number | null;
+    max_storage_gb_total?: number | null;
+    max_team_members_per_site?: number | null;
+  } | null;
   max_sites?: number | null;
   max_cpu_total?: number | null;
   max_memory_mb_total?: number | null;
@@ -98,7 +107,7 @@ export const TENANT_PLAN_CATALOG: Record<
 export function resolveTenantPlanResources(
   tenant: TenantWithPlanOverrides,
 ): TenantPlanResources {
-  const defaults = TENANT_PLAN_CATALOG[tenant.plan].resources;
+  const defaults = resolvePackageResourceDefaults(tenant);
 
   return {
     maxSites: normalizePositiveInt(tenant.max_sites, defaults.maxSites),
@@ -117,6 +126,58 @@ export function resolveTenantPlanResources(
     maxTeamMembersPerSite: normalizePositiveInt(
       tenant.max_team_members_per_site,
       defaults.maxTeamMembersPerSite,
+    ),
+  };
+}
+
+function resolvePackageResourceDefaults(
+  tenant: TenantWithPlanOverrides,
+): TenantPlanResources {
+  const legacyDefaults = TENANT_PLAN_CATALOG[tenant.plan].resources;
+  const pkg = tenant.package;
+  if (!pkg?.is_active) {
+    return legacyDefaults;
+  }
+
+  if (pkg.kind !== HostingPackageKind.WEB) {
+    return {
+      maxSites: 0,
+      maxCpuTotal: normalizePositiveNumber(
+        pkg.max_cpu_total,
+        legacyDefaults.maxCpuTotal,
+      ),
+      maxMemoryMbTotal: normalizePositiveInt(
+        pkg.max_memory_mb_total,
+        legacyDefaults.maxMemoryMbTotal,
+      ),
+      maxStorageGbTotal: normalizePositiveInt(
+        pkg.max_storage_gb_total,
+        legacyDefaults.maxStorageGbTotal,
+      ),
+      maxTeamMembersPerSite: normalizePositiveInt(
+        pkg.max_team_members_per_site,
+        1,
+      ),
+    };
+  }
+
+  return {
+    maxSites: normalizePositiveInt(pkg.max_sites, legacyDefaults.maxSites),
+    maxCpuTotal: normalizePositiveNumber(
+      pkg.max_cpu_total,
+      legacyDefaults.maxCpuTotal,
+    ),
+    maxMemoryMbTotal: normalizePositiveInt(
+      pkg.max_memory_mb_total,
+      legacyDefaults.maxMemoryMbTotal,
+    ),
+    maxStorageGbTotal: normalizePositiveInt(
+      pkg.max_storage_gb_total,
+      legacyDefaults.maxStorageGbTotal,
+    ),
+    maxTeamMembersPerSite: normalizePositiveInt(
+      pkg.max_team_members_per_site,
+      legacyDefaults.maxTeamMembersPerSite,
     ),
   };
 }

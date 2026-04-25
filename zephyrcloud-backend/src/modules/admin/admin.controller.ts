@@ -20,6 +20,9 @@ import { CreateAdminSiteDto } from './dto/create-admin-site.dto';
 import { AssignAdminSiteDto } from './dto/assign-admin-site.dto';
 import { SetAdminUserPasswordDto } from './dto/set-admin-user-password.dto';
 import { ImportCoolifySiteDto } from './dto/import-coolify-site.dto';
+import { CreateAdminPackageDto } from './dto/create-admin-package.dto';
+import { UpdateAdminPackageDto } from './dto/update-admin-package.dto';
+import { CreateAdminServiceDto } from './dto/create-admin-service.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('admin')
@@ -111,6 +114,28 @@ export class AdminController {
     return this.admin.listTenants(user);
   }
 
+  @Get('packages')
+  public packages(@CurrentUser() user: JwtPayload) {
+    return this.admin.listPackages(user);
+  }
+
+  @Post('packages')
+  public createPackage(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateAdminPackageDto,
+  ) {
+    return this.admin.createPackage(user, dto);
+  }
+
+  @Patch('packages/:id')
+  public updatePackage(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateAdminPackageDto,
+  ) {
+    return this.admin.updatePackage(user, id, dto);
+  }
+
   @Patch('tenants/:id')
   public updateTenant(
     @CurrentUser() user: JwtPayload,
@@ -125,6 +150,11 @@ export class AdminController {
     return this.admin.listSites(user);
   }
 
+  @Get('services')
+  public services(@CurrentUser() user: JwtPayload) {
+    return this.admin.listManagedServices(user);
+  }
+
   @Get('coolify-sites')
   public coolifySites(@CurrentUser() user: JwtPayload) {
     return this.admin.listCoolifySiteCandidates(user);
@@ -136,6 +166,54 @@ export class AdminController {
     @Body() dto: CreateAdminSiteDto,
   ) {
     return this.admin.createSite(user, dto);
+  }
+
+  @Post('services')
+  public createService(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateAdminServiceDto,
+  ) {
+    return this.admin.createManagedService(user, dto);
+  }
+
+  @Post('services/:id/deploy')
+  public deployService(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.admin.deployManagedService(user, id);
+  }
+
+  @Post('services/:id/restart')
+  public restartService(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.admin.restartManagedService(user, id);
+  }
+
+  @Post('services/:id/start')
+  public startService(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.admin.startManagedService(user, id);
+  }
+
+  @Post('services/:id/stop')
+  public stopService(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.admin.stopManagedService(user, id);
+  }
+
+  @Delete('services/:id')
+  public deleteService(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.admin.deleteManagedService(user, id);
   }
 
   @Post('coolify-sites/import')
@@ -153,5 +231,33 @@ export class AdminController {
     @Body() dto: AssignAdminSiteDto,
   ) {
     return this.admin.assignSite(user, id, dto);
+  }
+
+  @Post('sites/:id/deploy')
+  public deploySite(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.admin.deploySite(user, id);
+  }
+
+  @Post('sites/:id/restart')
+  public restartSite(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.admin.restartSite(user, id);
+  }
+
+  @Post('sites/:id/start')
+  public startSite(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.admin.startSite(user, id);
+  }
+
+  @Post('sites/:id/stop')
+  public stopSite(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.admin.stopSite(user, id);
+  }
+
+  @Delete('sites/:id')
+  public deleteSite(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.admin.deleteSite(user, id);
   }
 }

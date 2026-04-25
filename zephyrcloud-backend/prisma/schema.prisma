@@ -18,6 +18,8 @@ model Tenant {
   slug         String    @unique
   is_active    Boolean   @default(true)
   suspended_at DateTime?
+  package_id   BigInt?
+  package      HostingPackage? @relation(fields: [package_id], references: [id], onDelete: SetNull)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -29,6 +31,7 @@ model Tenant {
   domains            Domain[]
   site_invites       SiteInvite[]
   user_databases     UserDatabase[]
+  managed_services   ManagedService[]
 
   plan                      SubscriptionPlan @default(FREE)
   max_sites                 Int?
@@ -39,6 +42,8 @@ model Tenant {
   max_memory_mb_per_site    Int?
   max_team_members_per_site Int?
   site_storages            SitePersistentStorage[]
+
+  @@index([package_id])
 }
 
 enum SubscriptionPlan {
@@ -48,6 +53,52 @@ enum SubscriptionPlan {
   DRIFT_CORE
   DRIFT_PLUS
   DRIFT_GLOBAL
+}
+
+enum HostingPackageKind {
+  WEB
+  N8N
+}
+
+enum N8nDeploymentVariant {
+  SIMPLE
+  POSTGRES
+  QUEUE
+}
+
+enum ManagedServiceStatus {
+  provisioning
+  running
+  stopped
+  error
+  deleted
+}
+
+model HostingPackage {
+  id          BigInt             @id @default(autoincrement())
+  name        String
+  slug        String             @unique
+  description String?            @db.Text
+  kind        HostingPackageKind @default(WEB)
+  is_active   Boolean            @default(true)
+  n8n_variant N8nDeploymentVariant?
+  legacy_plan SubscriptionPlan?  @unique
+
+  max_sites                 Int?
+  max_services              Int?
+  max_cpu_total             Float?
+  max_memory_mb_total       Int?
+  max_storage_gb_total      Int?
+  max_team_members_per_site Int?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  tenants          Tenant[]
+  managed_services ManagedService[]
+
+  @@index([kind])
+  @@index([is_active])
 }
 
 model User {
@@ -258,6 +309,43 @@ model SitePersistentStorage {
   @@unique([site_id, mount_path])
   @@index([tenant_id])
   @@index([site_id])
+}
+
+model ManagedService {
+  id BigInt @id @default(autoincrement())
+
+  tenant_id BigInt
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  package_id BigInt?
+  package    HostingPackage? @relation(fields: [package_id], references: [id], onDelete: SetNull)
+
+  name        String
+  type        String               @default("n8n")
+  status      ManagedServiceStatus @default(provisioning)
+  n8n_variant N8nDeploymentVariant
+
+  cpu_limit  Float @default(0.5)
+  memory_mb  Int   @default(512)
+  storage_gb Int   @default(5)
+
+  coolify_project_id       String?
+  coolify_service_id       String?
+  coolify_server_uuid      String?
+  coolify_destination_uuid String?
+  default_domain_target    String?
+  cloudflare_dns_record_id String?
+  coolify_default_hostname String?
+  last_status_sync_at      DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@index([package_id])
+  @@index([coolify_project_id])
+  @@index([coolify_service_id])
+  @@index([default_domain_target])
 }
 
 model SiteDeployKey {

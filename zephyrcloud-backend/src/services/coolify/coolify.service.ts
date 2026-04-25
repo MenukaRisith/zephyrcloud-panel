@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { N8nDeploymentVariant } from '@prisma/client';
+import { randomBytes } from 'crypto';
 import { CoolifyClient } from './coolify.client';
+import { buildN8nDockerCompose } from './n8n-compose';
 
 // --- Interfaces ---
 
@@ -22,6 +25,14 @@ interface CoolifyDatabase {
 interface CoolifyProject {
   uuid: string;
   name?: string;
+  [key: string]: unknown;
+}
+
+interface CoolifyServiceResource {
+  uuid: string;
+  name?: string;
+  status?: string;
+  domains?: string[];
   [key: string]: unknown;
 }
 
@@ -123,6 +134,15 @@ type CreateProjectConfig = {
   github_app_id?: string | number;
   private_key_uuid?: string;
   db?: CoolifyDbDetails;
+};
+
+type CreateN8nServiceConfig = {
+  name: string;
+  domainUrl: string;
+  variant: N8nDeploymentVariant;
+  cpu_limit: number;
+  memory_mb: number;
+  storage_gb: number;
 };
 
 export type CoolifyDeployment = {
@@ -330,6 +350,82 @@ export class CoolifyService {
       dbPassword: dbPasswordUsed,
       dbUser: dbUserUsed,
       dbName: dbNameUsed,
+    };
+  }
+
+  async createN8nService(config: CreateN8nServiceConfig): Promise<{
+    projectId: string;
+    serviceId: string;
+    serverUuid: string;
+    destinationUuid: string;
+  }> {
+    this.logger.log(`[createN8nService] start name="${config.name}"`);
+
+    const servers = await this.client.get<CoolifyServer[]>('/api/v1/servers');
+    const serverUuid = this.serverOverrideUuid || servers?.[0]?.uuid;
+    if (!serverUuid) throw new Error('No Coolify server found.');
+
+    const destination = this.resolveDestination(serverUuid);
+    if (!destination)
+      throw new Error('No Coolify destination UUID configured.');
+
+    const project = await this.client.post<CoolifyProject>('/api/v1/projects', {
+      name: config.name,
+      description: `n8n service project for ${config.name}`,
+    });
+
+    const projectDetails = await this.client.get<{
+      environments: CoolifyEnvironment[];
+    }>(`/api/v1/projects/${project.uuid}`);
+    const environment = projectDetails?.environments?.[0];
+    if (!environment)
+      throw new Error(`No environment found for project ${project.uuid}`);
+
+    const compose = buildN8nDockerCompose({
+      variant: config.variant,
+      publicUrl: config.domainUrl,
+      serviceName: config.name,
+      encryptionKey: this.randomSecret(32),
+      postgresPassword: this.randomSecret(24),
+      redisPassword: this.randomSecret(24),
+    });
+
+    const service = await this.client.post<CoolifyServiceResource>(
+      '/api/v1/services',
+      this.stripUndefined({
+        type: 'custom',
+        name: config.name,
+        description: `Managed n8n service (${config.variant})`,
+        project_uuid: project.uuid,
+        environment_uuid: environment.uuid,
+        environment_name: environment.name,
+        server_uuid: serverUuid,
+        destination_uuid: destination.uuid,
+        instant_deploy: false,
+        limits_memory: `${Math.trunc(config.memory_mb)}M`,
+        limits_cpus: String(config.cpu_limit),
+        docker_compose_raw: Buffer.from(compose, 'utf8').toString('base64'),
+        urls: [
+          {
+            name: this.deriveServiceUrlName(config.domainUrl),
+            url: config.domainUrl,
+          },
+        ],
+        force_domain_override: false,
+        is_container_label_escape_enabled: true,
+      }),
+    );
+
+    await this.deployResource('service', service.uuid, {
+      force: true,
+      instantDeploy: true,
+    });
+
+    return {
+      projectId: project.uuid,
+      serviceId: service.uuid,
+      serverUuid,
+      destinationUuid: destination.uuid,
     };
   }
 
@@ -558,6 +654,11 @@ export class CoolifyService {
       delete_connected_networks: options?.delete_connected_networks ?? true,
     });
     await this.client.delete(`/api/v1/applications/${uuid}${query}`);
+  }
+
+  async deleteService(uuid: string): Promise<void> {
+    if (!uuid) throw new Error('Service UUID missing');
+    await this.client.delete(`/api/v1/services/${uuid}`);
   }
 
   async deleteDatabase(uuid: string): Promise<void> {
@@ -1535,6 +1636,10 @@ export class CoolifyService {
     if (type === 'node') return '3000';
     if (type === 'python') return '8000';
     return '80';
+  }
+
+  private randomSecret(bytes: number): string {
+    return randomBytes(bytes).toString('hex');
   }
 
   private formatError(error: unknown): string {

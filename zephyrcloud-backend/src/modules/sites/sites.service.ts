@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   DomainStatus,
+  HostingPackageKind,
   PrismaClient,
   SubscriptionPlan,
   type Site,
@@ -32,6 +33,10 @@ import {
   type TenantSiteAllocation,
   TenantResourceAllocationError,
 } from '../../common/plans/tenant-resource-allocation';
+import {
+  PackageAccessError,
+  assertPackageAllowsWebSites,
+} from '../../common/packages/package-access';
 import {
   CoolifyService,
   type CoolifyResourceType,
@@ -181,6 +186,15 @@ type SiteTeamPayload = {
 type TenantPolicyPayload = {
   id: bigint;
   plan: SubscriptionPlan;
+  package: {
+    kind: HostingPackageKind;
+    is_active: boolean;
+    max_sites: number | null;
+    max_cpu_total: number | null;
+    max_memory_mb_total: number | null;
+    max_storage_gb_total: number | null;
+    max_team_members_per_site: number | null;
+  } | null;
   max_sites: number | null;
   max_cpu_total: number | null;
   max_memory_mb_total: number | null;
@@ -589,6 +603,17 @@ export class SitesService {
       select: {
         id: true,
         plan: true,
+        package: {
+          select: {
+            kind: true,
+            is_active: true,
+            max_sites: true,
+            max_cpu_total: true,
+            max_memory_mb_total: true,
+            max_storage_gb_total: true,
+            max_team_members_per_site: true,
+          },
+        },
         max_sites: true,
         max_cpu_total: true,
         max_memory_mb_total: true,
@@ -643,6 +668,21 @@ export class SitesService {
     }
   }
 
+  private assertTenantPackageAllowsWebSites(
+    tenantPolicy: TenantPolicyPayload,
+  ): void {
+    try {
+      assertPackageAllowsWebSites(tenantPolicy.package, {
+        allowLegacyPlanFallback: true,
+      });
+    } catch (error) {
+      if (error instanceof PackageAccessError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
+    }
+  }
+
   public async projectNewSiteResourceAllocation(
     tenantId: bigint,
   ): Promise<{ cpuLimit: number; memoryMb: number }> {
@@ -650,6 +690,7 @@ export class SitesService {
       this.getTenantPolicyOrThrow(tenantId),
       this.getTenantSitesForResourcePool(tenantId),
     ]);
+    this.assertTenantPackageAllowsWebSites(tenantPolicy);
     const resources = resolveTenantPlanResources(tenantPolicy);
     try {
       assertTenantSiteCountWithinLimit(resources, existingSites.length + 1);

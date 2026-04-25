@@ -56,4 +56,12 @@ export class UpdateAdminUserDto {
   })
   @IsString()
   public tenant_id?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    const normalized = String(value ?? '').trim();
+    return normalized.length > 0 ? normalized : undefined;
+  })
+  @IsString()
+  public package_id?: string;
 }
