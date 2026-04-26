@@ -42,6 +42,111 @@ type LoaderData = Omit<
   "displayStatus" | "canManageTeam" | "currentIntent" | "isSubmitting" | "actionPath"
 >;
 
+type ParsedEnvFileEntry = {
+  key: string;
+  value: string;
+  is_multiline: boolean;
+};
+
+const MAX_ENV_FILE_BYTES = 128 * 1024;
+
+function isTextUpload(value: FormDataEntryValue | null): value is File {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as { text?: unknown };
+  return typeof candidate.text === "function";
+}
+
+function findClosingQuote(value: string, quote: "'" | '"') {
+  for (let index = 1; index < value.length; index += 1) {
+    if (value[index] !== quote) continue;
+    if (quote === '"' && value[index - 1] === "\\") continue;
+    return index;
+  }
+  return -1;
+}
+
+function unescapeDoubleQuotedEnvValue(value: string) {
+  return value.replace(/\\([nrt"\\])/g, (_match, escaped: string) => {
+    if (escaped === "n") return "\n";
+    if (escaped === "r") return "\r";
+    if (escaped === "t") return "\t";
+    return escaped;
+  });
+}
+
+function stripInlineEnvComment(value: string) {
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] !== "#") continue;
+    if (index === 0 || /\s/.test(value[index - 1] ?? "")) {
+      return value.slice(0, index);
+    }
+  }
+  return value;
+}
+
+function parseEnvFileContents(source: string): ParsedEnvFileEntry[] {
+  const lines = source.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
+  const entries = new Map<string, ParsedEnvFileEntry>();
+
+  for (let index = 0; index < lines.length; index += 1) {
+    let line = lines[index] ?? "";
+    const trimmedStart = line.trimStart();
+    if (!trimmedStart || trimmedStart.startsWith("#")) continue;
+
+    line = line.replace(/^\s*export\s+/, "");
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!match) continue;
+
+    const key = match[1];
+    let rawValue = match[2] ?? "";
+    let value = "";
+    let isMultiline = false;
+    const quoteCandidate = rawValue.trimStart()[0];
+
+    if (quoteCandidate === '"' || quoteCandidate === "'") {
+      const quote = quoteCandidate;
+      let quotedValue = rawValue.trimStart();
+      let closingIndex = findClosingQuote(quotedValue, quote);
+
+      while (closingIndex < 0 && index < lines.length - 1) {
+        index += 1;
+        quotedValue += `\n${lines[index] ?? ""}`;
+        closingIndex = findClosingQuote(quotedValue, quote);
+      }
+
+      const withoutOuterQuotes =
+        closingIndex >= 0 ? quotedValue.slice(1, closingIndex) : quotedValue.slice(1);
+      value =
+        quote === '"'
+          ? unescapeDoubleQuotedEnvValue(withoutOuterQuotes)
+          : withoutOuterQuotes;
+      isMultiline = value.includes("\n");
+    } else {
+      value = stripInlineEnvComment(rawValue).trim();
+    }
+
+    entries.set(key, {
+      key,
+      value,
+      is_multiline: isMultiline,
+    });
+  }
+
+  return Array.from(entries.values());
+}
+
+function messageFromPayload(payload: unknown, fallback: string) {
+  if (typeof payload !== "object" || payload === null) return fallback;
+  const message = (payload as { message?: unknown }).message;
+  if (typeof message === "string" && message.trim()) return message;
+  if (Array.isArray(message) && typeof message[0] === "string") return message[0];
+  return fallback;
+}
+
+function messageFromError(error: unknown) {
+  return error instanceof Error ? error.message : "Failed to import env file.";
+}
+
 export async function loader({
   request,
   params,
@@ -245,6 +350,56 @@ export async function action({
       return null;
     }
 
+    if (intent === "importEnvFile") {
+      const upload = fd.get("env_file");
+      if (!isTextUpload(upload) || !String(upload.name ?? "").trim()) {
+        return { ok: false, error: "Choose an env file to upload." };
+      }
+
+      if (typeof upload.size === "number" && upload.size > MAX_ENV_FILE_BYTES) {
+        return { ok: false, error: "Env file must be 128 KB or smaller." };
+      }
+
+      const source = await upload.text();
+      if (source.length > MAX_ENV_FILE_BYTES) {
+        return { ok: false, error: "Env file must be 128 KB or smaller." };
+      }
+
+      const entries = parseEnvFileContents(source);
+      if (!entries.length) {
+        return { ok: false, error: "No environment variables were found in that file." };
+      }
+
+      const is_preview = fd.get("is_preview") === "on";
+      const is_multiline = fd.get("is_multiline") === "on";
+      const is_shown_once = fd.get("is_shown_once") === "on";
+      const is_buildtime = fd.get("is_buildtime") === "on";
+      const is_literal = fd.get("is_literal") === "on";
+
+      for (const entry of entries) {
+        const response = await apiFetchAuthed(request, `/api/sites/${id}/envs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: entry.key,
+            value: entry.value,
+            is_preview,
+            is_multiline: entry.is_multiline || is_multiline,
+            is_shown_once,
+            is_buildtime,
+            is_literal,
+          }),
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(messageFromPayload(payload, `Failed to import ${entry.key}.`));
+        }
+      }
+
+      return { ok: true, imported: entries.length };
+    }
+
     if (intent === "createEnv") {
       const key = String(fd.get("key") || "").trim();
       const value = String(fd.get("value") || "");
@@ -351,6 +506,9 @@ export async function action({
     }
   } catch (error) {
     console.error("Action Error:", error);
+    if (intent === "importEnvFile") {
+      return { ok: false, error: messageFromError(error) };
+    }
     return null;
   }
 

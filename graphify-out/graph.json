@@ -25,7 +25,7 @@
       "source_file": "zephyrcloud-backend\\src\\app.controller.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_app_controller_ts",
-      "community": 37
+      "community": 38
     },
     {
       "label": "AppController",
@@ -33,7 +33,7 @@
       "source_file": "zephyrcloud-backend\\src\\app.controller.ts",
       "source_location": "L5",
       "id": "app_controller_appcontroller",
-      "community": 37
+      "community": 38
     },
     {
       "label": ".constructor()",
@@ -41,7 +41,7 @@
       "source_file": "zephyrcloud-backend\\src\\app.controller.ts",
       "source_location": "L6",
       "id": "app_controller_appcontroller_constructor",
-      "community": 37
+      "community": 38
     },
     {
       "label": ".getHello()",
@@ -49,7 +49,7 @@
       "source_file": "zephyrcloud-backend\\src\\app.controller.ts",
       "source_location": "L9",
       "id": "app_controller_appcontroller_gethello",
-      "community": 37
+      "community": 38
     },
     {
       "label": "app.module.ts",
@@ -73,7 +73,7 @@
       "source_file": "zephyrcloud-backend\\src\\app.service.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_app_service_ts",
-      "community": 50
+      "community": 51
     },
     {
       "label": "AppService",
@@ -81,7 +81,7 @@
       "source_file": "zephyrcloud-backend\\src\\app.service.ts",
       "source_location": "L4",
       "id": "app_service_appservice",
-      "community": 50
+      "community": 51
     },
     {
       "label": ".getHello()",
@@ -89,7 +89,7 @@
       "source_file": "zephyrcloud-backend\\src\\app.service.ts",
       "source_location": "L5",
       "id": "app_service_appservice_gethello",
-      "community": 50
+      "community": 51
     },
     {
       "label": "health.controller.ts",
@@ -97,7 +97,7 @@
       "source_file": "zephyrcloud-backend\\src\\health.controller.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_health_controller_ts",
-      "community": 38
+      "community": 39
     },
     {
       "label": "HealthController",
@@ -105,7 +105,7 @@
       "source_file": "zephyrcloud-backend\\src\\health.controller.ts",
       "source_location": "L5",
       "id": "health_controller_healthcontroller",
-      "community": 38
+      "community": 39
     },
     {
       "label": ".constructor()",
@@ -113,7 +113,7 @@
       "source_file": "zephyrcloud-backend\\src\\health.controller.ts",
       "source_location": "L6",
       "id": "health_controller_healthcontroller_constructor",
-      "community": 38
+      "community": 39
     },
     {
       "label": ".getHealth()",
@@ -121,7 +121,7 @@
       "source_file": "zephyrcloud-backend\\src\\health.controller.ts",
       "source_location": "L9",
       "id": "health_controller_healthcontroller_gethealth",
-      "community": 38
+      "community": 39
     },
     {
       "label": "main.ts",
@@ -145,7 +145,7 @@
       "source_file": "zephyrcloud-backend\\src\\bootstrap\\admin-bootstrap.service.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_bootstrap_admin_bootstrap_service_ts",
-      "community": 24
+      "community": 25
     },
     {
       "label": "bcryptHash()",
@@ -153,7 +153,7 @@
       "source_file": "zephyrcloud-backend\\src\\bootstrap\\admin-bootstrap.service.ts",
       "source_location": "L8",
       "id": "admin_bootstrap_service_bcrypthash",
-      "community": 24
+      "community": 25
     },
     {
       "label": "AdminBootstrapService",
@@ -161,7 +161,7 @@
       "source_file": "zephyrcloud-backend\\src\\bootstrap\\admin-bootstrap.service.ts",
       "source_location": "L15",
       "id": "admin_bootstrap_service_adminbootstrapservice",
-      "community": 24
+      "community": 25
     },
     {
       "label": ".constructor()",
@@ -169,7 +169,7 @@
       "source_file": "zephyrcloud-backend\\src\\bootstrap\\admin-bootstrap.service.ts",
       "source_location": "L18",
       "id": "admin_bootstrap_service_adminbootstrapservice_constructor",
-      "community": 24
+      "community": 25
     },
     {
       "label": ".onApplicationBootstrap()",
@@ -177,7 +177,7 @@
       "source_file": "zephyrcloud-backend\\src\\bootstrap\\admin-bootstrap.service.ts",
       "source_location": "L23",
       "id": "admin_bootstrap_service_adminbootstrapservice_onapplicationbootstrap",
-      "community": 24
+      "community": 25
     },
     {
       "label": ".readEnv()",
@@ -185,7 +185,7 @@
       "source_file": "zephyrcloud-backend\\src\\bootstrap\\admin-bootstrap.service.ts",
       "source_location": "L85",
       "id": "admin_bootstrap_service_adminbootstrapservice_readenv",
-      "community": 24
+      "community": 25
     },
     {
       "label": "current-user.decorator.ts",
@@ -201,7 +201,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\filters\\prisma-availability-exception.filter.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_common_filters_prisma_availability_exception_filter_ts",
-      "community": 39
+      "community": 40
     },
     {
       "label": "PrismaAvailabilityExceptionFilter",
@@ -209,7 +209,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\filters\\prisma-availability-exception.filter.ts",
       "source_location": "L15",
       "id": "prisma_availability_exception_filter_prismaavailabilityexceptionfilter",
-      "community": 39
+      "community": 40
     },
     {
       "label": ".catch()",
@@ -217,7 +217,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\filters\\prisma-availability-exception.filter.ts",
       "source_location": "L18",
       "id": "prisma_availability_exception_filter_prismaavailabilityexceptionfilter_catch",
-      "community": 39
+      "community": 40
     },
     {
       "label": ".isDatabaseAvailabilityError()",
@@ -225,7 +225,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\filters\\prisma-availability-exception.filter.ts",
       "source_location": "L39",
       "id": "prisma_availability_exception_filter_prismaavailabilityexceptionfilter_isdatabaseavailabilityerror",
-      "community": 39
+      "community": 40
     },
     {
       "label": "jwt-auth.guard.ts",
@@ -249,7 +249,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\interceptors\\json-serializer.interceptor.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_common_interceptors_json_serializer_interceptor_ts",
-      "community": 40
+      "community": 41
     },
     {
       "label": "JsonSerializerInterceptor",
@@ -257,7 +257,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\interceptors\\json-serializer.interceptor.ts",
       "source_location": "L11",
       "id": "json_serializer_interceptor_jsonserializerinterceptor",
-      "community": 40
+      "community": 41
     },
     {
       "label": ".intercept()",
@@ -265,7 +265,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\interceptors\\json-serializer.interceptor.ts",
       "source_location": "L12",
       "id": "json_serializer_interceptor_jsonserializerinterceptor_intercept",
-      "community": 40
+      "community": 41
     },
     {
       "label": ".transform()",
@@ -273,7 +273,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\interceptors\\json-serializer.interceptor.ts",
       "source_location": "L16",
       "id": "json_serializer_interceptor_jsonserializerinterceptor_transform",
-      "community": 40
+      "community": 41
     },
     {
       "label": "package-access.spec.ts",
@@ -289,7 +289,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\packages\\package-access.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_common_packages_package_access_ts",
-      "community": 19
+      "community": 20
     },
     {
       "label": "PackageAccessError",
@@ -297,7 +297,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\packages\\package-access.ts",
       "source_location": "L41",
       "id": "package_access_packageaccesserror",
-      "community": 19
+      "community": 20
     },
     {
       "label": ".constructor()",
@@ -305,7 +305,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\packages\\package-access.ts",
       "source_location": "L42",
       "id": "package_access_packageaccesserror_constructor",
-      "community": 19
+      "community": 20
     },
     {
       "label": "packageAllowsWebSites()",
@@ -313,7 +313,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\packages\\package-access.ts",
       "source_location": "L51",
       "id": "package_access_packageallowswebsites",
-      "community": 19
+      "community": 20
     },
     {
       "label": "packageAllowsN8nServices()",
@@ -321,7 +321,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\packages\\package-access.ts",
       "source_location": "L59",
       "id": "package_access_packageallowsn8nservices",
-      "community": 19
+      "community": 20
     },
     {
       "label": "assertPackageAllowsWebSites()",
@@ -329,7 +329,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\packages\\package-access.ts",
       "source_location": "L65",
       "id": "package_access_assertpackageallowswebsites",
-      "community": 19
+      "community": 20
     },
     {
       "label": "assertPackageAllowsN8nServices()",
@@ -337,7 +337,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\packages\\package-access.ts",
       "source_location": "L82",
       "id": "package_access_assertpackageallowsn8nservices",
-      "community": 19
+      "community": 20
     },
     {
       "label": "tenant-plan.ts",
@@ -345,7 +345,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-plan.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_common_plans_tenant_plan_ts",
-      "community": 27
+      "community": 28
     },
     {
       "label": "resolveTenantPlanResources()",
@@ -353,7 +353,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-plan.ts",
       "source_location": "L107",
       "id": "tenant_plan_resolvetenantplanresources",
-      "community": 27
+      "community": 28
     },
     {
       "label": "resolvePackageResourceDefaults()",
@@ -361,7 +361,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-plan.ts",
       "source_location": "L133",
       "id": "tenant_plan_resolvepackageresourcedefaults",
-      "community": 27
+      "community": 28
     },
     {
       "label": "normalizePositiveInt()",
@@ -369,7 +369,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-plan.ts",
       "source_location": "L185",
       "id": "tenant_plan_normalizepositiveint",
-      "community": 27
+      "community": 28
     },
     {
       "label": "normalizePositiveNumber()",
@@ -377,7 +377,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-plan.ts",
       "source_location": "L195",
       "id": "tenant_plan_normalizepositivenumber",
-      "community": 27
+      "community": 28
     },
     {
       "label": "tenant-resource-allocation.spec.ts",
@@ -393,7 +393,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-resource-allocation.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_common_plans_tenant_resource_allocation_ts",
-      "community": 20
+      "community": 21
     },
     {
       "label": "TenantResourceAllocationError",
@@ -401,7 +401,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-resource-allocation.ts",
       "source_location": "L20",
       "id": "tenant_resource_allocation_tenantresourceallocationerror",
-      "community": 20
+      "community": 21
     },
     {
       "label": ".constructor()",
@@ -409,7 +409,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-resource-allocation.ts",
       "source_location": "L21",
       "id": "tenant_resource_allocation_tenantresourceallocationerror_constructor",
-      "community": 20
+      "community": 21
     },
     {
       "label": "assertTenantSiteCountWithinLimit()",
@@ -417,7 +417,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-resource-allocation.ts",
       "source_location": "L33",
       "id": "tenant_resource_allocation_asserttenantsitecountwithinlimit",
-      "community": 20
+      "community": 21
     },
     {
       "label": "sortSitesForAllocation()",
@@ -425,7 +425,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-resource-allocation.ts",
       "source_location": "L45",
       "id": "tenant_resource_allocation_sortsitesforallocation",
-      "community": 20
+      "community": 21
     },
     {
       "label": "buildTenantSiteAllocations()",
@@ -433,7 +433,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-resource-allocation.ts",
       "source_location": "L61",
       "id": "tenant_resource_allocation_buildtenantsiteallocations",
-      "community": 20
+      "community": 21
     },
     {
       "label": "splitUnits()",
@@ -441,7 +441,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\plans\\tenant-resource-allocation.ts",
       "source_location": "L105",
       "id": "tenant_resource_allocation_splitunits",
-      "community": 20
+      "community": 21
     },
     {
       "label": "prisma.module.ts",
@@ -465,7 +465,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\prisma\\prisma.service.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_common_prisma_prisma_service_ts",
-      "community": 17
+      "community": 18
     },
     {
       "label": "PrismaService",
@@ -473,7 +473,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\prisma\\prisma.service.ts",
       "source_location": "L10",
       "id": "prisma_service_prismaservice",
-      "community": 17
+      "community": 18
     },
     {
       "label": ".onModuleInit()",
@@ -481,7 +481,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\prisma\\prisma.service.ts",
       "source_location": "L17",
       "id": "prisma_service_prismaservice_onmoduleinit",
-      "community": 17
+      "community": 18
     },
     {
       "label": ".onModuleDestroy()",
@@ -489,7 +489,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\prisma\\prisma.service.ts",
       "source_location": "L21",
       "id": "prisma_service_prismaservice_onmoduledestroy",
-      "community": 17
+      "community": 18
     },
     {
       "label": ".isDatabaseReachable()",
@@ -497,7 +497,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\prisma\\prisma.service.ts",
       "source_location": "L37",
       "id": "prisma_service_prismaservice_isdatabasereachable",
-      "community": 17
+      "community": 18
     },
     {
       "label": ".connectWithRetry()",
@@ -505,7 +505,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\prisma\\prisma.service.ts",
       "source_location": "L51",
       "id": "prisma_service_prismaservice_connectwithretry",
-      "community": 17
+      "community": 18
     },
     {
       "label": ".sleep()",
@@ -513,7 +513,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\prisma\\prisma.service.ts",
       "source_location": "L80",
       "id": "prisma_service_prismaservice_sleep",
-      "community": 17
+      "community": 18
     },
     {
       "label": ".formatError()",
@@ -521,7 +521,7 @@
       "source_file": "zephyrcloud-backend\\src\\common\\prisma\\prisma.service.ts",
       "source_location": "L84",
       "id": "prisma_service_prismaservice_formaterror",
-      "community": 17
+      "community": 18
     },
     {
       "label": "auth.types.ts",
@@ -1537,7 +1537,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\create-admin-package.dto.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_admin_dto_create_admin_package_dto_ts",
-      "community": 41
+      "community": 42
     },
     {
       "label": "toOptionalBoolean()",
@@ -1545,7 +1545,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\create-admin-package.dto.ts",
       "source_location": "L13",
       "id": "create_admin_package_dto_tooptionalboolean",
-      "community": 41
+      "community": 42
     },
     {
       "label": "toNullableNumber()",
@@ -1553,7 +1553,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\create-admin-package.dto.ts",
       "source_location": "L28",
       "id": "create_admin_package_dto_tonullablenumber",
-      "community": 41
+      "community": 42
     },
     {
       "label": "CreateAdminPackageDto",
@@ -1561,7 +1561,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\create-admin-package.dto.ts",
       "source_location": "L36",
       "id": "create_admin_package_dto_createadminpackagedto",
-      "community": 41
+      "community": 42
     },
     {
       "label": "create-admin-service.dto.ts",
@@ -1633,7 +1633,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-package.dto.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_admin_dto_update_admin_package_dto_ts",
-      "community": 42
+      "community": 43
     },
     {
       "label": "toOptionalBoolean()",
@@ -1641,7 +1641,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-package.dto.ts",
       "source_location": "L13",
       "id": "update_admin_package_dto_tooptionalboolean",
-      "community": 42
+      "community": 43
     },
     {
       "label": "toNullableNumber()",
@@ -1649,7 +1649,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-package.dto.ts",
       "source_location": "L28",
       "id": "update_admin_package_dto_tonullablenumber",
-      "community": 42
+      "community": 43
     },
     {
       "label": "UpdateAdminPackageDto",
@@ -1657,7 +1657,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-package.dto.ts",
       "source_location": "L36",
       "id": "update_admin_package_dto_updateadminpackagedto",
-      "community": 42
+      "community": 43
     },
     {
       "label": "update-admin-tenant.dto.ts",
@@ -1665,7 +1665,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-tenant.dto.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_admin_dto_update_admin_tenant_dto_ts",
-      "community": 28
+      "community": 29
     },
     {
       "label": "toOptionalBoolean()",
@@ -1673,7 +1673,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-tenant.dto.ts",
       "source_location": "L13",
       "id": "update_admin_tenant_dto_tooptionalboolean",
-      "community": 28
+      "community": 29
     },
     {
       "label": "toOptionalNumber()",
@@ -1681,7 +1681,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-tenant.dto.ts",
       "source_location": "L28",
       "id": "update_admin_tenant_dto_tooptionalnumber",
-      "community": 28
+      "community": 29
     },
     {
       "label": "toNullableNumber()",
@@ -1689,7 +1689,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-tenant.dto.ts",
       "source_location": "L35",
       "id": "update_admin_tenant_dto_tonullablenumber",
-      "community": 28
+      "community": 29
     },
     {
       "label": "UpdateAdminTenantDto",
@@ -1697,7 +1697,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-tenant.dto.ts",
       "source_location": "L43",
       "id": "update_admin_tenant_dto_updateadmintenantdto",
-      "community": 28
+      "community": 29
     },
     {
       "label": "update-admin-user.dto.ts",
@@ -1705,7 +1705,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-user.dto.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_admin_dto_update_admin_user_dto_ts",
-      "community": 51
+      "community": 52
     },
     {
       "label": "toOptionalBoolean()",
@@ -1713,7 +1713,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-user.dto.ts",
       "source_location": "L12",
       "id": "update_admin_user_dto_tooptionalboolean",
-      "community": 51
+      "community": 52
     },
     {
       "label": "UpdateAdminUserDto",
@@ -1721,7 +1721,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\update-admin-user.dto.ts",
       "source_location": "L27",
       "id": "update_admin_user_dto_updateadminuserdto",
-      "community": 51
+      "community": 52
     },
     {
       "label": "upsert-panel-env.dto.ts",
@@ -1729,7 +1729,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\upsert-panel-env.dto.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_admin_dto_upsert_panel_env_dto_ts",
-      "community": 52
+      "community": 53
     },
     {
       "label": "toOptionalBoolean()",
@@ -1737,7 +1737,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\upsert-panel-env.dto.ts",
       "source_location": "L9",
       "id": "upsert_panel_env_dto_tooptionalboolean",
-      "community": 52
+      "community": 53
     },
     {
       "label": "UpsertPanelEnvDto",
@@ -1745,7 +1745,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\admin\\dto\\upsert-panel-env.dto.ts",
       "source_location": "L28",
       "id": "upsert_panel_env_dto_upsertpanelenvdto",
-      "community": 52
+      "community": 53
     },
     {
       "label": "auth.controller.ts",
@@ -1753,7 +1753,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.controller.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_auth_auth_controller_ts",
-      "community": 29
+      "community": 30
     },
     {
       "label": "AuthController",
@@ -1761,7 +1761,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.controller.ts",
       "source_location": "L7",
       "id": "auth_controller_authcontroller",
-      "community": 29
+      "community": 30
     },
     {
       "label": ".constructor()",
@@ -1769,7 +1769,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.controller.ts",
       "source_location": "L8",
       "id": "auth_controller_authcontroller_constructor",
-      "community": 29
+      "community": 30
     },
     {
       "label": ".register()",
@@ -1777,7 +1777,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.controller.ts",
       "source_location": "L11",
       "id": "auth_controller_authcontroller_register",
-      "community": 29
+      "community": 30
     },
     {
       "label": ".login()",
@@ -1785,7 +1785,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.controller.ts",
       "source_location": "L16",
       "id": "auth_controller_authcontroller_login",
-      "community": 29
+      "community": 30
     },
     {
       "label": "auth.module.ts",
@@ -1809,7 +1809,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_auth_auth_service_ts",
-      "community": 14
+      "community": 15
     },
     {
       "label": "slugify()",
@@ -1817,7 +1817,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L12",
       "id": "auth_service_slugify",
-      "community": 14
+      "community": 15
     },
     {
       "label": "bcryptHash()",
@@ -1825,7 +1825,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L21",
       "id": "auth_service_bcrypthash",
-      "community": 14
+      "community": 15
     },
     {
       "label": "bcryptCompare()",
@@ -1833,7 +1833,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L27",
       "id": "auth_service_bcryptcompare",
-      "community": 14
+      "community": 15
     },
     {
       "label": "AuthService",
@@ -1841,7 +1841,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L46",
       "id": "auth_service_authservice",
-      "community": 14
+      "community": 15
     },
     {
       "label": ".constructor()",
@@ -1849,7 +1849,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L47",
       "id": "auth_service_authservice_constructor",
-      "community": 14
+      "community": 15
     },
     {
       "label": ".acceptPendingSiteInvitesForUser()",
@@ -1857,7 +1857,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L52",
       "id": "auth_service_authservice_acceptpendingsiteinvitesforuser",
-      "community": 14
+      "community": 15
     },
     {
       "label": ".register()",
@@ -1865,7 +1865,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L103",
       "id": "auth_service_authservice_register",
-      "community": 14
+      "community": 15
     },
     {
       "label": ".login()",
@@ -1873,7 +1873,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\auth.service.ts",
       "source_location": "L179",
       "id": "auth_service_authservice_login",
-      "community": 14
+      "community": 15
     },
     {
       "label": "jwt.strategy.ts",
@@ -1881,7 +1881,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\jwt.strategy.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_auth_jwt_strategy_ts",
-      "community": 43
+      "community": 44
     },
     {
       "label": "JwtStrategy",
@@ -1889,7 +1889,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\jwt.strategy.ts",
       "source_location": "L9",
       "id": "jwt_strategy_jwtstrategy",
-      "community": 43
+      "community": 44
     },
     {
       "label": ".constructor()",
@@ -1897,7 +1897,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\jwt.strategy.ts",
       "source_location": "L10",
       "id": "jwt_strategy_jwtstrategy_constructor",
-      "community": 43
+      "community": 44
     },
     {
       "label": ".validate()",
@@ -1905,7 +1905,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\auth\\jwt.strategy.ts",
       "source_location": "L20",
       "id": "jwt_strategy_jwtstrategy_validate",
-      "community": 43
+      "community": 44
     },
     {
       "label": "login.dto.ts",
@@ -1945,7 +1945,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_modules_github_github_controller_ts",
-      "community": 15
+      "community": 16
     },
     {
       "label": "GithubController",
@@ -1953,7 +1953,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L11",
       "id": "github_controller_githubcontroller",
-      "community": 15
+      "community": 16
     },
     {
       "label": ".constructor()",
@@ -1961,7 +1961,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L12",
       "id": "github_controller_githubcontroller_constructor",
-      "community": 15
+      "community": 16
     },
     {
       "label": ".oauthConfig()",
@@ -1969,7 +1969,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L15",
       "id": "github_controller_githubcontroller_oauthconfig",
-      "community": 15
+      "community": 16
     },
     {
       "label": ".connection()",
@@ -1977,7 +1977,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L20",
       "id": "github_controller_githubcontroller_connection",
-      "community": 15
+      "community": 16
     },
     {
       "label": ".exchange()",
@@ -1985,7 +1985,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L25",
       "id": "github_controller_githubcontroller_exchange",
-      "community": 15
+      "community": 16
     },
     {
       "label": ".disconnect()",
@@ -1993,7 +1993,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L33",
       "id": "github_controller_githubcontroller_disconnect",
-      "community": 15
+      "community": 16
     },
     {
       "label": ".repos()",
@@ -2001,7 +2001,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L38",
       "id": "github_controller_githubcontroller_repos",
-      "community": 15
+      "community": 16
     },
     {
       "label": ".branches()",
@@ -2009,7 +2009,7 @@
       "source_file": "zephyrcloud-backend\\src\\modules\\github\\github.controller.ts",
       "source_location": "L43",
       "id": "github_controller_githubcontroller_branches",
-      "community": 15
+      "community": 16
     },
     {
       "label": "github.module.ts",
@@ -4745,7 +4745,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L1",
       "id": "zephyrcloud_backend_src_services_coolify_n8n_compose_ts",
-      "community": 16
+      "community": 17
     },
     {
       "label": "buildN8nDockerCompose()",
@@ -4753,7 +4753,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L19",
       "id": "n8n_compose_buildn8ndockercompose",
-      "community": 16
+      "community": 17
     },
     {
       "label": "renderN8nService()",
@@ -4761,7 +4761,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L140",
       "id": "n8n_compose_rendern8nservice",
-      "community": 16
+      "community": 17
     },
     {
       "label": "renderPostgresService()",
@@ -4769,7 +4769,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L179",
       "id": "n8n_compose_renderpostgresservice",
-      "community": 16
+      "community": 17
     },
     {
       "label": "renderRedisService()",
@@ -4777,7 +4777,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L202",
       "id": "n8n_compose_renderredisservice",
-      "community": 16
+      "community": 17
     },
     {
       "label": "normalizePublicUrl()",
@@ -4785,7 +4785,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L222",
       "id": "n8n_compose_normalizepublicurl",
-      "community": 16
+      "community": 17
     },
     {
       "label": "safeComposeName()",
@@ -4793,7 +4793,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L230",
       "id": "n8n_compose_safecomposename",
-      "community": 16
+      "community": 17
     },
     {
       "label": "requireSecret()",
@@ -4801,7 +4801,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L240",
       "id": "n8n_compose_requiresecret",
-      "community": 16
+      "community": 17
     },
     {
       "label": "quoteYaml()",
@@ -4809,7 +4809,7 @@
       "source_file": "zephyrcloud-backend\\src\\services\\coolify\\n8n-compose.ts",
       "source_location": "L248",
       "id": "n8n_compose_quoteyaml",
-      "community": 16
+      "community": 17
     },
     {
       "label": "app.e2e-spec.ts",
@@ -4841,7 +4841,7 @@
       "source_file": "zephyrcloud-panel\\app\\root.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_root_tsx",
-      "community": 30
+      "community": 31
     },
     {
       "label": "links()",
@@ -4849,7 +4849,7 @@
       "source_file": "zephyrcloud-panel\\app\\root.tsx",
       "source_location": "L15",
       "id": "root_links",
-      "community": 30
+      "community": 31
     },
     {
       "label": "meta()",
@@ -4857,7 +4857,7 @@
       "source_file": "zephyrcloud-panel\\app\\root.tsx",
       "source_location": "L31",
       "id": "root_meta",
-      "community": 30
+      "community": 31
     },
     {
       "label": "Layout()",
@@ -4865,7 +4865,7 @@
       "source_file": "zephyrcloud-panel\\app\\root.tsx",
       "source_location": "L36",
       "id": "root_layout",
-      "community": 30
+      "community": 31
     },
     {
       "label": "App()",
@@ -4873,7 +4873,7 @@
       "source_file": "zephyrcloud-panel\\app\\root.tsx",
       "source_location": "L58",
       "id": "root_app",
-      "community": 30
+      "community": 31
     },
     {
       "label": "routes.ts",
@@ -4929,7 +4929,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\card.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_components_ui_card_tsx",
-      "community": 25
+      "community": 26
     },
     {
       "label": "Card()",
@@ -4937,7 +4937,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\card.tsx",
       "source_location": "L6",
       "id": "card_card",
-      "community": 25
+      "community": 26
     },
     {
       "label": "CardHeader()",
@@ -4945,7 +4945,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\card.tsx",
       "source_location": "L13",
       "id": "card_cardheader",
-      "community": 25
+      "community": 26
     },
     {
       "label": "CardTitle()",
@@ -4953,7 +4953,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\card.tsx",
       "source_location": "L20",
       "id": "card_cardtitle",
-      "community": 25
+      "community": 26
     },
     {
       "label": "CardDescription()",
@@ -4961,7 +4961,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\card.tsx",
       "source_location": "L32",
       "id": "card_carddescription",
-      "community": 25
+      "community": 26
     },
     {
       "label": "CardContent()",
@@ -4969,7 +4969,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\card.tsx",
       "source_location": "L41",
       "id": "card_cardcontent",
-      "community": 25
+      "community": 26
     },
     {
       "label": "checkbox.tsx",
@@ -5041,7 +5041,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\scroll-area.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_components_ui_scroll_area_tsx",
-      "community": 53
+      "community": 54
     },
     {
       "label": "ScrollArea()",
@@ -5049,7 +5049,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\scroll-area.tsx",
       "source_location": "L6",
       "id": "scroll_area_scrollarea",
-      "community": 53
+      "community": 54
     },
     {
       "label": "ScrollBar()",
@@ -5057,7 +5057,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\scroll-area.tsx",
       "source_location": "L22",
       "id": "scroll_area_scrollbar",
-      "community": 53
+      "community": 54
     },
     {
       "label": "select.tsx",
@@ -5065,7 +5065,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\select.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_components_ui_select_tsx",
-      "community": 21
+      "community": 22
     },
     {
       "label": "SelectTrigger()",
@@ -5073,7 +5073,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\select.tsx",
       "source_location": "L19",
       "id": "select_selecttrigger",
-      "community": 21
+      "community": 22
     },
     {
       "label": "SelectContent()",
@@ -5081,7 +5081,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\select.tsx",
       "source_location": "L45",
       "id": "select_selectcontent",
-      "community": 21
+      "community": 22
     },
     {
       "label": "SelectItem()",
@@ -5089,7 +5089,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\select.tsx",
       "source_location": "L95",
       "id": "select_selectitem",
-      "community": 21
+      "community": 22
     },
     {
       "label": "SelectSeparator()",
@@ -5097,7 +5097,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\select.tsx",
       "source_location": "L122",
       "id": "select_selectseparator",
-      "community": 21
+      "community": 22
     },
     {
       "label": "SelectScrollUpButton()",
@@ -5105,7 +5105,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\select.tsx",
       "source_location": "L135",
       "id": "select_selectscrollupbutton",
-      "community": 21
+      "community": 22
     },
     {
       "label": "SelectScrollDownButton()",
@@ -5113,7 +5113,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\select.tsx",
       "source_location": "L150",
       "id": "select_selectscrolldownbutton",
-      "community": 21
+      "community": 22
     },
     {
       "label": "separator.tsx",
@@ -5137,7 +5137,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\sheet.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_components_ui_sheet_tsx",
-      "community": 44
+      "community": 45
     },
     {
       "label": "SheetOverlay()",
@@ -5145,7 +5145,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\sheet.tsx",
       "source_location": "L29",
       "id": "sheet_sheetoverlay",
-      "community": 44
+      "community": 45
     },
     {
       "label": "SheetTitle()",
@@ -5153,7 +5153,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\sheet.tsx",
       "source_location": "L106",
       "id": "sheet_sheettitle",
-      "community": 44
+      "community": 45
     },
     {
       "label": "SheetDescription()",
@@ -5161,7 +5161,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\sheet.tsx",
       "source_location": "L119",
       "id": "sheet_sheetdescription",
-      "community": 44
+      "community": 45
     },
     {
       "label": "table.tsx",
@@ -5185,7 +5185,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\tabs.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_components_ui_tabs_tsx",
-      "community": 54
+      "community": 55
     },
     {
       "label": "cn()",
@@ -5193,7 +5193,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\tabs.tsx",
       "source_location": "L38",
       "id": "tabs_cn",
-      "community": 54
+      "community": 55
     },
     {
       "label": "TabsContent()",
@@ -5201,7 +5201,7 @@
       "source_file": "zephyrcloud-panel\\app\\components\\ui\\tabs.tsx",
       "source_location": "L69",
       "id": "tabs_tabscontent",
-      "community": 54
+      "community": 55
     },
     {
       "label": "textarea.tsx",
@@ -5225,7 +5225,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\brand.ts",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_lib_brand_ts",
-      "community": 45
+      "community": 46
     },
     {
       "label": "isIpv4Address()",
@@ -5233,7 +5233,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\brand.ts",
       "source_location": "L8",
       "id": "brand_isipv4address",
-      "community": 45
+      "community": 46
     },
     {
       "label": "pageTitle()",
@@ -5241,7 +5241,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\brand.ts",
       "source_location": "L12",
       "id": "brand_pagetitle",
-      "community": 45
+      "community": 46
     },
     {
       "label": "resolveDnsTarget()",
@@ -5249,7 +5249,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\brand.ts",
       "source_location": "L16",
       "id": "brand_resolvednstarget",
-      "community": 45
+      "community": 46
     },
     {
       "label": "theme.ts",
@@ -5257,7 +5257,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\theme.ts",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_lib_theme_ts",
-      "community": 31
+      "community": 32
     },
     {
       "label": "isThemeMode()",
@@ -5265,7 +5265,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\theme.ts",
       "source_location": "L7",
       "id": "theme_isthememode",
-      "community": 31
+      "community": 32
     },
     {
       "label": "getStoredTheme()",
@@ -5273,7 +5273,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\theme.ts",
       "source_location": "L11",
       "id": "theme_getstoredtheme",
-      "community": 31
+      "community": 32
     },
     {
       "label": "setDocumentTheme()",
@@ -5281,7 +5281,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\theme.ts",
       "source_location": "L15",
       "id": "theme_setdocumenttheme",
-      "community": 31
+      "community": 32
     },
     {
       "label": "persistTheme()",
@@ -5289,7 +5289,7 @@
       "source_file": "zephyrcloud-panel\\app\\lib\\theme.ts",
       "source_location": "L20",
       "id": "theme_persisttheme",
-      "community": 31
+      "community": 32
     },
     {
       "label": "ui.ts",
@@ -5481,7 +5481,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\api.github.connection.ts",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_api_github_connection_ts",
-      "community": 46
+      "community": 47
     },
     {
       "label": "proxy()",
@@ -5489,7 +5489,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\api.github.connection.ts",
       "source_location": "L1",
       "id": "api_github_connection_proxy",
-      "community": 46
+      "community": 47
     },
     {
       "label": "loader()",
@@ -5497,7 +5497,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\api.github.connection.ts",
       "source_location": "L17",
       "id": "api_github_connection_loader",
-      "community": 46
+      "community": 47
     },
     {
       "label": "action()",
@@ -5505,7 +5505,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\api.github.connection.ts",
       "source_location": "L21",
       "id": "api_github_connection_action",
-      "community": 46
+      "community": 47
     },
     {
       "label": "api.github.oauth.start.ts",
@@ -5513,7 +5513,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\api.github.oauth.start.ts",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_api_github_oauth_start_ts",
-      "community": 55
+      "community": 56
     },
     {
       "label": "sanitizeReturnTo()",
@@ -5521,7 +5521,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\api.github.oauth.start.ts",
       "source_location": "L8",
       "id": "api_github_oauth_start_sanitizereturnto",
-      "community": 55
+      "community": 56
     },
     {
       "label": "loader()",
@@ -5529,7 +5529,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\api.github.oauth.start.ts",
       "source_location": "L27",
       "id": "api_github_oauth_start_loader",
-      "community": 55
+      "community": 56
     },
     {
       "label": "api.github.repos.$appUuid.ts",
@@ -5553,7 +5553,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app-legacy-redirect.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_legacy_redirect_tsx",
-      "community": 47
+      "community": 48
     },
     {
       "label": "normalizeLegacyPath()",
@@ -5561,7 +5561,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app-legacy-redirect.tsx",
       "source_location": "L3",
       "id": "app_legacy_redirect_normalizelegacypath",
-      "community": 47
+      "community": 48
     },
     {
       "label": "loader()",
@@ -5569,7 +5569,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app-legacy-redirect.tsx",
       "source_location": "L8",
       "id": "app_legacy_redirect_loader",
-      "community": 47
+      "community": 48
     },
     {
       "label": "LegacyAppRedirectRoute()",
@@ -5577,7 +5577,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app-legacy-redirect.tsx",
       "source_location": "L15",
       "id": "app_legacy_redirect_legacyappredirectroute",
-      "community": 47
+      "community": 48
     },
     {
       "label": "login.tsx",
@@ -5585,7 +5585,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\login.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_login_tsx",
-      "community": 32
+      "community": 33
     },
     {
       "label": "meta()",
@@ -5593,7 +5593,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\login.tsx",
       "source_location": "L13",
       "id": "login_meta",
-      "community": 32
+      "community": 33
     },
     {
       "label": "isValidEmail()",
@@ -5601,7 +5601,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\login.tsx",
       "source_location": "L28",
       "id": "login_isvalidemail",
-      "community": 32
+      "community": 33
     },
     {
       "label": "action()",
@@ -5609,7 +5609,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\login.tsx",
       "source_location": "L32",
       "id": "login_action",
-      "community": 32
+      "community": 33
     },
     {
       "label": "cn()",
@@ -5617,7 +5617,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\login.tsx",
       "source_location": "L198",
       "id": "login_cn",
-      "community": 32
+      "community": 33
     },
     {
       "label": "logout.tsx",
@@ -5625,7 +5625,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\logout.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_logout_tsx",
-      "community": 56
+      "community": 57
     },
     {
       "label": "action()",
@@ -5633,7 +5633,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\logout.tsx",
       "source_location": "L4",
       "id": "logout_action",
-      "community": 56
+      "community": 57
     },
     {
       "label": "Logout()",
@@ -5641,7 +5641,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\logout.tsx",
       "source_location": "L8",
       "id": "logout_logout",
-      "community": 56
+      "community": 57
     },
     {
       "label": "register.tsx",
@@ -5649,7 +5649,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\register.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_register_tsx",
-      "community": 33
+      "community": 34
     },
     {
       "label": "meta()",
@@ -5657,7 +5657,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\register.tsx",
       "source_location": "L6",
       "id": "register_meta",
-      "community": 33
+      "community": 34
     },
     {
       "label": "loader()",
@@ -5665,7 +5665,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\register.tsx",
       "source_location": "L13",
       "id": "register_loader",
-      "community": 33
+      "community": 34
     },
     {
       "label": "action()",
@@ -5673,7 +5673,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\register.tsx",
       "source_location": "L17",
       "id": "register_action",
-      "community": 33
+      "community": 34
     },
     {
       "label": "RegisterRoute()",
@@ -5681,7 +5681,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\register.tsx",
       "source_location": "L21",
       "id": "register_registerroute",
-      "community": 33
+      "community": 34
     },
     {
       "label": "admin.tsx",
@@ -5993,7 +5993,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\layout.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_layout_tsx",
-      "community": 18
+      "community": 19
     },
     {
       "label": "loader()",
@@ -6001,7 +6001,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\layout.tsx",
       "source_location": "L75",
       "id": "layout_loader",
-      "community": 18
+      "community": 19
     },
     {
       "label": "initialsFromEmail()",
@@ -6009,7 +6009,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\layout.tsx",
       "source_location": "L84",
       "id": "layout_initialsfromemail",
-      "community": 18
+      "community": 19
     },
     {
       "label": "pageLabelFromPath()",
@@ -6017,7 +6017,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\layout.tsx",
       "source_location": "L92",
       "id": "layout_pagelabelfrompath",
-      "community": 18
+      "community": 19
     },
     {
       "label": "matchesPath()",
@@ -6025,7 +6025,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\layout.tsx",
       "source_location": "L111",
       "id": "layout_matchespath",
-      "community": 18
+      "community": 19
     },
     {
       "label": "SecondarySidebar()",
@@ -6033,7 +6033,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\layout.tsx",
       "source_location": "L115",
       "id": "layout_secondarysidebar",
-      "community": 18
+      "community": 19
     },
     {
       "label": "ThemeToggle()",
@@ -6041,7 +6041,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\layout.tsx",
       "source_location": "L161",
       "id": "layout_themetoggle",
-      "community": 18
+      "community": 19
     },
     {
       "label": "handleKeyDown()",
@@ -6049,7 +6049,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\layout.tsx",
       "source_location": "L530",
       "id": "layout_handlekeydown",
-      "community": 18
+      "community": 19
     },
     {
       "label": "settings.github.callback.tsx",
@@ -6057,7 +6057,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.github.callback.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_settings_github_callback_tsx",
-      "community": 34
+      "community": 35
     },
     {
       "label": "sanitizeReturnTo()",
@@ -6065,7 +6065,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.github.callback.tsx",
       "source_location": "L6",
       "id": "settings_github_callback_sanitizereturnto",
-      "community": 34
+      "community": 35
     },
     {
       "label": "withGithubStatus()",
@@ -6073,7 +6073,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.github.callback.tsx",
       "source_location": "L25",
       "id": "settings_github_callback_withgithubstatus",
-      "community": 34
+      "community": 35
     },
     {
       "label": "loader()",
@@ -6081,7 +6081,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.github.callback.tsx",
       "source_location": "L39",
       "id": "settings_github_callback_loader",
-      "community": 34
+      "community": 35
     },
     {
       "label": "GithubCallbackRoute()",
@@ -6089,7 +6089,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.github.callback.tsx",
       "source_location": "L95",
       "id": "settings_github_callback_githubcallbackroute",
-      "community": 34
+      "community": 35
     },
     {
       "label": "settings.tsx",
@@ -6097,7 +6097,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_settings_tsx",
-      "community": 22
+      "community": 23
     },
     {
       "label": "isRecord()",
@@ -6105,7 +6105,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.tsx",
       "source_location": "L50",
       "id": "settings_isrecord",
-      "community": 22
+      "community": 23
     },
     {
       "label": "parseConnection()",
@@ -6113,7 +6113,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.tsx",
       "source_location": "L54",
       "id": "settings_parseconnection",
-      "community": 22
+      "community": 23
     },
     {
       "label": "loader()",
@@ -6121,7 +6121,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.tsx",
       "source_location": "L75",
       "id": "settings_loader",
-      "community": 22
+      "community": 23
     },
     {
       "label": "action()",
@@ -6129,7 +6129,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.tsx",
       "source_location": "L91",
       "id": "settings_action",
-      "community": 22
+      "community": 23
     },
     {
       "label": "statusCopy()",
@@ -6137,7 +6137,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.tsx",
       "source_location": "L120",
       "id": "settings_statuscopy",
-      "community": 22
+      "community": 23
     },
     {
       "label": "toneClass()",
@@ -6145,7 +6145,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\settings.tsx",
       "source_location": "L159",
       "id": "settings_toneclass",
-      "community": 22
+      "community": 23
     },
     {
       "label": "site-detail.shared.tsx",
@@ -6153,7 +6153,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site-detail.shared.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_site_detail_shared_tsx",
-      "community": 48
+      "community": 49
     },
     {
       "label": "cx()",
@@ -6161,7 +6161,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site-detail.shared.tsx",
       "source_location": "L223",
       "id": "site_detail_shared_cx",
-      "community": 48
+      "community": 49
     },
     {
       "label": "normalizeStatus()",
@@ -6169,7 +6169,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site-detail.shared.tsx",
       "source_location": "L227",
       "id": "site_detail_shared_normalizestatus",
-      "community": 48
+      "community": 49
     },
     {
       "label": "statusClass()",
@@ -6177,7 +6177,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site-detail.shared.tsx",
       "source_location": "L270",
       "id": "site_detail_shared_statusclass",
-      "community": 48
+      "community": 49
     },
     {
       "label": "site.$id.database.tsx",
@@ -6255,7 +6255,7 @@
       "label": "getSettingsSection()",
       "file_type": "code",
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.settings.tsx",
-      "source_location": "L12",
+      "source_location": "L16",
       "id": "site_id_settings_getsettingssection",
       "community": 107
     },
@@ -6265,23 +6265,79 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_site_id_tsx",
-      "community": 57
+      "community": 14
+    },
+    {
+      "label": "isTextUpload()",
+      "file_type": "code",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L53",
+      "id": "site_id_istextupload",
+      "community": 14
+    },
+    {
+      "label": "findClosingQuote()",
+      "file_type": "code",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L59",
+      "id": "site_id_findclosingquote",
+      "community": 14
+    },
+    {
+      "label": "unescapeDoubleQuotedEnvValue()",
+      "file_type": "code",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L68",
+      "id": "site_id_unescapedoublequotedenvvalue",
+      "community": 14
+    },
+    {
+      "label": "stripInlineEnvComment()",
+      "file_type": "code",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L77",
+      "id": "site_id_stripinlineenvcomment",
+      "community": 14
+    },
+    {
+      "label": "parseEnvFileContents()",
+      "file_type": "code",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L87",
+      "id": "site_id_parseenvfilecontents",
+      "community": 14
+    },
+    {
+      "label": "messageFromPayload()",
+      "file_type": "code",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L138",
+      "id": "site_id_messagefrompayload",
+      "community": 14
+    },
+    {
+      "label": "messageFromError()",
+      "file_type": "code",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L146",
+      "id": "site_id_messagefromerror",
+      "community": 14
     },
     {
       "label": "loader()",
       "file_type": "code",
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
-      "source_location": "L45",
+      "source_location": "L150",
       "id": "site_id_loader",
-      "community": 57
+      "community": 14
     },
     {
       "label": "action()",
       "file_type": "code",
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
-      "source_location": "L129",
+      "source_location": "L234",
       "id": "site_id_action",
-      "community": 57
+      "community": 14
     },
     {
       "label": "site.$id._index.tsx",
@@ -6289,7 +6345,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id._index.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_site_id_index_tsx",
-      "community": 23
+      "community": 24
     },
     {
       "label": "formatCpuLimit()",
@@ -6297,7 +6353,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id._index.tsx",
       "source_location": "L21",
       "id": "site_id_index_formatcpulimit",
-      "community": 23
+      "community": 24
     },
     {
       "label": "formatMemory()",
@@ -6305,7 +6361,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id._index.tsx",
       "source_location": "L26",
       "id": "site_id_index_formatmemory",
-      "community": 23
+      "community": 24
     },
     {
       "label": "formatPercent()",
@@ -6313,7 +6369,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id._index.tsx",
       "source_location": "L31",
       "id": "site_id_index_formatpercent",
-      "community": 23
+      "community": 24
     },
     {
       "label": "chartPoints()",
@@ -6321,7 +6377,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id._index.tsx",
       "source_location": "L36",
       "id": "site_id_index_chartpoints",
-      "community": 23
+      "community": 24
     },
     {
       "label": "HistoryChart()",
@@ -6329,7 +6385,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id._index.tsx",
       "source_location": "L48",
       "id": "site_id_index_historychart",
-      "community": 23
+      "community": 24
     },
     {
       "label": "MetricCard()",
@@ -6337,7 +6393,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id._index.tsx",
       "source_location": "L77",
       "id": "site_id_index_metriccard",
-      "community": 23
+      "community": 24
     },
     {
       "label": "sites.$id.database.table.$table.ts",
@@ -6393,7 +6449,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.metrics.ts",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_sites_id_metrics_ts",
-      "community": 35
+      "community": 36
     },
     {
       "label": "jsonResponse()",
@@ -6401,7 +6457,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.metrics.ts",
       "source_location": "L28",
       "id": "sites_id_metrics_jsonresponse",
-      "community": 35
+      "community": 36
     },
     {
       "label": "isRecord()",
@@ -6409,7 +6465,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.metrics.ts",
       "source_location": "L40",
       "id": "sites_id_metrics_isrecord",
-      "community": 35
+      "community": 36
     },
     {
       "label": "normalizeMetricsPayload()",
@@ -6417,7 +6473,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.metrics.ts",
       "source_location": "L44",
       "id": "sites_id_metrics_normalizemetricspayload",
-      "community": 35
+      "community": 36
     },
     {
       "label": "loader()",
@@ -6425,7 +6481,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.metrics.ts",
       "source_location": "L126",
       "id": "sites_id_metrics_loader",
-      "community": 35
+      "community": 36
     },
     {
       "label": "sites.$id.status.ts",
@@ -6433,7 +6489,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.status.ts",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_sites_id_status_ts",
-      "community": 26
+      "community": 27
     },
     {
       "label": "jsonResponse()",
@@ -6441,7 +6497,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.status.ts",
       "source_location": "L15",
       "id": "sites_id_status_jsonresponse",
-      "community": 26
+      "community": 27
     },
     {
       "label": "normalizeRuntimeStatus()",
@@ -6449,7 +6505,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.status.ts",
       "source_location": "L27",
       "id": "sites_id_status_normalizeruntimestatus",
-      "community": 26
+      "community": 27
     },
     {
       "label": "normalizeDeploymentStatus()",
@@ -6457,7 +6513,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.status.ts",
       "source_location": "L78",
       "id": "sites_id_status_normalizedeploymentstatus",
-      "community": 26
+      "community": 27
     },
     {
       "label": "latestDeploymentFrom()",
@@ -6465,7 +6521,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.status.ts",
       "source_location": "L115",
       "id": "sites_id_status_latestdeploymentfrom",
-      "community": 26
+      "community": 27
     },
     {
       "label": "loader()",
@@ -6473,7 +6529,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\sites.$id.status.ts",
       "source_location": "L142",
       "id": "sites_id_status_loader",
-      "community": 26
+      "community": 27
     },
     {
       "label": "sites.tsx",
@@ -6665,7 +6721,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\team.tsx",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_routes_app_team_tsx",
-      "community": 49
+      "community": 50
     },
     {
       "label": "loader()",
@@ -6673,7 +6729,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\team.tsx",
       "source_location": "L33",
       "id": "team_loader",
-      "community": 49
+      "community": 50
     },
     {
       "label": "statusLabel()",
@@ -6681,7 +6737,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\team.tsx",
       "source_location": "L49",
       "id": "team_statuslabel",
-      "community": 49
+      "community": 50
     },
     {
       "label": "statusClass()",
@@ -6689,7 +6745,7 @@
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\team.tsx",
       "source_location": "L58",
       "id": "team_statusclass",
-      "community": 49
+      "community": 50
     },
     {
       "label": "workspace.tsx",
@@ -6769,7 +6825,7 @@
       "source_file": "zephyrcloud-panel\\app\\services\\session.server.ts",
       "source_location": "L1",
       "id": "zephyrcloud_panel_app_services_session_server_ts",
-      "community": 36
+      "community": 37
     },
     {
       "label": "getSession()",
@@ -6777,7 +6833,7 @@
       "source_file": "zephyrcloud-panel\\app\\services\\session.server.ts",
       "source_location": "L36",
       "id": "session_server_getsession",
-      "community": 36
+      "community": 37
     },
     {
       "label": "createUserSession()",
@@ -6785,7 +6841,7 @@
       "source_file": "zephyrcloud-panel\\app\\services\\session.server.ts",
       "source_location": "L41",
       "id": "session_server_createusersession",
-      "community": 36
+      "community": 37
     },
     {
       "label": "requireUser()",
@@ -6793,7 +6849,7 @@
       "source_file": "zephyrcloud-panel\\app\\services\\session.server.ts",
       "source_location": "L65",
       "id": "session_server_requireuser",
-      "community": 36
+      "community": 37
     },
     {
       "label": "logout()",
@@ -6801,7 +6857,7 @@
       "source_file": "zephyrcloud-panel\\app\\services\\session.server.ts",
       "source_location": "L74",
       "id": "session_server_logout",
-      "community": 36
+      "community": 37
     },
     {
       "label": "welcome.tsx",
@@ -21877,7 +21933,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.settings.tsx",
-      "source_location": "L12",
+      "source_location": "L16",
       "weight": 1.0,
       "_src": "zephyrcloud_panel_app_routes_app_site_id_settings_tsx",
       "_tgt": "site_id_settings_getsettingssection",
@@ -21889,7 +21945,91 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
-      "source_location": "L45",
+      "source_location": "L53",
+      "weight": 1.0,
+      "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "_tgt": "site_id_istextupload",
+      "source": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "target": "site_id_istextupload",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L59",
+      "weight": 1.0,
+      "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "_tgt": "site_id_findclosingquote",
+      "source": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "target": "site_id_findclosingquote",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L68",
+      "weight": 1.0,
+      "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "_tgt": "site_id_unescapedoublequotedenvvalue",
+      "source": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "target": "site_id_unescapedoublequotedenvvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "_tgt": "site_id_stripinlineenvcomment",
+      "source": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "target": "site_id_stripinlineenvcomment",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L87",
+      "weight": 1.0,
+      "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "_tgt": "site_id_parseenvfilecontents",
+      "source": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "target": "site_id_parseenvfilecontents",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L138",
+      "weight": 1.0,
+      "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "_tgt": "site_id_messagefrompayload",
+      "source": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "target": "site_id_messagefrompayload",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L146",
+      "weight": 1.0,
+      "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "_tgt": "site_id_messagefromerror",
+      "source": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "target": "site_id_messagefromerror",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L150",
       "weight": 1.0,
       "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
       "_tgt": "site_id_loader",
@@ -21901,11 +22041,95 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
-      "source_location": "L129",
+      "source_location": "L234",
       "weight": 1.0,
       "_src": "zephyrcloud_panel_app_routes_app_site_id_tsx",
       "_tgt": "site_id_action",
       "source": "zephyrcloud_panel_app_routes_app_site_id_tsx",
+      "target": "site_id_action",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L355",
+      "weight": 1.0,
+      "_src": "site_id_action",
+      "_tgt": "site_id_istextupload",
+      "source": "site_id_istextupload",
+      "target": "site_id_action",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L109",
+      "weight": 1.0,
+      "_src": "site_id_parseenvfilecontents",
+      "_tgt": "site_id_findclosingquote",
+      "source": "site_id_findclosingquote",
+      "target": "site_id_parseenvfilecontents",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L121",
+      "weight": 1.0,
+      "_src": "site_id_parseenvfilecontents",
+      "_tgt": "site_id_unescapedoublequotedenvvalue",
+      "source": "site_id_unescapedoublequotedenvvalue",
+      "target": "site_id_parseenvfilecontents",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L125",
+      "weight": 1.0,
+      "_src": "site_id_parseenvfilecontents",
+      "_tgt": "site_id_stripinlineenvcomment",
+      "source": "site_id_stripinlineenvcomment",
+      "target": "site_id_parseenvfilecontents",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L368",
+      "weight": 1.0,
+      "_src": "site_id_action",
+      "_tgt": "site_id_parseenvfilecontents",
+      "source": "site_id_parseenvfilecontents",
+      "target": "site_id_action",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L396",
+      "weight": 1.0,
+      "_src": "site_id_action",
+      "_tgt": "site_id_messagefrompayload",
+      "source": "site_id_messagefrompayload",
+      "target": "site_id_action",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "zephyrcloud-panel\\app\\routes\\app\\site.$id.tsx",
+      "source_location": "L510",
+      "weight": 1.0,
+      "_src": "site_id_action",
+      "_tgt": "site_id_messagefromerror",
+      "source": "site_id_messagefromerror",
       "target": "site_id_action",
       "confidence_score": 1.0
     },

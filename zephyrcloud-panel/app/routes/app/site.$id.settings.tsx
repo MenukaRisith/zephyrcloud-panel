@@ -1,5 +1,5 @@
-import { Form, useOutletContext, useSearchParams } from "react-router";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Form, useFetcher, useOutletContext, useSearchParams } from "react-router";
+import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 
 import { Textarea } from "~/components/ui/textarea";
 import {
@@ -8,6 +8,10 @@ import {
   type SiteRouteContext,
   type SiteSettingsSection,
 } from "./site-detail.shared";
+
+type EnvUploadFetcherData =
+  | { ok: true; imported: number }
+  | { ok: false; error: string };
 
 function getSettingsSection(value: string | null): SiteSettingsSection {
   if (value === "access" || value === "danger") return value;
@@ -18,10 +22,13 @@ export default function SiteSettingsPage() {
   const [searchParams] = useSearchParams();
   const { site, envs, team, storages, canManageTeam, actionPath, currentIntent, isSubmitting } =
     useOutletContext<SiteRouteContext>();
+  const envUploadFetcher = useFetcher<EnvUploadFetcherData>();
   const currentSection = getSettingsSection(searchParams.get("section"));
 
   const teamMembers = Array.isArray(team.members) ? team.members : [];
   const teamInvites = Array.isArray(team.invites) ? team.invites : [];
+  const isUploadingEnvFile =
+    envUploadFetcher.state === "loading" || envUploadFetcher.state === "submitting";
 
   return (
     <div className="space-y-8">
@@ -196,69 +203,135 @@ export default function SiteSettingsPage() {
             </div>
 
             {canManageTeam ? (
-              <Form
-                method="post"
-                action={actionPath}
-                className="space-y-4 border border-[var(--line)] bg-[var(--surface)] px-4 py-4"
-              >
-                <input type="hidden" name="intent" value="createEnv" />
-                <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr_auto]">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+                <envUploadFetcher.Form
+                  method="post"
+                  action={actionPath}
+                  encType="multipart/form-data"
+                  className="space-y-4 border border-[var(--line)] bg-[var(--surface)] px-4 py-4"
+                >
+                  <input type="hidden" name="intent" value="importEnvFile" />
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-                      Key
-                    </label>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                      Upload env file
+                    </div>
                     <input
-                      name="key"
-                      placeholder="API_KEY"
-                      className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)]"
+                      type="file"
+                      name="env_file"
+                      accept=".env,text/plain"
+                      required
+                      className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)] file:mr-3 file:border-0 file:bg-[var(--surface-muted)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[var(--foreground)]"
                     />
                   </div>
-                  <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-                      Value
+
+                  <div className="flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_literal" defaultChecked />
+                      Literal
                     </label>
-                    <Textarea
-                      name="value"
-                      placeholder="secret_value_123"
-                      rows={2}
-                      className="mt-2 min-h-10 bg-[var(--surface)] font-mono"
-                    />
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_preview" />
+                      Preview
+                    </label>
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_shown_once" />
+                      Shown once
+                    </label>
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_buildtime" />
+                      Build-time
+                    </label>
                   </div>
-                  <div className="self-end">
-                    <button className="inline-flex min-h-9 items-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
-                      {isSubmitting && currentIntent === "createEnv" ? (
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      disabled={isUploadingEnvFile}
+                      className="inline-flex min-h-9 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-xs font-medium text-[var(--foreground)] disabled:opacity-60"
+                    >
+                      {isUploadingEnvFile ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Plus className="h-4 w-4" />
+                        <Upload className="h-4 w-4" />
                       )}
-                      Add
+                      Import
                     </button>
+                    {envUploadFetcher.data?.ok ? (
+                      <span className="text-xs text-[var(--success)]">
+                        Imported {envUploadFetcher.data.imported} variables.
+                      </span>
+                    ) : null}
+                    {envUploadFetcher.data && !envUploadFetcher.data.ok ? (
+                      <span className="text-xs text-[var(--danger)]">
+                        {envUploadFetcher.data.error}
+                      </span>
+                    ) : null}
                   </div>
-                </div>
+                </envUploadFetcher.Form>
 
-                <div className="flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
-                  <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
-                    <input type="checkbox" name="is_literal" defaultChecked />
-                    Literal
-                  </label>
-                  <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
-                    <input type="checkbox" name="is_preview" />
-                    Preview
-                  </label>
-                  <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
-                    <input type="checkbox" name="is_multiline" />
-                    Multiline
-                  </label>
-                  <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
-                    <input type="checkbox" name="is_shown_once" />
-                    Shown once
-                  </label>
-                  <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
-                    <input type="checkbox" name="is_buildtime" />
-                    Build-time
-                  </label>
-                </div>
-              </Form>
+                <Form
+                  method="post"
+                  action={actionPath}
+                  className="space-y-4 border border-[var(--line)] bg-[var(--surface)] px-4 py-4"
+                >
+                  <input type="hidden" name="intent" value="createEnv" />
+                  <div className="grid gap-3 lg:grid-cols-[1fr_1.2fr_auto]">
+                    <div>
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                        Key
+                      </label>
+                      <input
+                        name="key"
+                        placeholder="API_KEY"
+                        className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--foreground)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                        Value
+                      </label>
+                      <Textarea
+                        name="value"
+                        placeholder="secret_value_123"
+                        rows={2}
+                        className="mt-2 min-h-10 bg-[var(--surface)] font-mono"
+                      />
+                    </div>
+                    <div className="self-end">
+                      <button className="inline-flex min-h-9 items-center gap-2 border-2 border-[var(--accent-border)] bg-[var(--accent)] px-3 text-xs font-medium text-[var(--accent-foreground)]">
+                        {isSubmitting && currentIntent === "createEnv" ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4" />
+                        )}
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_literal" defaultChecked />
+                      Literal
+                    </label>
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_preview" />
+                      Preview
+                    </label>
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_multiline" />
+                      Multiline
+                    </label>
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_shown_once" />
+                      Shown once
+                    </label>
+                    <label className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 py-2">
+                      <input type="checkbox" name="is_buildtime" />
+                      Build-time
+                    </label>
+                  </div>
+                </Form>
+              </div>
             ) : (
               <div className="text-xs leading-5 text-[var(--text-muted)]">
                 Configuration is only visible to editors and workspace owners.

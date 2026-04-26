@@ -1,13 +1,13 @@
-# Graph Report - .  (2026-04-25)
+# Graph Report - .  (2026-04-26)
 
 ## Corpus Check
-- 127 files · ~77,075 words
+- 127 files Â· ~78,089 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 851 nodes · 1341 edges · 127 communities detected
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
-- Token cost: 0 input · 0 output
+- 858 nodes Â· 1355 edges Â· 127 communities detected
+- Extraction: 100% EXTRACTED Â· 0% INFERRED Â· 0% AMBIGUOUS
+- Token cost: 0 input Â· 0 output
 
 ## Community Hubs (Navigation)
 - [[_COMMUNITY_Community 0|Community 0]]
@@ -213,179 +213,179 @@ Nodes (2): getNumberValue(), parseWorkspaceUsage()
 
 ### Community 14 - "Community 14"
 Cohesion: 0.36
-Nodes (4): AuthService, bcryptCompare(), bcryptHash(), slugify()
+Nodes (8): action(), findClosingQuote(), isTextUpload(), messageFromError(), messageFromPayload(), parseEnvFileContents(), stripInlineEnvComment(), unescapeDoubleQuotedEnvValue()
 
 ### Community 15 - "Community 15"
+Cohesion: 0.36
+Nodes (4): AuthService, bcryptCompare(), bcryptHash(), slugify()
+
+### Community 16 - "Community 16"
 Cohesion: 0.22
 Nodes (1): GithubController
 
-### Community 16 - "Community 16"
+### Community 17 - "Community 17"
 Cohesion: 0.47
 Nodes (8): buildN8nDockerCompose(), normalizePublicUrl(), quoteYaml(), renderN8nService(), renderPostgresService(), renderRedisService(), requireSecret(), safeComposeName()
 
-### Community 17 - "Community 17"
+### Community 18 - "Community 18"
 Cohesion: 0.43
 Nodes (1): PrismaService
 
-### Community 18 - "Community 18"
+### Community 19 - "Community 19"
 Cohesion: 0.25
 Nodes (0):
 
-### Community 19 - "Community 19"
+### Community 20 - "Community 20"
 Cohesion: 0.38
 Nodes (5): assertPackageAllowsN8nServices(), assertPackageAllowsWebSites(), PackageAccessError, packageAllowsN8nServices(), packageAllowsWebSites()
 
-### Community 20 - "Community 20"
+### Community 21 - "Community 21"
 Cohesion: 0.38
 Nodes (4): buildTenantSiteAllocations(), sortSitesForAllocation(), splitUnits(), TenantResourceAllocationError
 
-### Community 21 - "Community 21"
+### Community 22 - "Community 22"
 Cohesion: 0.29
 Nodes (0):
 
-### Community 22 - "Community 22"
+### Community 23 - "Community 23"
 Cohesion: 0.38
 Nodes (3): isRecord(), loader(), parseConnection()
 
-### Community 23 - "Community 23"
+### Community 24 - "Community 24"
 Cohesion: 0.29
 Nodes (0):
 
-### Community 24 - "Community 24"
+### Community 25 - "Community 25"
 Cohesion: 0.47
 Nodes (2): AdminBootstrapService, bcryptHash()
 
-### Community 25 - "Community 25"
+### Community 26 - "Community 26"
 Cohesion: 0.33
 Nodes (0):
 
-### Community 26 - "Community 26"
+### Community 27 - "Community 27"
 Cohesion: 0.6
 Nodes (5): jsonResponse(), latestDeploymentFrom(), loader(), normalizeDeploymentStatus(), normalizeRuntimeStatus()
 
-### Community 27 - "Community 27"
+### Community 28 - "Community 28"
 Cohesion: 0.9
 Nodes (4): normalizePositiveInt(), normalizePositiveNumber(), resolvePackageResourceDefaults(), resolveTenantPlanResources()
 
-### Community 28 - "Community 28"
+### Community 29 - "Community 29"
 Cohesion: 0.4
 Nodes (1): UpdateAdminTenantDto
 
-### Community 29 - "Community 29"
+### Community 30 - "Community 30"
 Cohesion: 0.4
 Nodes (1): AuthController
 
-### Community 30 - "Community 30"
+### Community 31 - "Community 31"
 Cohesion: 0.4
 Nodes (0):
 
-### Community 31 - "Community 31"
+### Community 32 - "Community 32"
 Cohesion: 0.6
 Nodes (4): getStoredTheme(), isThemeMode(), persistTheme(), setDocumentTheme()
 
-### Community 32 - "Community 32"
+### Community 33 - "Community 33"
 Cohesion: 0.5
 Nodes (2): action(), isValidEmail()
 
-### Community 33 - "Community 33"
+### Community 34 - "Community 34"
 Cohesion: 0.4
 Nodes (0):
 
-### Community 34 - "Community 34"
+### Community 35 - "Community 35"
 Cohesion: 0.6
 Nodes (3): loader(), sanitizeReturnTo(), withGithubStatus()
 
-### Community 35 - "Community 35"
+### Community 36 - "Community 36"
 Cohesion: 0.7
 Nodes (4): isRecord(), jsonResponse(), loader(), normalizeMetricsPayload()
 
-### Community 36 - "Community 36"
+### Community 37 - "Community 37"
 Cohesion: 0.7
 Nodes (4): createUserSession(), getSession(), logout(), requireUser()
 
-### Community 37 - "Community 37"
+### Community 38 - "Community 38"
 Cohesion: 0.5
 Nodes (1): AppController
 
-### Community 38 - "Community 38"
+### Community 39 - "Community 39"
 Cohesion: 0.5
 Nodes (1): HealthController
 
-### Community 39 - "Community 39"
+### Community 40 - "Community 40"
 Cohesion: 0.67
 Nodes (1): PrismaAvailabilityExceptionFilter
 
-### Community 40 - "Community 40"
+### Community 41 - "Community 41"
 Cohesion: 0.5
 Nodes (1): JsonSerializerInterceptor
 
-### Community 41 - "Community 41"
+### Community 42 - "Community 42"
 Cohesion: 0.5
 Nodes (1): CreateAdminPackageDto
 
-### Community 42 - "Community 42"
+### Community 43 - "Community 43"
 Cohesion: 0.5
 Nodes (1): UpdateAdminPackageDto
 
-### Community 43 - "Community 43"
+### Community 44 - "Community 44"
 Cohesion: 0.5
 Nodes (1): JwtStrategy
 
-### Community 44 - "Community 44"
+### Community 45 - "Community 45"
 Cohesion: 0.5
 Nodes (0):
 
-### Community 45 - "Community 45"
+### Community 46 - "Community 46"
 Cohesion: 0.67
 Nodes (2): isIpv4Address(), resolveDnsTarget()
 
-### Community 46 - "Community 46"
+### Community 47 - "Community 47"
 Cohesion: 0.83
 Nodes (3): action(), loader(), proxy()
 
-### Community 47 - "Community 47"
+### Community 48 - "Community 48"
 Cohesion: 0.67
 Nodes (2): loader(), normalizeLegacyPath()
 
-### Community 48 - "Community 48"
+### Community 49 - "Community 49"
 Cohesion: 0.67
 Nodes (2): normalizeStatus(), statusClass()
 
-### Community 49 - "Community 49"
+### Community 50 - "Community 50"
 Cohesion: 0.5
 Nodes (0):
 
-### Community 50 - "Community 50"
+### Community 51 - "Community 51"
 Cohesion: 0.67
 Nodes (1): AppService
 
-### Community 51 - "Community 51"
+### Community 52 - "Community 52"
 Cohesion: 0.67
 Nodes (1): UpdateAdminUserDto
 
-### Community 52 - "Community 52"
-Cohesion: 0.67
-Nodes (1): UpsertPanelEnvDto
-
 ### Community 53 - "Community 53"
 Cohesion: 0.67
-Nodes (0):
+Nodes (1): UpsertPanelEnvDto
 
 ### Community 54 - "Community 54"
 Cohesion: 0.67
 Nodes (0):
 
 ### Community 55 - "Community 55"
-Cohesion: 1.0
-Nodes (2): loader(), sanitizeReturnTo()
+Cohesion: 0.67
+Nodes (0):
 
 ### Community 56 - "Community 56"
 Cohesion: 1.0
-Nodes (2): action(), Logout()
+Nodes (2): loader(), sanitizeReturnTo()
 
 ### Community 57 - "Community 57"
-Cohesion: 0.67
-Nodes (0):
+Cohesion: 1.0
+Nodes (2): action(), Logout()
 
 ### Community 58 - "Community 58"
 Cohesion: 1.0
@@ -665,7 +665,7 @@ Nodes (0):
 
 ## Knowledge Gaps
 - **30 isolated node(s):** `AppModule`, `JwtAuthGuard`, `PrismaModule`, `AdminModule`, `AssignAdminSiteDto` (+25 more)
-  These have ≤1 connection - possible missing edges or undocumented components.
+  These have â‰¤1 connection - possible missing edges or undocumented components.
 - **Thin community `Community 61`** (2 nodes): `AppModule`, `app.module.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 62`** (2 nodes): `bootstrap()`, `main.ts`
