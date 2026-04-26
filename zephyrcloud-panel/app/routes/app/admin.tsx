@@ -126,6 +126,7 @@ type PlanCatalogItem = {
     max_sites: number;
     max_cpu_total: number;
     max_memory_mb_total: number;
+    max_storage_gb_total: number;
     max_team_members_per_site: number;
   };
 };
@@ -189,12 +190,14 @@ type AdminTenant = {
       max_sites: number | null;
       max_cpu_total: number | null;
       max_memory_mb_total: number | null;
+      max_storage_gb_total: number | null;
       max_team_members_per_site: number | null;
     };
     effective: {
       max_sites: number;
       max_cpu_total: number;
       max_memory_mb_total: number;
+      max_storage_gb_total: number;
       max_team_members_per_site: number;
     };
   };
@@ -286,7 +289,13 @@ type LoaderData = {
 };
 
 type ActionData = { ok: true; message: string } | { ok: false; error: string };
-type AdminTab = "users" | "packages" | "sites" | "services" | "platform";
+type AdminTab =
+  | "users"
+  | "tenants"
+  | "packages"
+  | "sites"
+  | "services"
+  | "platform";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -539,6 +548,10 @@ function parseTenants(
                     "max_memory_mb_total",
                     "max_memory_mb_per_site",
                   ) ?? 0,
+                max_storage_gb_total:
+                  typeof plan.resources.max_storage_gb_total === "number"
+                    ? plan.resources.max_storage_gb_total
+                    : 0,
                 max_team_members_per_site:
                   typeof plan.resources.max_team_members_per_site === "number"
                     ? plan.resources.max_team_members_per_site
@@ -548,6 +561,7 @@ function parseTenants(
                 max_sites: 0,
                 max_cpu_total: 0,
                 max_memory_mb_total: 0,
+                max_storage_gb_total: 0,
                 max_team_members_per_site: 0,
               },
         })) as PlanCatalogItem[])
@@ -629,6 +643,11 @@ function parseTenants(
                           "max_memory_mb_total",
                           "max_memory_mb_per_site",
                         ),
+                      max_storage_gb_total:
+                        typeof tenant.resources.overrides
+                          .max_storage_gb_total === "number"
+                          ? tenant.resources.overrides.max_storage_gb_total
+                          : null,
                       max_team_members_per_site:
                         typeof tenant.resources.overrides
                           .max_team_members_per_site === "number"
@@ -639,6 +658,7 @@ function parseTenants(
                       max_sites: null,
                       max_cpu_total: null,
                       max_memory_mb_total: null,
+                      max_storage_gb_total: null,
                       max_team_members_per_site: null,
                     },
                 effective: isRecord(tenant.resources.effective)
@@ -659,6 +679,11 @@ function parseTenants(
                           "max_memory_mb_total",
                           "max_memory_mb_per_site",
                         ) ?? 0,
+                      max_storage_gb_total:
+                        typeof tenant.resources.effective
+                          .max_storage_gb_total === "number"
+                          ? tenant.resources.effective.max_storage_gb_total
+                          : 0,
                       max_team_members_per_site:
                         typeof tenant.resources.effective
                           .max_team_members_per_site === "number"
@@ -669,6 +694,7 @@ function parseTenants(
                       max_sites: 0,
                       max_cpu_total: 0,
                       max_memory_mb_total: 0,
+                      max_storage_gb_total: 0,
                       max_team_members_per_site: 0,
                     },
               }
@@ -677,12 +703,14 @@ function parseTenants(
                   max_sites: null,
                   max_cpu_total: null,
                   max_memory_mb_total: null,
+                  max_storage_gb_total: null,
                   max_team_members_per_site: null,
                 },
                 effective: {
                   max_sites: 0,
                   max_cpu_total: 0,
                   max_memory_mb_total: 0,
+                  max_storage_gb_total: 0,
                   max_team_members_per_site: 0,
                 },
               },
@@ -1301,6 +1329,10 @@ export async function action({
             formData,
             "max_memory_mb_total",
           ),
+          max_storage_gb_total: nullableNumberField(
+            formData,
+            "max_storage_gb_total",
+          ),
           max_team_members_per_site: nullableNumberField(
             formData,
             "max_team_members_per_site",
@@ -1316,6 +1348,58 @@ export async function action({
       };
     }
     return { ok: true, message: "Tenant package updated." };
+  }
+
+  if (intent === "create-tenant") {
+    const res = await apiFetchAuthed(request, "/api/admin/tenants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: String(formData.get("name") || "").trim(),
+        plan: optionalStringField(formData, "plan"),
+        package_id: optionalStringField(formData, "package_id"),
+        is_active: String(formData.get("is_active") || "true") === "true",
+        max_sites: nullableNumberField(formData, "max_sites"),
+        max_cpu_total: nullableNumberField(formData, "max_cpu_total"),
+        max_memory_mb_total: nullableNumberField(
+          formData,
+          "max_memory_mb_total",
+        ),
+        max_storage_gb_total: nullableNumberField(
+          formData,
+          "max_storage_gb_total",
+        ),
+        max_team_members_per_site: nullableNumberField(
+          formData,
+          "max_team_members_per_site",
+        ),
+      }),
+    });
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not create that tenant."),
+      };
+    }
+    return { ok: true, message: "Tenant created." };
+  }
+
+  if (intent === "delete-tenant") {
+    const tenantId = String(formData.get("tenant_id") || "");
+    const res = await apiFetchAuthed(
+      request,
+      `/api/admin/tenants/${encodeURIComponent(tenantId)}`,
+      { method: "DELETE" },
+    );
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not delete that tenant."),
+      };
+    }
+    return { ok: true, message: "Tenant deleted." };
   }
 
   if (intent === "create-package") {
@@ -1478,6 +1562,29 @@ export async function action({
     return { ok: true, message: "Site assignment updated." };
   }
 
+  if (intent === "move-site-tenant") {
+    const siteId = String(formData.get("site_id") || "");
+    const res = await apiFetchAuthed(
+      request,
+      `/api/admin/sites/${encodeURIComponent(siteId)}/tenant`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: String(formData.get("tenant_id") || "").trim(),
+        }),
+      },
+    );
+    const payload = await safeJson(res);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: messageFrom(payload, "Could not move that site."),
+      };
+    }
+    return { ok: true, message: "Site tenant updated." };
+  }
+
   if (intent === "create-service") {
     const res = await apiFetchAuthed(request, "/api/admin/services", {
       method: "POST",
@@ -1572,6 +1679,7 @@ export default function AdminPage() {
   const navigation = useNavigation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [userQuery, setUserQuery] = React.useState("");
+  const [tenantQuery, setTenantQuery] = React.useState("");
   const [packageQuery, setPackageQuery] = React.useState("");
   const [siteQuery, setSiteQuery] = React.useState("");
   const [serviceQuery, setServiceQuery] = React.useState("");
@@ -1617,6 +1725,7 @@ export default function AdminPage() {
   const rawTab = searchParams.get("tab");
   const currentTab: AdminTab =
     rawTab === "users" ||
+    rawTab === "tenants" ||
     rawTab === "packages" ||
     rawTab === "sites" ||
     rawTab === "services" ||
@@ -1625,6 +1734,7 @@ export default function AdminPage() {
       : "sites";
 
   const userSearch = userQuery.trim().toLowerCase();
+  const tenantSearch = tenantQuery.trim().toLowerCase();
   const packageSearch = packageQuery.trim().toLowerCase();
   const siteSearch = siteQuery.trim().toLowerCase();
   const serviceSearch = serviceQuery.trim().toLowerCase();
@@ -1643,7 +1753,7 @@ export default function AdminPage() {
           .includes(userSearch),
       )
     : users;
-  const filteredTenants = packageSearch
+  const filteredTenants = tenantSearch
     ? tenants.filter((tenant) =>
         [
           tenant.name,
@@ -1654,7 +1764,7 @@ export default function AdminPage() {
         ]
           .join(" ")
           .toLowerCase()
-          .includes(packageSearch),
+          .includes(tenantSearch),
       )
     : tenants;
   const filteredPackages = packageSearch
@@ -1817,16 +1927,24 @@ export default function AdminPage() {
           />
         </TabsContent>
 
+        <TabsContent value="tenants" className="space-y-4">
+          <AdminTenantsTab
+            currentIntent={currentIntent}
+            currentTenantId={currentTenantId}
+            filteredTenants={filteredTenants}
+            packages={packages}
+            planCatalog={planCatalog}
+            tenantQuery={tenantQuery}
+            onTenantQueryChange={setTenantQuery}
+          />
+        </TabsContent>
+
         <TabsContent value="packages" className="space-y-4">
           <AdminPackagesTab
             currentIntent={currentIntent}
             currentPackageId={currentPackageId}
-            currentTenantId={currentTenantId}
             filteredPackages={filteredPackages}
-            filteredTenants={filteredTenants}
             n8nVariants={n8nVariants}
-            packages={packages}
-            planCatalog={planCatalog}
             packageQuery={packageQuery}
             onPackageQueryChange={setPackageQuery}
           />
@@ -2099,23 +2217,15 @@ function AdminUsersTab({
 function AdminPackagesTab({
   currentIntent,
   currentPackageId,
-  currentTenantId,
   filteredPackages,
-  filteredTenants,
   n8nVariants,
-  packages,
-  planCatalog,
   packageQuery,
   onPackageQueryChange,
 }: {
   currentIntent: string;
   currentPackageId: string;
-  currentTenantId: string;
   filteredPackages: AdminPackage[];
-  filteredTenants: AdminTenant[];
   n8nVariants: N8nVariantDetail[];
-  packages: AdminPackage[];
-  planCatalog: PlanCatalogItem[];
   packageQuery: string;
   onPackageQueryChange: (value: string) => void;
 }) {
@@ -2167,28 +2277,68 @@ function AdminPackagesTab({
           )}
         </div>
       </MotionSection>
+    </>
+  );
+}
 
+function AdminTenantsTab({
+  currentIntent,
+  currentTenantId,
+  filteredTenants,
+  packages,
+  planCatalog,
+  tenantQuery,
+  onTenantQueryChange,
+}: {
+  currentIntent: string;
+  currentTenantId: string;
+  filteredTenants: AdminTenant[];
+  packages: AdminPackage[];
+  planCatalog: PlanCatalogItem[];
+  tenantQuery: string;
+  onTenantQueryChange: (value: string) => void;
+}) {
+  return (
+    <>
       <MotionSection
-        id="workspace-packages"
+        id="create-tenant"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, delay: 0.04 }}
+        transition={{ duration: 0.18 }}
         className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
-              Workspaces
+              Tenants
             </p>
             <h2 className="mt-2 text-lg font-semibold text-[var(--foreground)]">
-              Assign packages and limits
+              Manage tenants
             </h2>
           </div>
-          <Badge>{packages.length} packages</Badge>
+          <SearchField
+            value={tenantQuery}
+            onChange={onTenantQueryChange}
+            placeholder="Search tenants"
+          />
         </div>
 
+        <TenantCreateCard
+          currentIntent={currentIntent}
+          packages={packages}
+          planCatalog={planCatalog}
+        />
+      </MotionSection>
+
+      <MotionSection
+        id="manage-tenants"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, delay: 0.04 }}
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+      >
         {planCatalog.length > 0 ? (
-          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="grid gap-3 lg:grid-cols-3">
             {planCatalog.map((plan) => (
               <PlanCatalogCard key={plan.key} plan={plan} />
             ))}
@@ -2207,11 +2357,15 @@ function AdminPackagesTab({
                   currentIntent === "update-tenant" &&
                   currentTenantId === tenant.id
                 }
+                isDeleting={
+                  currentIntent === "delete-tenant" &&
+                  currentTenantId === tenant.id
+                }
               />
             ))
           ) : (
             <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-5 text-xs text-[var(--text-muted)]">
-              No workspaces matched that search.
+              No tenants matched that search.
             </div>
           )}
         </div>
@@ -2497,9 +2651,14 @@ function AdminSitesTab({
                 currentIntent={currentIntent}
                 currentSiteId={currentSiteId}
                 site={site}
+                tenants={tenants}
                 users={users}
                 isAssigning={
                   currentIntent === "assign-site" && currentSiteId === site.id
+                }
+                isMoving={
+                  currentIntent === "move-site-tenant" &&
+                  currentSiteId === site.id
                 }
               />
             ))
@@ -3696,7 +3855,10 @@ function PlanCatalogCard({ plan }: { plan: PlanCatalogItem }) {
           label="Team / site"
           value={`${plan.resources.max_team_members_per_site}`}
         />
-        <PlanLimit label="Tenant overrides" value="Editable" />
+        <PlanLimit
+          label="Storage pool"
+          value={`${plan.resources.max_storage_gb_total} GB`}
+        />
       </div>
     </div>
   );
@@ -3713,16 +3875,116 @@ function PlanLimit({ label, value }: { label: string; value: string }) {
   );
 }
 
+function TenantCreateCard({
+  currentIntent,
+  packages,
+  planCatalog,
+}: {
+  currentIntent: string;
+  packages: AdminPackage[];
+  planCatalog: PlanCatalogItem[];
+}) {
+  return (
+    <Form
+      method="post"
+      className="mt-4 space-y-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+    >
+      <input type="hidden" name="intent" value="create-tenant" />
+      <div className="grid gap-3 md:grid-cols-3">
+        <input
+          name="name"
+          placeholder="Tenant name"
+          className={fieldClassName}
+          required
+        />
+        <select name="plan" defaultValue="FREE" className={fieldClassName}>
+          {planCatalog.map((plan) => (
+            <option key={plan.key} value={plan.key}>
+              {plan.label}
+            </option>
+          ))}
+        </select>
+        <select name="package_id" defaultValue="" className={fieldClassName}>
+          <option value="">Legacy plan fallback</option>
+          {packages.map((pkg) => (
+            <option key={pkg.id} value={pkg.id}>
+              {pkg.name} ({pkg.kind})
+            </option>
+          ))}
+        </select>
+        <select name="is_active" defaultValue="true" className={fieldClassName}>
+          <option value="true">Active</option>
+          <option value="false">Suspended</option>
+        </select>
+        <input
+          name="max_sites"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Site limit"
+          className={fieldClassName}
+        />
+        <input
+          name="max_cpu_total"
+          type="number"
+          min="0.1"
+          step="0.1"
+          placeholder="CPU pool"
+          className={fieldClassName}
+        />
+        <input
+          name="max_memory_mb_total"
+          type="number"
+          min="128"
+          step="128"
+          placeholder="Memory MB"
+          className={fieldClassName}
+        />
+        <input
+          name="max_storage_gb_total"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Storage GB"
+          className={fieldClassName}
+        />
+        <input
+          name="max_team_members_per_site"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Team / site"
+          className={fieldClassName}
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={currentIntent === "create-tenant"}
+        className={primaryButtonClassName}
+      >
+        {currentIntent === "create-tenant" ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Plus className="h-4 w-4" />
+        )}
+        Create tenant
+      </button>
+    </Form>
+  );
+}
+
 function TenantRow({
   tenant,
   packages,
   planCatalog,
   isUpdating,
+  isDeleting,
 }: {
   tenant: AdminTenant;
   packages: AdminPackage[];
   planCatalog: PlanCatalogItem[];
   isUpdating: boolean;
+  isDeleting: boolean;
 }) {
   return (
     <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
@@ -3756,6 +4018,12 @@ function TenantRow({
           base={tenant.resources.effective.max_memory_mb_total}
           overrideValue={tenant.resources.overrides.max_memory_mb_total}
           suffix="MB"
+        />
+        <ResourceCard
+          label="Storage pool"
+          base={tenant.resources.effective.max_storage_gb_total}
+          overrideValue={tenant.resources.overrides.max_storage_gb_total}
+          suffix="GB"
         />
         <ResourceCard
           label="Team / site"
@@ -3834,6 +4102,15 @@ function TenantRow({
             className={fieldClassName}
           />
           <input
+            name="max_storage_gb_total"
+            type="number"
+            min="1"
+            step="1"
+            defaultValue={tenant.resources.overrides.max_storage_gb_total ?? ""}
+            placeholder={`Base: ${tenant.resources.effective.max_storage_gb_total}`}
+            className={fieldClassName}
+          />
+          <input
             name="max_team_members_per_site"
             type="number"
             min="1"
@@ -3859,7 +4136,29 @@ function TenantRow({
           ) : (
             <Save className="h-4 w-4" />
           )}
-          Save tenant package
+          Save tenant
+        </button>
+      </Form>
+      <Form
+        method="post"
+        className="mt-3"
+        onSubmit={(event) => {
+          if (!confirm(`Delete tenant ${tenant.name}?`)) event.preventDefault();
+        }}
+      >
+        <input type="hidden" name="intent" value="delete-tenant" />
+        <input type="hidden" name="tenant_id" value={tenant.id} />
+        <button
+          type="submit"
+          disabled={isDeleting}
+          className="inline-flex items-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
+        >
+          {isDeleting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="h-3.5 w-3.5" />
+          )}
+          Delete tenant
         </button>
       </Form>
     </div>
@@ -3870,18 +4169,23 @@ function SiteRow({
   currentIntent,
   currentSiteId,
   site,
+  tenants,
   users,
   isAssigning,
+  isMoving,
 }: {
   currentIntent: string;
   currentSiteId: string;
   site: AdminSite;
+  tenants: AdminTenant[];
   users: AdminUser[];
   isAssigning: boolean;
+  isMoving: boolean;
 }) {
   const assignableUsers = users.filter(
     (user) => user.role === "admin" || user.tenant_id === site.tenant_id,
   );
+  const targetTenants = tenants.filter((tenant) => tenant.id !== site.tenant_id);
 
   return (
     <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
@@ -3991,6 +4295,42 @@ function SiteRow({
               <Users className="h-4 w-4" />
             )}
             Assign
+          </button>
+        </div>
+      </Form>
+      <Form
+        method="post"
+        className="mt-3 rounded-md border border-[var(--line)] bg-[var(--surface)] p-4"
+      >
+        <input type="hidden" name="intent" value="move-site-tenant" />
+        <input type="hidden" name="site_id" value={site.id} />
+        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+          <select
+            name="tenant_id"
+            className={fieldClassName}
+            required
+            defaultValue=""
+          >
+            <option value="" disabled>
+              Move to tenant
+            </option>
+            {targetTenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name} ({tenant.package_name || tenant.plan})
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            disabled={isMoving || targetTenants.length === 0}
+            className={primaryButtonClassName}
+          >
+            {isMoving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Workflow className="h-4 w-4" />
+            )}
+            Move
           </button>
         </div>
       </Form>

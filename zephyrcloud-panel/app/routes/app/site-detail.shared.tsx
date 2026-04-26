@@ -35,10 +35,14 @@ export type Site = {
 export type Deployment = {
   id: string;
   created_at?: string;
+  updated_at?: string;
   status: string;
   commit_message?: string;
   commit_hash?: string;
   triggered_by?: string;
+  raw_status?: string | null;
+  issue?: string | null;
+  logs?: string | null;
 };
 
 export type Domain = {
@@ -226,17 +230,6 @@ export function cx(...classes: Array<string | false | null | undefined>) {
 
 export function normalizeStatus(status: string): NormalizedSiteStatus {
   const normalized = (status || "").toLowerCase();
-  if (normalized.includes("run") || normalized.includes("healthy") || normalized === "up") {
-    return "RUNNING";
-  }
-  if (
-    normalized.includes("stop") ||
-    normalized.includes("down") ||
-    normalized.includes("exited") ||
-    normalized.includes("removed")
-  ) {
-    return "STOPPED";
-  }
   if (
     normalized.includes("fail") ||
     normalized.includes("error") ||
@@ -244,6 +237,19 @@ export function normalizeStatus(status: string): NormalizedSiteStatus {
     normalized.includes("unhealthy")
   ) {
     return "ERROR";
+  }
+  if (
+    normalized.includes("not running") ||
+    normalized.includes("not_running") ||
+    normalized.includes("stop") ||
+    normalized.includes("down") ||
+    normalized.includes("exited") ||
+    normalized.includes("removed")
+  ) {
+    return "STOPPED";
+  }
+  if (normalized.includes("run") || normalized.includes("healthy") || normalized === "up") {
+    return "RUNNING";
   }
   if (
     normalized.includes("build") ||
@@ -305,7 +311,7 @@ export function StatusBadge({ status }: { status: string }) {
         : normalized === "BUILDING"
           ? "Building"
           : normalized === "PROVISIONING"
-            ? "Provisioning"
+            ? "Processing"
           : normalized === "ERROR"
             ? "Error"
             : normalized === "RUNNING"
@@ -411,8 +417,9 @@ export function domainRecordType(domain: Domain) {
 export async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text);
+    return true;
   } catch {
-    // noop
+    return false;
   }
 }
 

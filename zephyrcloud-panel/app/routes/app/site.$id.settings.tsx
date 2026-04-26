@@ -18,6 +18,25 @@ function getSettingsSection(value: string | null): SiteSettingsSection {
   return "configuration";
 }
 
+function storagePlaceholder(type: SiteRouteContext["site"]["type"]) {
+  if (type === "wordpress") return "/uploads";
+  if (type === "python") return "/data";
+  return "/public";
+}
+
+function displayStorageMountPath(
+  mountPath: string,
+  type: SiteRouteContext["site"]["type"],
+) {
+  const path = mountPath.trim();
+  if (type === "wordpress" && path.startsWith("/var/www/html")) {
+    return path.slice("/var/www/html".length) || "/";
+  }
+  if (path === "/app") return "/";
+  if (path.startsWith("/app/")) return path.slice("/app".length);
+  return path;
+}
+
 export default function SiteSettingsPage() {
   const [searchParams] = useSearchParams();
   const { site, envs, team, storages, canManageTeam, actionPath, currentIntent, isSubmitting } =
@@ -98,7 +117,7 @@ export default function SiteSettingsPage() {
                     Persistent storage
                   </div>
                   <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
-                    Each mount gets its own named Docker volume in Coolify. The assigned size is tracked against your workspace storage pool.
+                    Add persistent folders for files that should stay available across rebuilds. Assigned size counts toward your workspace storage pool.
                   </p>
                 </div>
                 {storages ? (
@@ -118,11 +137,11 @@ export default function SiteSettingsPage() {
                   <input type="hidden" name="intent" value="createStorage" />
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-                      Mount path
+                      Folder path
                     </label>
                     <input
                       name="mount_path"
-                      placeholder={site.type === "wordpress" ? "/var/www/html/uploads" : "/app/uploads"}
+                      placeholder={storagePlaceholder(site.type)}
                       className="mt-2 w-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--foreground)]"
                     />
                   </div>
@@ -146,13 +165,13 @@ export default function SiteSettingsPage() {
                       ) : (
                         <Plus className="h-4 w-4" />
                       )}
-                      Add volume
+                      Add folder
                     </button>
                   </div>
                 </Form>
               ) : (
                 <div className="text-xs leading-5 text-[var(--text-muted)]">
-                  Volume changes are only available to editors and workspace owners.
+                  Persistent folder changes are only available to editors and workspace owners.
                 </div>
               )}
 
@@ -164,10 +183,12 @@ export default function SiteSettingsPage() {
                       className="flex flex-col gap-3 border border-[var(--line)] bg-[var(--surface-muted)] px-4 py-3 md:flex-row md:items-center md:justify-between"
                     >
                       <div className="min-w-0">
-                        <div className="font-mono text-xs text-[var(--foreground)]">{storage.mount_path}</div>
+                        <div className="font-mono text-xs text-[var(--foreground)]">
+                          {displayStorageMountPath(storage.mount_path, site.type)}
+                        </div>
                         <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                          {storage.volume_name} · {storage.size_gb} GB
-                          {storage.is_default ? " · default" : ""}
+                          {storage.size_gb} GB
+                          {storage.is_default ? " - default folder" : ""}
                         </div>
                       </div>
                       {canManageTeam && !storage.is_default ? (
@@ -175,7 +196,7 @@ export default function SiteSettingsPage() {
                           method="post"
                           action={actionPath}
                           onSubmit={(event) => {
-                            if (!confirm("Remove this persistent volume?")) {
+                            if (!confirm("Remove this persistent folder?")) {
                               event.preventDefault();
                             }
                           }}

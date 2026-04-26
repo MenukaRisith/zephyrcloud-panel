@@ -16,8 +16,10 @@ import { UpsertPanelEnvDto } from './dto/upsert-panel-env.dto';
 import { CreateAdminUserDto } from './dto/create-admin-user.dto';
 import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { UpdateAdminTenantDto } from './dto/update-admin-tenant.dto';
+import { CreateAdminTenantDto } from './dto/create-admin-tenant.dto';
 import { CreateAdminSiteDto } from './dto/create-admin-site.dto';
 import { AssignAdminSiteDto } from './dto/assign-admin-site.dto';
+import { MoveAdminSiteTenantDto } from './dto/move-admin-site-tenant.dto';
 import { SetAdminUserPasswordDto } from './dto/set-admin-user-password.dto';
 import { ImportCoolifySiteDto } from './dto/import-coolify-site.dto';
 import { CreateAdminPackageDto } from './dto/create-admin-package.dto';
@@ -114,6 +116,14 @@ export class AdminController {
     return this.admin.listTenants(user);
   }
 
+  @Post('tenants')
+  public createTenant(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateAdminTenantDto,
+  ) {
+    return this.admin.createTenant(user, dto);
+  }
+
   @Get('packages')
   public packages(@CurrentUser() user: JwtPayload) {
     return this.admin.listPackages(user);
@@ -143,6 +153,14 @@ export class AdminController {
     @Body() dto: UpdateAdminTenantDto,
   ) {
     return this.admin.updateTenant(user, id, dto);
+  }
+
+  @Delete('tenants/:id')
+  public deleteTenant(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.admin.deleteTenant(user, id);
   }
 
   @Get('sites')
@@ -231,6 +249,15 @@ export class AdminController {
     @Body() dto: AssignAdminSiteDto,
   ) {
     return this.admin.assignSite(user, id, dto);
+  }
+
+  @Patch('sites/:id/tenant')
+  public moveSiteTenant(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: MoveAdminSiteTenantDto,
+  ) {
+    return this.admin.moveSiteTenant(user, id, dto);
   }
 
   @Post('sites/:id/deploy')

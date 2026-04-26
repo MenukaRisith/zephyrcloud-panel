@@ -137,6 +137,9 @@ type DeploymentPayload = {
   triggered_by: string;
   commit_message: string | null;
   commit_hash: string | null;
+  raw_status?: string | null;
+  issue?: string | null;
+  logs?: string | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -338,6 +341,10 @@ export class SitesService {
     return value.replace(/\.$/, '');
   }
 
+  private isIpv4Address(value: string): boolean {
+    return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value.trim());
+  }
+
   private buildDefaultDomainTarget(siteId: bigint): string {
     const prefix = (process.env.HOSTNAME_PREFIX ?? 'site')
       .trim()
@@ -380,6 +387,10 @@ export class SitesService {
     }
   }
 
+  private getStorageContainerRoot(type: Site['type'] | SiteTypeDto): string {
+    return type === 'wordpress' ? '/var/www/html' : '/app';
+  }
+
   private normalizeMountPath(mountPath: string): string {
     const normalized = String(mountPath ?? '')
       .trim()
@@ -387,7 +398,7 @@ export class SitesService {
       .replace(/\/{2,}/g, '/');
 
     if (!normalized) {
-      throw new BadRequestException('Mount path is required.');
+      throw new BadRequestException('Folder path is required.');
     }
 
     const withLeadingSlash = normalized.startsWith('/')
@@ -403,17 +414,31 @@ export class SitesService {
       withoutTrailingSlash.length > MAX_STORAGE_MOUNT_LENGTH
     ) {
       throw new BadRequestException(
-        'Mount path must point to a folder inside the application container.',
+        'Folder path must point to a folder in your app.',
       );
     }
 
     if (!/^\/[a-zA-Z0-9._/-]+$/.test(withoutTrailingSlash)) {
       throw new BadRequestException(
-        'Mount path may only contain letters, numbers, ".", "-", "_" and "/".',
+        'Folder path may only contain letters, numbers, ".", "-", "_" and "/".',
       );
     }
 
     return withoutTrailingSlash;
+  }
+
+  private normalizeUserStorageMountPath(
+    mountPath: string,
+    siteType: Site['type'] | SiteTypeDto,
+  ): string {
+    const normalized = this.normalizeMountPath(mountPath);
+    const root = this.getStorageContainerRoot(siteType);
+
+    if (normalized === root || normalized.startsWith(`${root}/`)) {
+      return normalized;
+    }
+
+    return `${root}${normalized}`;
   }
 
   private buildStorageVolumeName(siteId: bigint, mountPath: string): string {
@@ -1306,6 +1331,16 @@ export class SitesService {
     return 'provisioning';
   }
 
+  private shouldKeepProcessingStatus(
+    currentStatus: Site['status'],
+    normalizedStatus: Site['status'],
+  ): boolean {
+    return (
+      (currentStatus === 'provisioning' || currentStatus === 'building') &&
+      (normalizedStatus === 'error' || normalizedStatus === 'stopped')
+    );
+  }
+
   private async refreshLiveSiteRecord<T extends SitePayload>(
     site: T,
   ): Promise<T> {
@@ -1323,11 +1358,11 @@ export class SitesService {
     }
 
     let normalized = this.normalizeCoolifyStatus(live.status);
-    if (normalized === 'running') {
-      const override = await this.getDeploymentOverrideStatus(site);
-      if (override) {
-        normalized = override;
-      }
+    const override = await this.getDeploymentOverrideStatus(site);
+    if (override) {
+      normalized = override;
+    } else if (this.shouldKeepProcessingStatus(site.status, normalized)) {
+      normalized = site.status;
     }
     if (normalized === site.status) {
       return site;
@@ -1749,6 +1784,16 @@ export class SitesService {
         },
       });
 
+      await this.prisma.deployment.create({
+        data: {
+          site_id: site.id,
+          status: 'queued',
+          triggered_by: 'system',
+          started_at: new Date(),
+          logs: 'Site provisioning has started. Waiting for deployment status.',
+        },
+      });
+
       if (deployKeyRecord) {
         await this.prisma.siteDeployKey.update({
           where: { id: deployKeyRecord.id },
@@ -1774,6 +1819,15 @@ export class SitesService {
         await this.prisma.site.update({
           where: { id: site.id },
           data: { status: 'error' },
+        });
+        await this.prisma.deployment.create({
+          data: {
+            site_id: site.id,
+            status: 'failed',
+            triggered_by: 'system',
+            finished_at: new Date(),
+            logs: error instanceof Error ? error.message : String(error),
+          },
         });
         await this.rebalanceTenantResourcePool(tenantId).catch(
           (rebalanceError) => {
@@ -1833,6 +1887,33 @@ export class SitesService {
     return this.refreshLiveSiteRecord(site);
   }
 
+  public async getCustomDomainDnsTarget(
+    user: JwtPayload,
+    id: string,
+  ): Promise<{ value: string; recordType: 'A' | 'CNAME'; isConfigured: boolean }> {
+    const siteId = toBigIntStrict(id, 'siteId');
+    const site = await this.getOwnedSiteOrThrow(siteId, user);
+    let target = '';
+    let isConfigured = false;
+
+    try {
+      target = this.getHostCnameTarget();
+      isConfigured = true;
+    } catch {
+      target = site.default_domain_target ?? '';
+    }
+
+    if (!target) {
+      throw new BadRequestException('DNS target is not configured for this site.');
+    }
+
+    return {
+      value: target,
+      recordType: this.isIpv4Address(target) ? 'A' : 'CNAME',
+      isConfigured,
+    };
+  }
+
   // --- Live Status Sync ---
   public async getLiveStatus(
     user: JwtPayload,
@@ -1871,11 +1952,11 @@ export class SitesService {
     }
 
     let normalized = this.normalizeCoolifyStatus(live.status);
-    if (normalized === 'running') {
-      const override = await this.getDeploymentOverrideStatus(site);
-      if (override) {
-        normalized = override;
-      }
+    const override = await this.getDeploymentOverrideStatus(site);
+    if (override) {
+      normalized = override;
+    } else if (this.shouldKeepProcessingStatus(site.status, normalized)) {
+      normalized = site.status;
     }
 
     if (normalized !== site.status) {
@@ -1937,7 +2018,10 @@ export class SitesService {
     });
     await this.backfillSiteStoragesFromCoolify(site);
 
-    const mountPath = this.normalizeMountPath(dto.mount_path);
+    const mountPath = this.normalizeUserStorageMountPath(
+      dto.mount_path,
+      site.type,
+    );
     const sizeGb = Math.trunc(dto.size_gb);
     if (sizeGb < MIN_SITE_STORAGE_GB) {
       throw new BadRequestException(
@@ -1954,7 +2038,7 @@ export class SitesService {
     });
     if (duplicate) {
       throw new BadRequestException(
-        'A persistent volume already exists for that mount path.',
+        'A persistent folder already exists at that path.',
       );
     }
 
@@ -2016,7 +2100,7 @@ export class SitesService {
 
     if (storage.is_default) {
       throw new BadRequestException(
-        'The default persistent volume cannot be removed.',
+        'The default persistent folder cannot be removed.',
       );
     }
 
@@ -2516,6 +2600,9 @@ export class SitesService {
           triggered_by: d.is_webhook ? 'git_push' : 'manual',
           commit_message: d.commit_message || null,
           commit_hash: d.commit || d.commit_sha || null,
+          raw_status: d.status,
+          issue: this.deploymentIssueFrom(d.status, d.message),
+          logs: d.logs ?? null,
           created_at: new Date(d.created_at || d.updated_at || new Date()),
           updated_at: new Date(d.updated_at || new Date()),
         }));
@@ -2544,6 +2631,9 @@ export class SitesService {
       triggered_by: d.triggered_by || 'manual',
       commit_message: null,
       commit_hash: null,
+      raw_status: d.status,
+      issue: d.status === 'failed' ? d.logs : null,
+      logs: d.logs,
       created_at: d.created_at,
       updated_at: d.finished_at ?? d.started_at ?? d.created_at,
     }));
@@ -2553,9 +2643,28 @@ export class SitesService {
     const s = status?.toLowerCase() || '';
     if (s === 'success' || s === 'finished') return 'success';
     if (s === 'queued') return 'queued';
-    if (s === 'in_progress' || s === 'building') return 'in_progress';
-    if (s === 'error' || s === 'failed') return 'failed';
+    if (s === 'in_progress' || s === 'building' || s === 'running') {
+      return 'in_progress';
+    }
+    if (
+      s === 'error' ||
+      s === 'failed' ||
+      s === 'cancelled' ||
+      s === 'canceled'
+    ) {
+      return 'failed';
+    }
     return s;
+  }
+
+  private deploymentIssueFrom(
+    status: string | undefined,
+    message: string | undefined,
+  ): string | null {
+    const mapped = this.mapCoolifyDeploymentStatus(status ?? '');
+    if (mapped !== 'failed') return null;
+    const normalizedMessage = String(message ?? '').trim();
+    return normalizedMessage || 'Deployment failed. Check the live log for details.';
   }
 
   // --- Domains ---

@@ -24,6 +24,7 @@ import {
 import {
   N8N_VARIANT_DETAILS,
   PackageAccessError,
+  assertPackageAllowsWebSites,
   assertPackageAllowsN8nServices,
 } from '../../common/packages/package-access';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -513,6 +514,127 @@ export class AdminService {
       plan_catalog: this.getPlanCatalog(),
       tenants: normalized,
     };
+  }
+
+  public async createTenant(
+    user: JwtPayload,
+    body: {
+      name: string;
+      plan?: SubscriptionPlan;
+      package_id?: string;
+      is_active?: boolean;
+      max_sites?: number | null;
+      max_cpu_total?: number | null;
+      max_memory_mb_total?: number | null;
+      max_storage_gb_total?: number | null;
+      max_team_members_per_site?: number | null;
+    },
+  ) {
+    this.requireAdmin(user);
+    const tenantId = await this.createTenantRecord(
+      body.name,
+      body.plan ?? SubscriptionPlan.FREE,
+      body.package_id,
+    );
+
+    const data: {
+      is_active?: boolean;
+      suspended_at?: Date | null;
+      max_sites?: number | null;
+      max_cpu_total?: number | null;
+      max_memory_mb_total?: number | null;
+      max_storage_gb_total?: number | null;
+      max_team_members_per_site?: number | null;
+    } = {};
+
+    if (body.is_active !== undefined) {
+      data.is_active = body.is_active;
+      data.suspended_at = body.is_active ? null : new Date();
+    }
+    if (body.max_sites !== undefined) {
+      data.max_sites =
+        body.max_sites === null ? null : Math.trunc(body.max_sites);
+    }
+    if (body.max_cpu_total !== undefined) {
+      data.max_cpu_total = body.max_cpu_total;
+    }
+    if (body.max_memory_mb_total !== undefined) {
+      data.max_memory_mb_total =
+        body.max_memory_mb_total === null
+          ? null
+          : Math.trunc(body.max_memory_mb_total);
+    }
+    if (body.max_storage_gb_total !== undefined) {
+      data.max_storage_gb_total =
+        body.max_storage_gb_total === null
+          ? null
+          : Math.trunc(body.max_storage_gb_total);
+    }
+    if (body.max_team_members_per_site !== undefined) {
+      data.max_team_members_per_site =
+        body.max_team_members_per_site === null
+          ? null
+          : Math.trunc(body.max_team_members_per_site);
+    }
+
+    if (Object.keys(data).length > 0) {
+      await this.prisma.tenant.update({
+        where: { id: tenantId },
+        data,
+      });
+    }
+
+    return {
+      ok: true,
+      tenant: await this.getSerializedTenantOrThrow(tenantId),
+    };
+  }
+
+  public async deleteTenant(user: JwtPayload, id: string) {
+    this.requireAdmin(user);
+    const tenantId = this.toBigIntStrict(id, 'tenantId');
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            users: true,
+            sites: true,
+            deploy_keys: true,
+            domains: true,
+            site_invites: true,
+            user_databases: true,
+            managed_services: true,
+            site_storages: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found.');
+    }
+
+    const blockingCount =
+      tenant._count.users +
+      tenant._count.sites +
+      tenant._count.deploy_keys +
+      tenant._count.domains +
+      tenant._count.site_invites +
+      tenant._count.user_databases +
+      tenant._count.managed_services +
+      tenant._count.site_storages;
+
+    if (blockingCount > 0) {
+      throw new BadRequestException(
+        'Only empty tenants can be deleted. Move or delete its users, sites, services, domains, storage, and databases first.',
+      );
+    }
+
+    await this.prisma.tenant.delete({ where: { id: tenant.id } });
+    return { ok: true, deleted_tenant_id: tenant.id.toString() };
   }
 
   public async listPackages(user: JwtPayload) {
@@ -1434,6 +1556,131 @@ export class AdminService {
     };
   }
 
+  public async moveSiteTenant(
+    user: JwtPayload,
+    id: string,
+    body: {
+      tenant_id: string;
+    },
+  ) {
+    this.requireAdmin(user);
+    const siteId = this.toBigIntStrict(id, 'siteId');
+    const targetTenantId = this.toBigIntStrict(body.tenant_id, 'tenantId');
+    const site = await this.prisma.site.findUnique({
+      where: { id: siteId },
+      select: {
+        id: true,
+        tenant_id: true,
+        name: true,
+      },
+    });
+    if (!site) {
+      throw new NotFoundException('Site not found.');
+    }
+    if (site.tenant_id === targetTenantId) {
+      return {
+        ok: true,
+        site: await this.getSerializedSiteOrThrow(site.id),
+      };
+    }
+
+    const targetTenant = await this.prisma.tenant.findUnique({
+      where: { id: targetTenantId },
+      select: {
+        id: true,
+        plan: true,
+        package: {
+          select: {
+            kind: true,
+            is_active: true,
+            max_sites: true,
+            max_cpu_total: true,
+            max_memory_mb_total: true,
+            max_storage_gb_total: true,
+            max_team_members_per_site: true,
+          },
+        },
+        max_sites: true,
+        max_cpu_total: true,
+        max_memory_mb_total: true,
+        max_storage_gb_total: true,
+        max_cpu_per_site: true,
+        max_memory_mb_per_site: true,
+        max_team_members_per_site: true,
+      },
+    });
+    if (!targetTenant) {
+      throw new NotFoundException('Target tenant not found.');
+    }
+
+    try {
+      assertPackageAllowsWebSites(targetTenant.package, {
+        allowLegacyPlanFallback: true,
+      });
+    } catch (error) {
+      if (error instanceof PackageAccessError) {
+        throw new ForbiddenException(error.message);
+      }
+      throw error;
+    }
+
+    await this.sites.projectNewSiteResourceAllocation(targetTenantId);
+    await this.assertTargetTenantStorageHasRoom(targetTenant, site.id);
+
+    const removableMembers = await this.prisma.siteMember.findMany({
+      where: {
+        site_id: site.id,
+        user: {
+          role: { not: Role.admin },
+          OR: [{ tenant_id: null }, { tenant_id: { not: targetTenantId } }],
+        },
+      },
+      select: { id: true },
+    });
+
+    await this.prisma.$transaction([
+      this.prisma.site.update({
+        where: { id: site.id },
+        data: { tenant_id: targetTenantId },
+      }),
+      this.prisma.domain.updateMany({
+        where: { site_id: site.id },
+        data: { tenant_id: targetTenantId },
+      }),
+      this.prisma.sitePersistentStorage.updateMany({
+        where: { site_id: site.id },
+        data: { tenant_id: targetTenantId },
+      }),
+      this.prisma.siteDeployKey.updateMany({
+        where: { site_id: site.id },
+        data: { tenant_id: targetTenantId },
+      }),
+      this.prisma.siteInvite.deleteMany({
+        where: { site_id: site.id },
+      }),
+      ...(removableMembers.length
+        ? [
+            this.prisma.siteMember.deleteMany({
+              where: {
+                id: { in: removableMembers.map((member) => member.id) },
+              },
+            }),
+          ]
+        : []),
+    ]);
+
+    await Promise.all([
+      this.sites.rebalanceTenantResourcePool(site.tenant_id),
+      this.sites.rebalanceTenantResourcePool(targetTenantId),
+    ]);
+
+    return {
+      ok: true,
+      site: await this.getSerializedSiteOrThrow(site.id),
+      removed_members: removableMembers.length,
+    };
+  }
+
   public async updateUser(
     currentUser: JwtPayload,
     id: string,
@@ -2174,6 +2421,111 @@ export class AdminService {
     return this.serializeManagedService(service);
   }
 
+  private async getSerializedTenantOrThrow(
+    tenantId: bigint,
+  ): Promise<SerializedTenant> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        plan: true,
+        package_id: true,
+        package: {
+          select: {
+            id: true,
+            name: true,
+            kind: true,
+            is_active: true,
+            n8n_variant: true,
+            max_sites: true,
+            max_cpu_total: true,
+            max_memory_mb_total: true,
+            max_storage_gb_total: true,
+            max_team_members_per_site: true,
+          },
+        },
+        is_active: true,
+        suspended_at: true,
+        created_at: true,
+        updated_at: true,
+        max_sites: true,
+        max_cpu_total: true,
+        max_memory_mb_total: true,
+        max_storage_gb_total: true,
+        max_cpu_per_site: true,
+        max_memory_mb_per_site: true,
+        max_team_members_per_site: true,
+        users: {
+          select: { id: true },
+        },
+        sites: {
+          select: {
+            id: true,
+            _count: {
+              select: { members: true },
+            },
+          },
+        },
+        managed_services: {
+          where: { status: { not: ManagedServiceStatus.deleted } },
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found.');
+    }
+
+    return this.serializeTenant(tenant);
+  }
+
+  private async assertTargetTenantStorageHasRoom(
+    targetTenant: {
+      id: bigint;
+      plan: SubscriptionPlan;
+      package: {
+        kind: HostingPackageKind;
+        is_active: boolean;
+        max_sites: number | null;
+        max_cpu_total: number | null;
+        max_memory_mb_total: number | null;
+        max_storage_gb_total: number | null;
+        max_team_members_per_site: number | null;
+      } | null;
+      max_sites: number | null;
+      max_cpu_total: number | null;
+      max_memory_mb_total: number | null;
+      max_storage_gb_total: number | null;
+      max_cpu_per_site: number | null;
+      max_memory_mb_per_site: number | null;
+      max_team_members_per_site: number | null;
+    },
+    siteId: bigint,
+  ): Promise<void> {
+    const [targetStorage, siteStorage] = await Promise.all([
+      this.prisma.sitePersistentStorage.aggregate({
+        where: { tenant_id: targetTenant.id },
+        _sum: { size_gb: true },
+      }),
+      this.prisma.sitePersistentStorage.aggregate({
+        where: { site_id: siteId },
+        _sum: { size_gb: true },
+      }),
+    ]);
+    const resources = resolveTenantPlanResources(targetTenant);
+    const assignedGb = targetStorage._sum.size_gb ?? 0;
+    const movingGb = siteStorage._sum.size_gb ?? 0;
+
+    if (assignedGb + movingGb > resources.maxStorageGbTotal) {
+      throw new ForbiddenException(
+        `The target tenant only has ${Math.max(0, resources.maxStorageGbTotal - assignedGb)} GB of storage available.`,
+      );
+    }
+  }
+
   private getHostBaseDomain(): string {
     const value = (process.env.HOST_BASE_DOMAIN ?? '').trim().toLowerCase();
     if (!value) {
@@ -2335,7 +2687,7 @@ export class AdminService {
     }
 
     if (body.tenant_name) {
-      return this.createTenant(
+      return this.createTenantRecord(
         body.tenant_name,
         body.plan ?? SubscriptionPlan.FREE,
         body.package_id,
@@ -2346,14 +2698,14 @@ export class AdminService {
       return null;
     }
 
-    return this.createTenant(
+    return this.createTenantRecord(
       `${name} Workspace`,
       body.plan ?? SubscriptionPlan.FREE,
       body.package_id,
     );
   }
 
-  private async createTenant(
+  private async createTenantRecord(
     name: string,
     plan: SubscriptionPlan,
     rawPackageId?: string,

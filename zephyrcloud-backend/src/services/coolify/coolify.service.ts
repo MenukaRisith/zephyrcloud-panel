@@ -152,6 +152,8 @@ export type CoolifyDeployment = {
   commit?: string;
   commit_sha?: string;
   commit_message?: string;
+  message?: string;
+  logs?: string;
   is_webhook?: boolean;
   updated_at: string;
   created_at: string;
@@ -1827,10 +1829,36 @@ export class CoolifyService {
       commit: this.toStringValue(value.commit),
       commit_sha: this.toStringValue(value.commit_sha),
       commit_message: this.toStringValue(value.commit_message),
+      message: this.firstStringValue(value, [
+        'message',
+        'error',
+        'status_message',
+        'deployment_error',
+        'deployment_message',
+      ]),
+      logs: this.firstStringValue(value, [
+        'logs',
+        'log',
+        'output',
+        'deployment_logs',
+      ]),
       is_webhook: this.toBooleanValue(value.is_webhook),
       updated_at: updatedAt,
       created_at: createdAt,
     };
+  }
+
+  private firstStringValue(
+    value: Record<string, unknown>,
+    keys: string[],
+  ): string | undefined {
+    for (const key of keys) {
+      const candidate = this.toStringValue(value[key]);
+      if (candidate && candidate.trim()) {
+        return candidate;
+      }
+    }
+    return undefined;
   }
 
   private toGithubRepo(value: unknown): GithubRepoListItem | null {

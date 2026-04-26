@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Form, useOutletContext } from "react-router";
 import { Copy, Globe, Loader2 } from "lucide-react";
 
@@ -11,6 +12,14 @@ import {
 
 export default function SiteDomainsPage() {
   const { domains, dnsTarget, actionPath, isSubmitting, currentIntent } = useOutletContext<SiteRouteContext>();
+  const [targetCopied, setTargetCopied] = React.useState(false);
+
+  async function handleCopyDnsTarget() {
+    const ok = await copyToClipboard(dnsTarget.value);
+    if (!ok) return;
+    setTargetCopied(true);
+    window.setTimeout(() => setTargetCopied(false), 1500);
+  }
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
@@ -114,22 +123,23 @@ export default function SiteDomainsPage() {
                 {dnsTarget.recordType}
               </div>
               <div className="mt-1 break-all font-mono text-xs text-[var(--foreground)]">
-                {dnsTarget.value}
+                {dnsTarget.value || "Not configured"}
               </div>
             </div>
             <button
               type="button"
-              onClick={() => void copyToClipboard(dnsTarget.value)}
+              onClick={() => void handleCopyDnsTarget()}
+              disabled={!dnsTarget.value}
               className="inline-flex min-h-9 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-xs text-[var(--foreground)]"
             >
               <Copy className="h-4 w-4" />
-              Copy
+              {targetCopied ? "Copied" : "Copy"}
             </button>
           </div>
           <p className="text-xs leading-5 text-[var(--text-muted)]">
-            {dnsTarget.isConfigured
-              ? "Point the domain here, wait for DNS to propagate, then click Verify. We will keep checking every 10 minutes for up to 2 hours."
-              : "This site does not have a default hostname yet."}
+            {dnsTarget.value
+              ? "Point the domain here, wait for DNS to propagate, then click Verify. We will keep checking automatically."
+              : "This site does not have a DNS target yet."}
           </p>
 
           <Form method="post" action={actionPath} className="space-y-3">

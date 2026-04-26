@@ -701,6 +701,23 @@ function cx(...classes: Array<string | false | null | undefined>) {
 
 function normalizeSiteStatus(status: string): SiteStatus | "UNKNOWN" {
   const normalized = status.toLowerCase();
+  if (
+    normalized.includes("fail") ||
+    normalized.includes("error") ||
+    normalized.includes("crash") ||
+    normalized.includes("unhealthy")
+  ) {
+    return "ERROR";
+  }
+  if (
+    normalized.includes("not running") ||
+    normalized.includes("not_running") ||
+    normalized.includes("stop") ||
+    normalized.includes("down") ||
+    normalized.includes("exit")
+  ) {
+    return "STOPPED";
+  }
   if (normalized.includes("run") || normalized.includes("healthy") || normalized === "up") {
     return "RUNNING";
   }
@@ -722,12 +739,6 @@ function normalizeSiteStatus(status: string): SiteStatus | "UNKNOWN" {
     normalized.includes("creat")
   ) {
     return "PROVISIONING";
-  }
-  if (normalized.includes("fail") || normalized.includes("error") || normalized.includes("crash")) {
-    return "ERROR";
-  }
-  if (normalized.includes("stop") || normalized.includes("down") || normalized.includes("exit")) {
-    return "STOPPED";
   }
   return "UNKNOWN";
 }
@@ -2457,7 +2468,13 @@ function StatusPill({ status }: { status: string }) {
         UNKNOWN: "bg-[var(--surface)] text-[var(--text-muted)] border-[var(--line)]",
       } as const
     )[normalized];
-  const label = (normalized === "UNKNOWN" ? status || "Unknown" : normalized)
+  const labelSource =
+    normalized === "PROVISIONING"
+      ? "Processing"
+      : normalized === "UNKNOWN"
+        ? status || "Unknown"
+        : normalized;
+  const label = labelSource
     .toLowerCase()
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

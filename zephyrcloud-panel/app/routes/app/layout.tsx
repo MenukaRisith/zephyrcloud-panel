@@ -297,6 +297,12 @@ export default function AppLayout() {
                   pathname === "/admin" && new URLSearchParams(search).get("tab") === "users",
               },
               {
+                to: "/admin?tab=tenants",
+                label: "Tenants",
+                isActive: (pathname, search) =>
+                  pathname === "/admin" && new URLSearchParams(search).get("tab") === "tenants",
+              },
+              {
                 to: "/admin?tab=packages",
                 label: "Packages",
                 isActive: (pathname, search) =>

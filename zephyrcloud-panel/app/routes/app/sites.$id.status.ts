@@ -29,14 +29,16 @@ function normalizeRuntimeStatus(rawStatus: string) {
 
   if (!status) return "PROVISIONING";
   if (
-    status.includes("run") ||
-    status.includes("healthy") ||
-    status.includes("ready") ||
-    status === "up"
+    status.includes("fail") ||
+    status.includes("error") ||
+    status.includes("crash") ||
+    status.includes("unhealthy")
   ) {
-    return "RUNNING";
+    return "ERROR";
   }
   if (
+    status.includes("not running") ||
+    status.includes("not_running") ||
     status.includes("stop") ||
     status.includes("down") ||
     status.includes("exited") ||
@@ -45,12 +47,12 @@ function normalizeRuntimeStatus(rawStatus: string) {
     return "STOPPED";
   }
   if (
-    status.includes("fail") ||
-    status.includes("error") ||
-    status.includes("crash") ||
-    status.includes("unhealthy")
+    status.includes("run") ||
+    status.includes("healthy") ||
+    status.includes("ready") ||
+    status === "up"
   ) {
-    return "ERROR";
+    return "RUNNING";
   }
   if (
     status.includes("build") ||
@@ -189,10 +191,9 @@ export async function loader({
         : "coolify";
 
     if (
-      (source !== "coolify" || status === "UNKNOWN") &&
-      (status === "BUILDING" ||
-        status === "PROVISIONING" ||
-        status === "UNKNOWN")
+      status === "BUILDING" ||
+      status === "PROVISIONING" ||
+      status === "UNKNOWN"
     ) {
       try {
         const deploymentsRes = await apiFetchAuthed(

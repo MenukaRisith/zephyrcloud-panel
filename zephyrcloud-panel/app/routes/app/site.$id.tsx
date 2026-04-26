@@ -20,7 +20,6 @@ import {
   Terminal,
 } from "lucide-react";
 
-import { resolveDnsTarget } from "~/lib/brand";
 import { apiFetchAuthed } from "~/services/api.authed.server";
 import {
   extractGithubRepoRef,
@@ -147,6 +146,43 @@ function messageFromError(error: unknown) {
   return error instanceof Error ? error.message : "Failed to import env file.";
 }
 
+function isIpv4Address(value: string) {
+  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value.trim());
+}
+
+function parseDnsTargetPayload(payload: unknown) {
+  if (typeof payload !== "object" || payload === null) return null;
+  const record = payload as {
+    value?: unknown;
+    recordType?: unknown;
+    isConfigured?: unknown;
+  };
+  if (typeof record.value !== "string" || !record.value.trim()) return null;
+  const value = record.value.trim();
+  return {
+    value,
+    recordType:
+      record.recordType === "A" || record.recordType === "CNAME"
+        ? record.recordType
+        : isIpv4Address(value)
+          ? "A"
+          : "CNAME",
+    isConfigured: record.isConfigured === true,
+  };
+}
+
+function fallbackDnsTarget(site: Site, domains: Domain[]) {
+  const value =
+    domains.find((domain) => domain.target_hostname)?.target_hostname ||
+    site.default_domain_target ||
+    "";
+  return {
+    value,
+    recordType: isIpv4Address(value) ? "A" : "CNAME",
+    isConfigured: Boolean(value),
+  };
+}
+
 export async function loader({
   request,
   params,
@@ -157,7 +193,16 @@ export async function loader({
   const id = String(params.id);
 
   try {
-    const [siteRes, depRes, domRes, dbRes, envRes, teamRes, storageRes] = await Promise.all([
+    const [
+      siteRes,
+      depRes,
+      domRes,
+      dbRes,
+      envRes,
+      teamRes,
+      storageRes,
+      domainTargetRes,
+    ] = await Promise.all([
       apiFetchAuthed(request, `/api/sites/${id}`),
       apiFetchAuthed(request, `/api/sites/${id}/deployments`),
       apiFetchAuthed(request, `/api/sites/${id}/domains`),
@@ -165,6 +210,7 @@ export async function loader({
       apiFetchAuthed(request, `/api/sites/${id}/envs`),
       apiFetchAuthed(request, `/api/sites/${id}/team`),
       apiFetchAuthed(request, `/api/sites/${id}/storages`),
+      apiFetchAuthed(request, `/api/sites/${id}/domain-target`),
     ]);
 
     if (!siteRes.ok) throw new Error("Site not found");
@@ -214,16 +260,21 @@ export async function loader({
     const deployments = await depRes.json();
     const domains = await domRes.json();
     const sitePayload = (site.data || site) as Site;
+    const domainItems = Array.isArray(domains) ? (domains as Domain[]) : [];
+    const dnsTarget = domainTargetRes.ok
+      ? parseDnsTargetPayload(await domainTargetRes.json().catch(() => null)) ??
+        fallbackDnsTarget(sitePayload, domainItems)
+      : fallbackDnsTarget(sitePayload, domainItems);
 
     return {
       site: sitePayload,
       deployments: Array.isArray(deployments) ? (deployments as Deployment[]) : [],
-      domains: Array.isArray(domains) ? (domains as Domain[]) : [],
+      domains: domainItems,
       db,
       envs: Array.isArray(envs) ? envs : [],
       team,
       storages,
-      dnsTarget: resolveDnsTarget(request),
+      dnsTarget,
     };
   } catch (error) {
     console.error("Loader Error:", error);

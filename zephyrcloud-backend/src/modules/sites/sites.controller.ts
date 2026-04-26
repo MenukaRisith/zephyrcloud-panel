@@ -189,6 +189,14 @@ export class SitesController {
     return this.sites.getLiveStatus(user, id);
   }
 
+  @Get(':id/domain-target')
+  public async domainTarget(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.sites.getCustomDomainDnsTarget(user, id);
+  }
+
   @Get(':id/metrics')
   public metrics(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.sites.getSiteMetrics(user, id);

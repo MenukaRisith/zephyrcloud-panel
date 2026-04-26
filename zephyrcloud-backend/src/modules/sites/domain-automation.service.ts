@@ -38,7 +38,7 @@ export class DomainAutomationService {
       (Number.isFinite(timeoutMinutes) ? timeoutMinutes : 120) * 60_000;
   }
 
-  @Cron('0 */10 * * * *')
+  @Cron('0 * * * * *')
   public async runScheduledChecks(): Promise<void> {
     await this.processPendingDomains();
     await this.processAttachingDomains();
@@ -56,7 +56,7 @@ export class DomainAutomationService {
   public async retryDomain(siteId: bigint, domainId: bigint): Promise<Domain> {
     const domain = await this.getDomainWithSite(domainId, siteId);
 
-    return this.prisma.domain.update({
+    const resetDomain = await this.prisma.domain.update({
       where: { id: domain.id },
       data: {
         status: DomainStatus.pending_dns,
@@ -69,7 +69,9 @@ export class DomainAutomationService {
         retry_count: { increment: 1 },
         ssl_enabled: false,
       },
+      include: { site: true },
     });
+    return this.verifyDomain(resetDomain);
   }
 
   public async processPendingDomains(): Promise<void> {
@@ -170,7 +172,7 @@ export class DomainAutomationService {
         where: { id: domain.id },
         data: {
           status: DomainStatus.error,
-          diagnostic_message: 'Site is not provisioned in Coolify yet.',
+          diagnostic_message: 'Site is not ready for domain attachment yet.',
           verification_checked_at: new Date(),
         },
       });
@@ -189,7 +191,7 @@ export class DomainAutomationService {
         where: { id: domain.id },
         data: {
           status: DomainStatus.error,
-          diagnostic_message: `Coolify domain attach failed: ${error instanceof Error ? error.message : String(error)}`,
+          diagnostic_message: `Domain attach failed: ${error instanceof Error ? error.message : String(error)}`,
           verification_checked_at: new Date(),
         },
       });
@@ -222,7 +224,7 @@ export class DomainAutomationService {
         where: { id: domain.id },
         data: {
           status: DomainStatus.error,
-          diagnostic_message: 'Site is not provisioned in Coolify yet.',
+          diagnostic_message: 'Site is not ready for domain attachment yet.',
           verification_checked_at: new Date(),
         },
       });
@@ -254,7 +256,7 @@ export class DomainAutomationService {
           where: { id: domain.id },
           data: {
             status: DomainStatus.error,
-            diagnostic_message: `Coolify domain attach failed: ${
+            diagnostic_message: `Domain attach failed: ${
               error instanceof Error ? error.message : String(error)
             }`,
             verification_checked_at: new Date(),
@@ -325,15 +327,15 @@ export class DomainAutomationService {
     result: Awaited<ReturnType<CoolifyService['addDomain']>>,
   ): string {
     if (result.updated && result.restarted) {
-      return 'DNS verified. Coolify domain updated and restart queued.';
+      return 'DNS verified. Domain updated and restart queued.';
     }
     if (result.updated) {
-      return 'DNS verified. Coolify domain updated.';
+      return 'DNS verified. Domain updated.';
     }
     if (result.restarted) {
-      return 'DNS verified. Coolify restart queued for the attached domain.';
+      return 'DNS verified. Restart queued for the attached domain.';
     }
-    return 'DNS verified. Waiting for Coolify to attach the domain.';
+    return 'DNS verified. Waiting for the domain to attach.';
   }
 
   private async checkHttps(domain: string): Promise<boolean> {
