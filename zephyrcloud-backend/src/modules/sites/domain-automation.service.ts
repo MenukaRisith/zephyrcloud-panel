@@ -315,12 +315,11 @@ export class DomainAutomationService {
   }
 
   private resolveVerificationTarget(domain: DomainWithSite): string | null {
-    const hostTarget = this.getHostCnameTarget();
-    if (hostTarget) {
-      return hostTarget;
-    }
-
-    return domain.target_hostname ?? domain.site?.default_domain_target ?? null;
+    return (
+      domain.site?.default_domain_target ??
+      domain.target_hostname ??
+      this.getHostCnameTarget()
+    );
   }
 
   private buildAttachMessage(

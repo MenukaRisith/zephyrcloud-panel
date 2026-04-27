@@ -366,13 +366,13 @@ export class SitesService {
     return `Point ${domain} to ${target} using a CNAME record, then click Verify.`;
   }
 
-  private resolveCustomDomainDnsTarget(domain: string): {
+  private resolveCustomDomainDnsTarget(domain: string, target: string): {
     routingMode: 'subdomain_cname' | 'apex_flattening' | 'apex_alias';
     target: string;
   } {
     return {
       routingMode: this.domainVerifier.classifyDomain(domain),
-      target: this.getHostCnameTarget(),
+      target,
     };
   }
 
@@ -1893,15 +1893,7 @@ export class SitesService {
   ): Promise<{ value: string; recordType: 'A' | 'CNAME'; isConfigured: boolean }> {
     const siteId = toBigIntStrict(id, 'siteId');
     const site = await this.getOwnedSiteOrThrow(siteId, user);
-    let target = '';
-    let isConfigured = false;
-
-    try {
-      target = this.getHostCnameTarget();
-      isConfigured = true;
-    } catch {
-      target = site.default_domain_target ?? '';
-    }
+    const target = site.default_domain_target ?? '';
 
     if (!target) {
       throw new BadRequestException('DNS target is not configured for this site.');
@@ -1910,7 +1902,7 @@ export class SitesService {
     return {
       value: target,
       recordType: this.isIpv4Address(target) ? 'A' : 'CNAME',
-      isConfigured,
+      isConfigured: true,
     };
   }
 
@@ -2675,10 +2667,15 @@ export class SitesService {
     const siteId = toBigIntStrict(id, 'siteId');
     const site = await this.getOwnedSiteOrThrow(siteId, user);
 
-    return this.prisma.domain.findMany({
+    const domains = await this.prisma.domain.findMany({
       where: { site_id: site.id },
       orderBy: { created_at: 'desc' },
     });
+
+    return domains.map((domain) => ({
+      ...domain,
+      target_hostname: site.default_domain_target ?? domain.target_hostname,
+    }));
   }
 
   public async addDomain(
@@ -2708,7 +2705,10 @@ export class SitesService {
       throw new BadRequestException('That domain is already connected to another site.');
     }
 
-    const { routingMode, target } = this.resolveCustomDomainDnsTarget(domain);
+    const { routingMode, target } = this.resolveCustomDomainDnsTarget(
+      domain,
+      site.default_domain_target,
+    );
 
     return this.prisma.domain.create({
       data: {
